@@ -1,0 +1,49 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "ate"
+version = "0.1.0"
+description = "AI-Assisted Test Plan & Automation Skeleton Generator (POC) — M1: document parser"
+requires-python = ">=3.10"
+dependencies = [
+    "pdfplumber>=0.10.0",
+    "python-docx>=1.0.0",
+    "pydantic>=2.5",
+    "openpyxl>=3.1",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.5",
+    "mypy>=1.8",
+]
+
+[project.scripts]
+ate = "ate.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["ate*"]
+exclude = ["tests*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = false
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q -ra -p no:cacheprovider"
+# Disable autoloading external plugins — host ROS2 / system pytest plugins
+# leak into our env and break collection. Add explicitly via -p when needed.
+

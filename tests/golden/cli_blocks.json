@@ -1,0 +1,12 @@
+{
+  "tier_a/EVPN System Specification 1.00.docx": [
+    "service-type vlan-based",
+    "service-type vlan-aware-bundle",
+    "service-type port-based",
+    "service-type vlan-bundle",
+    "interface agg-eth 1.4",
+    "interface x-eth 0/0/1.4",
+    "l2-transport enable",
+    "vlan-id 1-4"
+  ]
+}

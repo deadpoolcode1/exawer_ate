@@ -1,0 +1,1897 @@
+{
+  "headings": [
+    {
+      "level": 1,
+      "number": "",
+      "text": "Introduction"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Scope"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Overview"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "History"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "EVPN Concepts"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "EVPN Instance (EVI)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "EVPN PE Models"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Service Interface Types"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Ethernet Segment (ES)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Ethernet Tag ID (ET ID)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Scenarios"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "EVPN BGP Routes and Extended Communities"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "EVPN Operation"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Limitations"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "General Limitation"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Glossary - Definitions, Acronyms, and Abbreviations"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "References"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "Requirements"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Supported Standards (EVPNS-REQ#10)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "BGP Common CLI in Context L2VPN EVPN (EVPNS-REQ#20)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "VLAN Service Types"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "VLAN-Based Service Type (EVPNS-REQ#30)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "VLAN-ID manipulation"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Configuration Example"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "VLAN-Based Bundle Service Type Configuration (EVPNS-REQ#40)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "VLAN-ID Validation"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Configuration Example"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "VLAN-Aware Bundle Service Interface Type Configuration (EVPNS-REQ#50)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "VLAN-ID Validation"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Configuration Example"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Port-Based Service Interface Type Configuration (EVPNS-REQ#60)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Configuration Example"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Router Distinguisher (EVPNS-REQ#70)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Route Prioritization"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "MAC Learning"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Static MAC Addresses (EVPNS-REQ#80)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Local MAC Learning (EVPNS-REQ#90)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Remote MAC Learning (EVPNS-REQ#100)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Multi-Homing"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "EVPN ESI and ES types (EVPNS-REQ#110)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Designated Forwarder Election (EVPNS-REQ#120)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Supported Algorithms"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "Algorithm Negotiation"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Signaling Primary and Backup DF Elected PEs (EVPNS-REQ#130)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Aliasing Path (EVPNS-REQ#140)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Single-Active, All-Active and Load Balancing (EVPNS-REQ#150)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "MAC Mobility (EVPNS-REQ#160)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Fast Convergence (EVPNS-REQ#170)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Split Horizon (EVPNS-REQ#180)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Interoperability with Single-Homing PEs (EVPNS-REQ#190)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Best Path Selection (EVPNS-REQ#200)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Forwarding"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Forwarding Unicast Packets (EVPNS-REQ#210)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Multicast and Broadcast (EVPNS-REQ#220)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "PMSI Tunnel attribute (EVPNS-REQ#230)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "L2-Attr Extended Community (EVPNS-REQ#240)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "ES-Import Route Target (EVPNS-REQ#250)"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "EVPN Routes"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Ethernet A-D Per Ethernet Segment Route (1) (EVPNS-REQ#260)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Ethernet A-D Per EVPN Instance Route (1) (EVPNS-REQ#270)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "MAC/IP Address Advertisement (2) (EVPNS-REQ#280)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Inclusive Multicast Ethernet Tag Route (3) (EVPNS-REQ#290)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Ethernet Segment Route (4) (EVPNS-REQ#300)"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "EVPN Label Types"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "LT1 (EVPNS-REQ#310)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "LT2 (EVPNS-REQ#320)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "LT3 (EVPNS-REQ#330)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "LT4 (EVPNS-REQ#340)"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "EVPN Data Path"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Forwarding Tables"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "MAC Unicast Forwarding Table (EVPNS-REQ#350)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "BUM Split Horizon Table (EVPNS-REQ#360)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "BUM Forwarding Table"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "LBUMT"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "RBUMT"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Forwarding Rules (EVPNS-REQ#370)"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "General Forwarding Rules"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Local Input Traffic"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Remote Input Traffic"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "Configuration (EVPNS-REQ#380)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Interface Configuration"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "LACP Configuration"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Interface and VID-ID Translation Configuration"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Ethernet Segment Configuration"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "BGP Configuration"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "EVPN Configuration"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "Alarm and Syslog Messages"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Alarms (EVPNS-REQ#390)"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Syslog Messages (EVPNS-REQ#400)"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "Implementation"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Development Milestones"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "EVPN Top Level Architecture"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "BCMRM MAC Learning support"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "MAC Address Type"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "Aging Time"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "MAC Learning"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "Debug CLI"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "BGP"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "EVPN"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "debug evpn events"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "Appendix"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Appendix A - General & SW Abbreviations"
+    }
+  ],
+  "paragraphs": [
+    "Modification History",
+    "Disclaimer",
+    "No part of this document may be reproduced or transmitted in any form or by any means, electronic or mechanical, including photocopying and recording, for any purpose, without the express written permission of Exaware. Exaware retains the right to make changes to this document at any time, without notice. Exaware makes no warranty of any kind, expressed or implied, with regard to any information contained in this document, including, but not limited to, the implied warranties of merchantability or fitness for any particular purpose. Further, Exaware does not warrant the accuracy or completeness of the information, text, graphics, or other items contained within this document.",
+    "With respect to the products described herein, the user or recipient, in the absence of appropriate U.S. government authorization, agrees:",
+    "1) Not to re-export or release any such information consisting of technology, software or source code controlled for national security reasons by the U.S. Export Control Regulations (\"EAR\"), to a national of EAR Country Groups D:1 or E:2;",
+    "2) Not to export the direct product of such technology or such software, to EAR Country Groups D:1 or E:2, if such technology or software and direct products thereof are controlled for national security reasons by the EAR; and,",
+    "3) In the case of technology controlled for national security reasons under the EAR where the direct product of the technology is a complete plant or component of a plant, not to export to EAR Country Groups D:1 or E:2 the direct product of the plant or major component thereof, if such direct product is controlled for national security reasons by the EAR, or is subject to controls under the U.S. Munitions List (\"USML\").",
+    "At all times hereunder, the recipient of any such information agrees that they shall be deemed to have manually signed this document in connection with their receipt of any such information.",
+    "1 Introduction 6",
+    "1.1 Scope 6",
+    "1.2 Overview 7",
+    "1.2.1 History 7",
+    "1.2.2 EVPN Concepts 7",
+    "1.2.2.1 EVPN Instance (EVI) 7",
+    "1.2.2.2 EVPN PE Models 7",
+    "1.2.2.3 Service Interface Types 9",
+    "1.2.2.4 Ethernet Segment (ES) 9",
+    "1.2.2.5 Ethernet Tag ID (ET ID) 9",
+    "1.2.2.6 Scenarios 10",
+    "1.2.2.7 EVPN BGP Routes and Extended Communities 11",
+    "1.2.2.8 EVPN Operation 12",
+    "1.3 Limitations 13",
+    "1.3.1 General Limitation 13",
+    "1.4 Glossary - Definitions, Acronyms, and Abbreviations 15",
+    "1.5 References 17",
+    "2 Requirements 18",
+    "2.1 Supported Standards (EVPNS-REQ#10) 18",
+    "2.2 BGP Common CLI in Context L2VPN EVPN (EVPNS-REQ#20) 18",
+    "2.3 VLAN Service Types 18",
+    "2.3.1 VLAN-Based Service Type (EVPNS-REQ#30) 18",
+    "2.3.1.1 VLAN-ID manipulation 18",
+    "2.3.1.2 Configuration Example 18",
+    "2.3.2 VLAN-Based Bundle Service Type Configuration (EVPNS-REQ#40) 20",
+    "2.3.2.1 VLAN-ID Validation 20",
+    "2.3.2.2 Configuration Example 20",
+    "2.3.3 VLAN-Aware Bundle Service Interface Type Configuration (EVPNS-REQ#50) 21",
+    "2.3.3.1 VLAN-ID Validation 21",
+    "2.3.3.2 Configuration Example 21",
+    "2.3.4 Port-Based Service Interface Type Configuration (EVPNS-REQ#60) 23",
+    "2.3.4.1 Configuration Example 23",
+    "2.4 Router Distinguisher (EVPNS-REQ#70) 24",
+    "2.5 Route Prioritization 24",
+    "2.6 MAC Learning 24",
+    "2.6.1 Static MAC Addresses (EVPNS-REQ#80) 24",
+    "2.6.2 Local MAC Learning (EVPNS-REQ#90) 24",
+    "2.6.3 Remote MAC Learning (EVPNS-REQ#100) 24",
+    "2.7 Multi-Homing 24",
+    "2.7.1 EVPN ESI and ES types (EVPNS-REQ#110) 25",
+    "2.7.2 Designated Forwarder Election (EVPNS-REQ#120) 26",
+    "2.7.2.1 Supported Algorithms 26",
+    "2.7.2.2 Algorithm Negotiation 26",
+    "2.7.3 Signaling Primary and Backup DF Elected PEs (EVPNS-REQ#130) 26",
+    "2.7.4 Aliasing Path (EVPNS-REQ#140) 26",
+    "2.7.5 Single-Active, All-Active and Load Balancing (EVPNS-REQ#150) 26",
+    "2.7.6 MAC Mobility (EVPNS-REQ#160) 27",
+    "2.7.7 Fast Convergence (EVPNS-REQ#170) 27",
+    "2.7.8 Split Horizon (EVPNS-REQ#180) 27",
+    "2.7.9 Interoperability with Single-Homing PEs (EVPNS-REQ#190) 27",
+    "2.8 Best Path Selection (EVPNS-REQ#200) 27",
+    "2.9 Forwarding 27",
+    "2.9.1 Forwarding Unicast Packets (EVPNS-REQ#210) 27",
+    "2.9.2 Multicast and Broadcast (EVPNS-REQ#220) 27",
+    "2.10 PMSI Tunnel attribute (EVPNS-REQ#230) 28",
+    "2.11 L2-Attr Extended Community (EVPNS-REQ#240) 28",
+    "2.12 ES-Import Route Target (EVPNS-REQ#250) 28",
+    "3 EVPN Routes 29",
+    "3.1 Ethernet A-D Per Ethernet Segment Route (1) (EVPNS-REQ#260) 30",
+    "3.2 Ethernet A-D Per EVPN Instance Route (1) (EVPNS-REQ#270) 31",
+    "3.3 MAC/IP Address Advertisement (2) (EVPNS-REQ#280) 31",
+    "3.4 Inclusive Multicast Ethernet Tag Route (3) (EVPNS-REQ#290) 32",
+    "3.5 Ethernet Segment Route (4) (EVPNS-REQ#300) 33",
+    "4 EVPN Label Types 35",
+    "4.1.1 LT1 (EVPNS-REQ#310) 36",
+    "4.1.2 LT2 (EVPNS-REQ#320) 36",
+    "4.1.3 LT3 (EVPNS-REQ#330) 37",
+    "4.1.4 LT4 (EVPNS-REQ#340) 37",
+    "5 EVPN Data Path 38",
+    "5.1 Forwarding Tables 38",
+    "5.1.1 MAC Unicast Forwarding Table (EVPNS-REQ#350) 38",
+    "5.1.2 BUM Split Horizon Table (EVPNS-REQ#360) 39",
+    "5.1.3 BUM Forwarding Table 40",
+    "5.1.3.1 LBUMT 40",
+    "5.1.3.2 RBUMT 40",
+    "5.2 Forwarding Rules (EVPNS-REQ#370) 41",
+    "5.2.1 General Forwarding Rules 41",
+    "5.2.2 Local Input Traffic 41",
+    "5.2.3 Remote Input Traffic 41",
+    "6 Configuration (EVPNS-REQ#380) 42",
+    "6.1 Interface Configuration 42",
+    "6.1.1 LACP Configuration 42",
+    "6.1.2 Interface and VID-ID Translation Configuration 42",
+    "6.1.3 Ethernet Segment Configuration 42",
+    "6.2 BGP Configuration 43",
+    "6.3 EVPN Configuration 43",
+    "7 Alarm and Syslog Messages 44",
+    "7.1 Alarms (EVPNS-REQ#390) 44",
+    "7.2 Syslog Messages (EVPNS-REQ#400) 44",
+    "8 Implementation 45",
+    "8.1 Development Milestones 45",
+    "8.2 EVPN Top Level Architecture 46",
+    "8.3 BCMRM MAC Learning support 47",
+    "8.3.1 MAC Address Type 48",
+    "8.3.2 Aging Time 48",
+    "8.3.3 MAC Learning 48",
+    "9 Debug CLI 50",
+    "9.1 BGP 50",
+    "9.2 EVPN 50",
+    "9.2.1 debug evpn events 50",
+    "10 Appendix 53",
+    "10.1 Appendix A - General & SW Abbreviations 53",
+    "List of Tables",
+    "Table 1: EVPN models 9",
+    "Table 2: EVPN Service Interface 9",
+    "Table 3: Terminology and Abbreviations 15",
+    "Table 4: References 17",
+    "Table 5: EVPN Routes 29",
+    "Table 6: EVPN MPLS Label Types 35",
+    "Table 7: VLAN-ID value 40",
+    "Table 8: General and SW Abbreviations 53",
+    "List of Figures",
+    "Figure 1: All-Active and Single-Active Load Balancing 11",
+    "Figure 2: EVPN Operations 13",
+    "Figure 3: EVPN Top Level Architecture 46",
+    "Figure 4: BCMRM MAC Learning Top Level Architecture 47",
+    "The document specifies a new Layer 2 service called Ethernet VPN EVPN).",
+    "For scenarios requiring Ethernet multipoint connectivity, MPLS deployments leverage Virtual Private LAN Services (VPLS) [RFC4761, RFC4762]. A VPLS service is built with a full-mesh of Ethernet pseudowires among MPLS Provider Edge (PE) routers that are part of a given layer-2 broadcast domain. A VPLS PE emulates an Ethernet bridge by performing data-plane MAC learning (also known as \"flood and learn\" operation) against traffic arriving over the pseudowires and local interfaces. Existing VPLS PE does support only single-home mode.",
+    "The new Layer 2 service Ethernet VPN (EVPN) [RFC7209], [RFC7432bis] is a next generation solution that provides Ethernet multipoint services over MPLS networks. An EVPN comprises of customer edge (CE) devices that are connected to provider edge (PE) devices, which form the edge of the MPLS infrastructure. A CE device can be a host, a router, or a switch. The PE devices provide Layer 2 virtual bridge connectivity between the CE devices. A CE device can be connected to a few PE devices. There can be multiple EVPNs in the provider network. Learning between the PE routers occurs in the control plane using BGP, unlike traditional bridging, where learning occurs in the data plane. Additionally, to transparent bridging EVPN supports VLAN-Aware bridging.",
+    "An EVI represents a VPN on a PE router. It serves the same role of an IP VPN Routing and Forwarding (VRF), and EVIs are assigned import / export Route Targets (RTs). Depending on the service multiplexing behaviors at the User to Network Interface (UNI), all traffic on a port (all-to-one bundling), or traffic on a VLAN (one-to-one mapping), or traffic on a list / range of VLANs (selective bundling) can be mapped to a Bridge Domain (BD). This BD is then associated to an EVI for forwarding towards the MPLS core.",
+    "The PE EVPN Instance ([RFC7432bis], chapter 6.4) includes the following:",
+    "We can differ the following EVPN models:",
+    "Table 1: EVPN models",
+    "The standard ([RFC7432bis]), chapters 6.1 - 6.3.1)) defines a few Service Interface types. The types specify customer service provided by PEs.",
+    "The following service types must be supported (see the CLI command service-type):",
+    "Table 2: EVPN Service Interface",
+    "Ethernet Segments are used to represent \"site\" connections. They are associated with the access-facing interfaces (physical or logical (LAG, sub-interface)) that they represent and are assigned a unique identifier (referred to as Ethernet Segment Identifier (ESI)). Furthermore, a site can be connected to one or more PEs attached to a common MPLS core to provide access redundancy. With this, the solutions can support PE geo-redundancy and multi-homing (beyond dual homing) requirements. Lastly, a site can be used to connect to a single device or to an access network.",
+    "An Ethernet Tag ID is a 32-bit field containing either a 12-bit or 24-bit identifier that identifies a particular broadcast domain (e.g., a VLAN) in an EVPN instance. The 12-bit identifier is called the VLAN ID (VID). An EVPN instance consists of one or more broadcast domains (one or more VLANs). VLANs are assigned to a given EVPN instance by the provider of the EVPN service. A given VLAN can itself be represented by multiple VIDs. In such cases, the PEs participating in that VLAN for a given EVPN instance are responsible for performing VLAN ID translation to/from locally attached CE devices.",
+    "The following scenarios are available:",
+    "For MHD EVPN defines two load balancing modes of operation:",
+    "Figure 1: All-Active and Single-Active Load Balancing",
+    "EVPN PEs signal and learn MAC addresses over the core via BGP. For this purpose, a new address-family in Multi-Protocol BGP (MP-BGP) and new BGP extended communities allow PE routers to advertise and learn prefixes that identify MAC addresses and Ethernet segments over the network. This contrasts with existing VPLS solutions, which rely solely on data-plane learning. Control-plane learning brings a number of benefits that allow EVPN to address the VPLS shortcomings listed previously, including support for multi-homing with per-flow load balancing. Finally, by using BGP as a common VPN control-plane, providers can now leverage their operational experience and scalability characteristics inherent to IP VPNs, for their Ethernet offerings.",
+    "A total of four new BGP routes have been defined in order to collectively achieve the following functions:",
+    "When used in conjunction with an MPLS data-plane, these BGP routes also signal the MPLS labels associated with MAC addresses and Ethernet segments. This separates the new technologies from existing L2VPN solutions. EVPN no longer require the signaling and maintenance of pseudowires. EVPN MPLS labels represent Multipoint-to-Point (MP2P) Label Switched Paths (LSPs). Similar to IP VPNs, an EVPN MPLS label is signaled for use by the rest of the PEs in the VPN. There is no longer a requirement to signal separate point-to-point pseudowire Virtual Circuit (VC) labels for each remote PE. This brings the scale of L2VPNs to the same level as IP VPNs.",
+    "At startup, PEs exchange EVPN routes to advertise the following:",
+    "After the initial EVPN route exchange, and when customer traffic arrives at the PE, EVPN MAC advertisement routes distribute reachability information over the core for each customer MAC address learned on local Ethernet segments. Each EVPN MAC route announces the customer MAC address, and the Ethernet segment associated with the port where the MAC was learned from, as well as an MPLS label. This EVPN MPLS label will be used later by remote PEs when sending traffic destined to the advertised MAC address.",
+    "Figure 2: EVPN Operations",
+    "This specification includes the following limitations:",
+    "Table 3: Terminology and Abbreviations",
+    "Table 4: References",
+    "The implementation must support [RFC7432bis] with changes specified by this document.",
+    "The following CLI commands must be supported in the L2VPN EVPN context:",
+    "The system must replace VLAN-ID in an input frame if it is needed to match to the configured VLAN-ID.",
+    "The following example shows how to configure two EVPN instances of the vlan-based type with normalized VLAN-IDs 4 and 6 on Ethernet ports x-eth 0/0/1, x-eth 0/0/2, x-eth 0/0/3 and LAGs agg-eth 1 and agg-eth 2:",
+    "An input frame with VLAN-ID not belonging to configured bundle must be dropped.",
+    "The following example shows how to configure an EVPN instance of the EVPN vlan-bundle type on Ethernet port x-eth 0/0/1 and LAG agg-lag 1:",
+    "An input BUM frame with VLAN-ID not belonging to configured bundle must be dropped.",
+    "Example 1. The following example shows how to configure one EVPN instance of the EVPN vlan-aware-bundle type on Ethernet port x-eth 0/0/1 and LAG agg-lag 1 for all VLAN-IDs:",
+    "Example 2. The following example shows how to configure three EVPN instances on one Ethernet port x-eth 0/0/1:",
+    "The following example shows how to configure an EVPN instance of the EVPN port-based type on LAG agg-lag 1 and Ethernet port x-eth 0/0/1:",
+    "Following [RFC7432bis], chapter 7.9, the system must automatically generate the following RD for an EVPN instance:",
+    "The implementation must support the Route Prioritization specified in ([RFC7432bis], chapter 7.12).",
+    "Configuration and advertising of local MAC addresses MUST be supported.",
+    "The implementation must support Data-Plane MAC learning by software on interfaces attached to local CEs ([RFC7432bis, 14.2.1). The Control-Plane learning on these interfaces ([RFC7432bis, 14.2.2) is not supported.",
+    "MAC learning from the LACP messages is not permitted.",
+    "The Remote MAC learning (see [RFC7432bis], chapter 9.2) MUST be supported.",
+    "A Multi-Homed Ethernet Segment ([RFC7432bis), chapter 5)) can be configurated on a LAG interface. The LAG must be a LACP LAG and the same LACP System MAC address and LACP Administrative Key must be configured in all PEs connected to this Ethernet Segment (see CLI commands lacp-system-mac and lacp-key).",
+    "Additionally, an ES can be configured on a Single-Homed interface (physical ethernet port or LAG). For this ES:",
+    "The following ESI types must be supported (see CLI commands identifier):",
+    "The ESI type specifies whether the ES is single home or multi-homing ethernet interface:",
+    "The implementation must support the following algorithms of Designated Forwarder Election (see command service-carving):",
+    "The algorithm configured by command service-carving is advertised in the Ethernet Segment Route (4), DF Election Extended Community, field 'DF Alg'. If the router receives at least one advertisement without the DF Election Extended Community or with a value of 'DF Alg' differing from its advertised value, the router must fall back to the Default Algorithm defined in [RFC7432bis].",
+    "The Signaling Primary and Backup DF Elected PEs (see [RFC7432bis], chapter 8.6) MUST be supported.",
+    "The Aliasing path (see [RFC7432bis], chapter 8.4) MUST be supported.",
+    "The Single-Active and ALL-Active modes and the Load Balancing of Unicast Packets (see [RFC7432bis], chapter 14) MUST be supported.",
+    "The MAC Mobility (see [RFC7432bis], chapter 15) MUST be supported.",
+    "The Fast Convergence (see [RFC7432bis], chapter 8.2) MUST be supported.",
+    "The Split Horizon (see [RFC7432bis], chapter 8.3) MUST be supported.",
+    "The multihoming procedures MUST be supported even by single-homing PEs (see [RFC7432bis], chapter 8.7). The document replaces SHOULD to MUST in the second rule into [RFC7432bis], chapters 8.7:",
+    "For single-homing PEs, all the above multihoming procedures can be omitted; however, to allow for single-homing PEs to fully interoperate with multihoming PEs, some of the multihoming procedures described above MUST be supported even by single-homing PEs.",
+    "The Best Path Selection algorithm for EVPN routes (see [RFC7432bis], chapter 7.13) must be supported.",
+    "Forwarding Unicast packets (see [RFC7432bis], chapter 13) MUST be supported.",
+    "Only Ingress Replication is supported, P2MP or MP2MP LSPs are not supported.",
+    "The document replaces SHOULD to MUST in the second rule in [RFC7432bis], chapters 8.3.1.1:",
+    "The Inclusive Multicast Ethernet Tag Routes must include P-Multicast Service Interface Tunnel (PMSI Tunnel) attribute ([RFC6514], chapter 5). In the case of Ingress Replication, the attribute must contain the following values:",
+    "If at least, one received Ethernet A-D Per EVPN Instance Route does not include the L2-Attr Extended Community, then the [RFC7432], chapter 14.1.1 is applied, otherwise [RFC7432bis], chapter 14.1.1 is applied.",
+    "The value of the ES-Import Route Target Extended community ([RFC7432bis], chapters 7.6) carried into an EVPN Ethernet Segment Route is set to the high-order 6-octet ESI Value.",
+    "The following table summarizes information passed into the EVPN Routes:",
+    "Table 5: EVPN Routes",
+    "The following chapters briefly describe the EVPN Routes: its contents and when they are created.",
+    "The route contains the following fields:",
+    "Note. This label MUST have the same value in each Ethernet A-D per ES route advertised for the ES ([RFC7432bis], chapter 8.2.1).",
+    "Proposed treatment of a route with different label value from already saved ones:",
+    "Each EVPN instance must advertise these routes for each of its ES.",
+    "The route contains the following fields:",
+    "Note. The value of ET is VLAN-ID in the case of VLAN-aware Bundle service type and 0 in the other cases.",
+    "Label LT2 specifies the sub-interface configured on an ES in the case of ac-based or the ES itself in the other cases.",
+    "Each EVPN instance must advertise these routes for its ES and each attached to it BD.",
+    "Note. The Ethernet A-D per EVI route may be received by a remote PE before it receives the set of Ethernet A-D per ES routes. Therefore, in order to handle corner cases and race conditions, the Ethernet A-D per EVI route MUST NOT be used for traffic forwarding by a remote PE until it also receives the associated set of Ethernet A-D per ED routes ([RFC7432bis], chapter 8.4).",
+    "The route contains the following fields:",
+    "Each EVPN instance must advertise these routes for each of its locally learned MAC address. The MPLS labels LT1 of MAC addresses assigned by this system and located into the same MACT (learnt into the same VPN) have the same value, but these labels LT1 in the received routes may have different values.",
+    "The route contains the following fields:",
+    "Each EVPN instance must advertise these routes for each of its Broadcast Domain.",
+    "The route contains the following fields:",
+    "A PE advertises these routes for each its ES.",
+    "If the DF Election Extended Community is omitted, the Default DF election algorithm is assumed.",
+    "The ES-Import Route Target Extended Community is used instead of the RT Extended Community in the import/export operations.",
+    "This document defines the following types of EVPN MPLS labels:",
+    "The following table summarizes information about EVPN labels:",
+    "Table 6: EVPN MPLS Label Types",
+    "Each EVPN instance creates an LT1 label for each of its MACT and distributes it into MAC/IP Address Advertisement Routes ([RFC7432], chapter 7.2).",
+    "The label specifies the MACT.",
+    "If a known unicast packet is forwarded to a remote PE that has advertised the MAC/IP Address Advertisement route with label LT1, the label LT1 is added to the packet ([RFC7432bis], chapter 8.4).",
+    "In an input PE, an LT1 label specifies the MACT used to forward this frame.",
+    "Each EVNP instance creates an LT2 label for each ES and distributes it into Ethernet A-D Route per EVPN Instance Routes ([RFC7432bis], chapter 7.1).",
+    "If a known unicast packet is forwarded to a remote PE that has not advertised the MAC/IP Address Advertisement route with label LT1, the LT2 label is added to the packet ([RFC7432bis], chapter 8.4).",
+    "In an input PE a LT2 label specifies the outgoing ES and ET (sub-interface if ET != 0).",
+    "Each EVNP instance creates an LT3 label for each BD and distributes it into Inclusive Multicast Ethernet Tag Routes (in the PMSI Tunnel attribute) ([RFC7432bis], chapter 7.3).",
+    "The label specifies the EVNP instance's non-ES interfaces and ES interfaces on which the PE is the DF.",
+    "When a PE forwards a BUM message via MPLS it adds the label if the remote PE is not the DF on the input ES.",
+    "Each EVPN instance creates an LT4 label (ESI label) for each its ES and distributes it into Ethernet A-D Route per Ethernet Segment Routes (in ESI Label Extended Community) ([RFC7432bis], chapter 7.1).",
+    "When non-DF PE forwards a BUM message to the remote DF PE it adds the LT4 label after the LT3 label.",
+    "The chapter describes the EVPN Forwarding Tables.",
+    "Each EVPN instance creates one MAC Unicast Forwarding Table (MACT). The table is used for forwarding known unicast MAC frames with known Destination MAC addresses is selected by",
+    "Each entry of these tables contains the following fields:",
+    "The following EVPN Routes are used to manage MACTs:",
+    "Each EVPN instance creates one BUM Split Horizon Table - one entry for each interface configured on an Ethernet segment.",
+    "The entry of the table contains the following fields:",
+    "The table is used for forwarding with Split Horizon BUM MAC frames arriving from remote PEs:",
+    "The frame is flooded to all local interfaces specified by the LT3 label except interface specified by the LT4 label.",
+    "The following EVPN Routes are used for this table management:",
+    "Each EVPN instance creates two BUM Forwarding Tables: one for input local traffic LBUMT) and one for input remote traffic (RBUMT).",
+    "The following table specifies the VLAN-ID value:",
+    "Table 7: VLAN-ID value",
+    "Note. In the case of ac-based service type this label specifies this sub-interface, in all other cases it specifies this ES (the LAG).",
+    "To configure an EVPN instance the following components must be configured:",
+    "The following chapters give an example of EVPN configuration of the ac-based service type.",
+    "The following alarms must be supported:",
+    "The following syslog messages must be supported:",
+    "See [Phases].",
+    "The following figure depicts the EVPN Top Level Architecture",
+    "`",
+    "Figure 3: EVPN Top Level Architecture",
+    "The following figure depicts a part of the BCMRM Top Level Architecture used by MAC learning:",
+    "Figure 4: BCMRM MAC Learning Top Level Architecture",
+    "Only the higher layers are responsible for managing (adding, updating and deleting entries) the MAC Address Tables.",
+    "BCMRM together with BCM must only detect the needed cases and send the messages to the CPM without changing the MAC Address tables.",
+    "The following MAC address types are differed:",
+    "These MAC addresses are configured by a user.",
+    "These MAC addresses are learned from the local traffic.",
+    "These MAC addresses are received via the EVPN Control plan.",
+    "The MAC address type is received by BCMRM into the \"MAC Address Add/Update\" from a higher level.",
+    "The time aging must be applied only to local dynamic MAC addresses.",
+    "The MAC addresses are leaned only from local traffic. If a frame is received on an local interface its Source MAC is sent to the CPU in the following cases:",
+    "(EVPN-REQ#600) The BGP Debug commands must support the EVPM Address Family:",
+    "The following command must be supported:",
+    "(EVPN-REQ#610) The command must support the following events:",
+    "Values: local or IP address of remote PE",
+    "Values: local or IP address of remote PE",
+    "Values: withdraw, flap s, or host moves",
+    "Value dynamic or static",
+    "Values: aged out, interface was removed or down",
+    "Table : General and SW Abbreviations",
+    "End of Document",
+    "This page is intentionally left blank."
+  ],
+  "code_blocks": [
+    "config\ninterface agg-eth 1\nl2-transport enable\ninterface agg-eth 2\nl2-transport enable\ninterface x-eth 0/0/1\nl2-transport enable\ninterface x-eth 0/0/2\nl2-transport enable\ninterface x-eth 0/0/3\nl2-transport enable\n!\ninterface x-eth 0/0/1.4\nl2-transport enable\ninterface x-eth 0/0/2.4\nl2-transport enable\ninterface x-eth 0/0/3.5\nl2-transport enable\ninterface x-eth 0/0/1.6\nl2-transport enable\ninterface x-eth 0/0/2.6\nl2-transport enable\ninterface x-eth 0/0/3.6\nl2-transport enable\n!\nl2-services\nevpn evpn1\nservice-type vlan-based\ninterface agg-eth 1.4\ninterface agg-eth 2.4\ninterface x-eth 0/0/1.4\ninterface x-eth 0/0/2.4\ninterface x-eth 0/0/3.5\nevpn evpn2\nservice-type vlan-based\ninterface agg-eth 1.6\ninterface agg-eth 2.6\ninterface x-eth 0/0/1.6\ninterface x-eth 0/0/2.6\ninterface x-eth 0/0/3.6",
+    "config\ninterface agg-eth 1\nl2-transport enable\ninterface x-eth 0/0/1\nl2-transport enable\n!\ninterface agg-eth 1.1\nl2-transport enable\nvlan-id 1-4\ninterface x-eth-0/0/1.1)\nl2-transport enable\nvlan-id 1-4\n!\nl2-services\nevpn evpn1\nservice-type vlan-bundle\ninterface agg-eth 1.1\ninterface x-eth 0/0/1.1",
+    "config\ninterface agg-eth 1\nl2-transport enable\ninterface x-eth 0/0/1\nl2-transport enable\n!\ninterface agg-eth 1.1\nl2-transport enable\nvlan-id 1-4094 \ninterface x-eth 0/0/1.1\nl2-transport enable\nvlan-id 1-4094\n!\nl2-services\nevpn evpn1\nservice-type vlan-aware-bundle\ninterface agg-eth 1.1\ninterface x-eth 0/0/1.1",
+    "config\ninterface x-eth 0/0/1\nl2-transport enable\n!\ninterface x-eth 0/0/1.1\nl2-transport enable\nvlan-id 1-3\ninterface x-eth 0/0/1.2\nl2-transport enable\nvlan-id 4-5\ninterface x-eth 0/0/1.3\nl2-transport enable\nvlan-id 10\n!\nl2-services\nevpn evpn1\nservice-type vlan-aware-bundle\ninterface x-eth 0/0/1.1\nevpn evpn2\nservice-type vlan-aware-bundle\ninterface x-eth 0/0/1.2\nevpn evpn3\nservice-type vlan-aware-bundle\ninterface x-eth 0/0/1.3",
+    "config\ninterface agg-eth 1\nl2-transport enable\ninterface x-eth 0/0/1\nl2-transport enable\n!\nl2-services\nevpn evpn1\nservice-type port-based\ninterface agg-eth 1\ninterface x-eth 0/0/1",
+    "config\ninterface agg-eth 1\nlacp active\nlacp-system-mac 00:45:12:00:04:00\nlacp-admin-key 233",
+    "config\ninterface agg-eth 1\nl2-transport enable\ninterface agg-eth 1.100\nl2-transport enable\ninterface x-eth 0/0/2\nl2-transport enable\ninterface x-eth 0/0/2.25\nl2-transport enable",
+    "config\ninterface agg-eth 1\nl2-transport enable\nethernet-segment\nidentifier type 0 1a.2b.3c.4d.5e.6f.77.88.99\nload-balancing-mode all-active\nservice-carving highest-random-weight",
+    "config\nrouting bgp 123\nvrf default\nrouter-id 10.10.10.10\nneighbor 10.10.10.1\nremote-as-number 123\ndescription MPLSFACING-PEER1\naf-l2vpn evpn\nneighbor 10.10.10.2\nremote-as-number 123\ndescription MPLSFACING-PEER2\naf-l2vpn evpn\nneighbor 10.10.10.3\nremote-as-number 123\ndescription MPLSFACING-PEER3\naf-l2vpn evpn",
+    "config\nl2-services\nevpn evpn1\nservice-type vlan-based\nadvertise-mac\nauto-discovery\nexport-rt 100:200\nimport-rt 100:200\nmac-limit 500\ninterface agg-eth 1.100\ninterface x-eth 0/0/2.25"
+  ],
+  "tables": [
+    [
+      [
+        "",
+        ""
+      ]
+    ],
+    [
+      [
+        "Revision",
+        "Date",
+        "Name",
+        "Change Description"
+      ],
+      [
+        "Rev 1.0",
+        "19-Dec-2021",
+        "Indenbaum Michael",
+        "First draft"
+      ],
+      [
+        "",
+        "12-Oct-2025",
+        "Indenbaum Michael",
+        "Bug fixing"
+      ],
+      [
+        "",
+        "30-Oct-2025",
+        "Indenbaum Michael",
+        "The list of BGP common commands supported in the L2VPN EVPN context was added (chapter 2.2)."
+      ],
+      [
+        "",
+        "11-Nov-2025",
+        "Indenbaum Michael",
+        "Requirement IDs were added."
+      ],
+      [
+        "",
+        "06-Jan-2026",
+        "Indenbaum Michael",
+        "Chapter \"Debug CLI\" was added."
+      ],
+      [
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "",
+        "",
+        "",
+        ""
+      ],
+      [
+        "",
+        "",
+        "",
+        ""
+      ]
+    ],
+    [
+      [
+        "Model",
+        "RFC7432bis",
+        "This Document"
+      ],
+      [
+        "A",
+        "One BT and one BD.",
+        "MACT with key MAC only (VLAN-ID = 0) and one BD"
+      ],
+      [
+        "B",
+        "A few pairs of <BT, BD>",
+        "MACT with key <non-zero VLAN-ID, MAC> and a few BDs"
+      ]
+    ],
+    [
+      [
+        "Model",
+        "RFC7432bis Service Type Name",
+        "CLI Service Type Name"
+      ],
+      [
+        "A",
+        "VLAN-Based",
+        "vlan-based"
+      ],
+      [
+        "A",
+        "VLAN Bundle",
+        "vlan-bundle"
+      ],
+      [
+        "A",
+        "Port-Based",
+        "port-based"
+      ],
+      [
+        "B",
+        "VLAN-Aware Bundle",
+        "vlan-aware-bundle"
+      ]
+    ],
+    [
+      [
+        "",
+        "Note: This document attempts to use VLAN-ID instead of ET-ID."
+      ]
+    ],
+    [
+      [
+        "",
+        ""
+      ],
+      [
+        "AC",
+        "Attachment Circuit."
+      ],
+      [
+        "All-Active Redundancy Mode",
+        "When all PEs attached to an Ethernet segment are allowed to forward known unicast traffic to/from that Ethernet segment for a given VLAN, then the Ethernet segment is defined to be operating in All-Active redundancy mode."
+      ],
+      [
+        "BFD",
+        "Backup-Designated Forwarder."
+      ],
+      [
+        "BD",
+        "Broadcast Domain. In a bridged network, the broadcast domain corresponds to a Virtual LAN (VLAN), where a VLAN is typically represented by a single VLAN ID (VID) but can be represented by several VIDs where Shared VLAN Learning (SVL) is used per [IEEE.802.1Q_2014]."
+      ],
+      [
+        "BT",
+        "Bridge Table. An instantiation of a Bridge Forwarding Table on a MAC-VRF."
+      ],
+      [
+        "BUM",
+        "Broadcast, unknown unicast, and multicast."
+      ],
+      [
+        "CE",
+        "Customer Edge device. A CE device can be host, switch, or router."
+      ],
+      [
+        "DF",
+        "Designated Forwarder."
+      ],
+      [
+        "ES",
+        "Ethernet Segment. When a customer site (device or network) is connected to one or more PEs via a set of Ethernet links, then that set of links is referred to as an 'Ethernet segment'."
+      ],
+      [
+        "ESI",
+        "Ethernet Segment Identifier. A unique non-zero identifier that identifies an Ethernet segment is called an 'Ethernet Segment Identifier'."
+      ],
+      [
+        "ET",
+        "Ethernet Tag. Used to represent a BD that is configured on a given ES for the purposes of DF election and <EVI, BD> identification for frames received from the CE. Note that any of the following may be used to represent a BD: VIDs (including Q-in-Q tags), configured IDs, VNIs (Virtual Extensible Local Area Network (VXLAN) Network Identifiers), normalized VIDs, I-SIDs (Service Instance Identifiers), etc., as long as the representation of the BDs is configured consistently across the multihomed PEs attached to that ES."
+      ],
+      [
+        "ET ID",
+        "Ethernet Tag Identifier. Normalized network wide ID that is used to identify a BD within an EVI and carried in EVPN routes."
+      ],
+      [
+        "EVI",
+        "An EVPN instance spanning the Provider Edge (PE) devices participating in that EVPN. An EVI may be comprised of one BD (VLAN-based or VLAN Bundle services) or multiple BDs (VLAN-aware Bundle service)."
+      ],
+      [
+        "Fast Convergence",
+        "A mechanism to efficiently and quickly signal, to remote PE nodes, the need to update their forwarding tables upon the occurrence of a failure in connectivity to an Ethernet segment."
+      ],
+      [
+        "MACT",
+        "An EVPN Instance Unicast Forwarding Table."
+      ],
+      [
+        "MHD",
+        "Multi-Homed Device."
+      ],
+      [
+        "MP2MP",
+        "Multipoint to Multipoint."
+      ],
+      [
+        "MP2P",
+        "Multipoint to Point."
+      ],
+      [
+        "Non-DF",
+        "Non-Designated Forwarder."
+      ],
+      [
+        "Normalized VLAN-ID",
+        "VLAN-ID after VLAN-ID translation (passed via MPLS)."
+      ],
+      [
+        "P2MP",
+        "Point to Multipoint."
+      ],
+      [
+        "P2P",
+        "Point to Point."
+      ],
+      [
+        "P-tunnel",
+        "A tunnel through the network of one or more SPs. In this document, P-tunnels are instantiated as bidirectional multicast distribution trees."
+      ],
+      [
+        "PE",
+        "Provider Edge device."
+      ],
+      [
+        "Single-Active Redundancy Mode",
+        "When only a single PE, among all the PEs attached to an Ethernet segment, is allowed to forward traffic to/from that Ethernet segment for a given VLAN, then the Ethernet segment is defined to be operating in Single-Active redundancy mode."
+      ],
+      [
+        "SHD",
+        "Single-Homed Device."
+      ],
+      [
+        "VLAN-ID",
+        "VLAN Identifier"
+      ]
+    ],
+    [
+      [
+        "",
+        "Note: This document attempts to use MACT instead of BT of [RFC7432bis]. The BT table has one key - MAC Address. The MACT table has two keys: VLAN-ID and MAC address."
+      ]
+    ],
+    [
+      [
+        "Index",
+        "Reference description and title"
+      ],
+      [
+        "CLI",
+        "EVPN CLI, https://exaware.atlassian.net/wiki/spaces/RNDDocs/pages/2729967663/EVPN"
+      ],
+      [
+        "Pref-DF",
+        "RFC 9785 Preference-Based EVPN Designated Forwarder (DF) Election, June 2025"
+      ],
+      [
+        "RFC4364",
+        "RFC 4364 BGP/MPLS IP Virtual Private Networks (VPNs), February 2006"
+      ],
+      [
+        "RFC4761",
+        "RFC 4761 Virtual Private LAN Service (VPLS) Using BGP for Auto-Discovery and Signaling, January 2007"
+      ],
+      [
+        "RFC4762",
+        "RFC 4762 Virtual Private LAN Service (VPLS) Using Label Distribution Protocol (LDP) Signaling, January 2007"
+      ],
+      [
+        "RFC6514",
+        "RFC 6514 BGP Encodings and Procedures for Multicast in MPLS/BGP IP VPNs, February 2012"
+      ],
+      [
+        "RFC7209",
+        "RFC 7209 Requirements for Ethernet VPN (EVPN), May 2014"
+      ],
+      [
+        "RFC7432",
+        "RFC 7432 BGP MPLS-Based Ethernet VPN, February 2015"
+      ],
+      [
+        "RFC7432bis",
+        "BGP MPLS-Based Ethernet VPN draft-ietf-bess-rfc7432bis-13"
+      ],
+      [
+        "RFC8340",
+        "RFC 8340 YANG Tree Diagrams, March 2018"
+      ],
+      [
+        "RFC8584",
+        "RFC 8584 Framework for Ethernet VPN Designated Forwarder Election Extensibility, April 2019"
+      ],
+      [
+        "Phases",
+        "EVPH Phases 01, https://exaware.atlassian.net/wiki/spaces/RNDDocs/pages/2729967663/EVPN"
+      ]
+    ],
+    [
+      [
+        "ESI Type",
+        "ES TYpe"
+      ],
+      [
+        "0",
+        "Multi-Homed"
+      ],
+      [
+        "1",
+        "Multi-Homed"
+      ],
+      [
+        "4",
+        "Single home"
+      ]
+    ],
+    [
+      [
+        "",
+        "Note: This extended community is used for the Ethernet Segment route filtering like the RT extended community for the other EVPN routes ([RFC7432bis], chapter 8.1.1)."
+      ]
+    ],
+    [
+      [
+        "Route",
+        "Per EVI",
+        "Keys",
+        "Data",
+        "Usage in EVPN functions"
+      ],
+      [
+        "Ethernet A-D Per Ethernet Segment Route (1)",
+        "Yes",
+        "Type = 1 RD ESI ET ID = MAX-ET",
+        "ESI Label Ext. Comm. LT4: per <EVI> Single-Active flag NH = Advertising PE's IP Address RTs",
+        "Fast Convergence Split-horizon Filtering"
+      ],
+      [
+        "Ethernet A-D Per EVPN Instance Route (1)",
+        "Yes",
+        "Type = 1 RD ESI ET ID",
+        "LT2: per <EVI, ES, ET> L2-Attr. Ext. Comm. Primary flag Backup flag NH = Advertising PE's IP Address RTs",
+        "Aliasing and Backup Path"
+      ],
+      [
+        "MAC/IP Address Advertisement (2)",
+        "Yes",
+        "Type = 2 RD ET ID MAC Address",
+        "LT1: per <EVI, ET, MAC Address> ESI MAC Mob. Ext. Comm. Static Flag Sequence Number NH = Advertising PE's IP Address RTs",
+        "MAC Learning"
+      ],
+      [
+        "Inclusive Multicast Ethernet Tag Route (3)",
+        "Yes",
+        "Type = 3 RD ET ID Originating Router's IP Address",
+        "LT3: per <EVI, ET> L2-Attr. Ext. Comm L2 MTU Flow Label flag Control Word flag NH = Advertising PE's IP Address RTs",
+        "BUM flooding"
+      ],
+      [
+        "Ethernet Segment Route (4)",
+        "No",
+        "Type = 4 RD ESI Originating Router's IP Address",
+        "DF Election Ext. Comm. DF Alg DF Precedence Pref-DF AC-DF Capability ES-Import Ext. Comm. ES-Import RT NH = Advertising PE's IP Address",
+        "ES auto-discovery DF Election"
+      ]
+    ],
+    [
+      [
+        "",
+        "Note: Since a PE to import the ES routes using the ES-Import Route Target Extended Community, it imports only the ES routes corresponded to its locally configured ESs."
+      ]
+    ],
+    [
+      [
+        "Label",
+        "Route and Scope",
+        "Usage in Functions",
+        "Usage in Data Messages"
+      ],
+      [
+        "LT1",
+        "MAC/IP Address Advertisement Route (2) RD Key ESI ET Key MAC Address Key IP Address Key LT1 Label RT Scope: <EVI, ET, MAC> Maps to MACT",
+        "",
+        "Forwarding Unicast Packets ([RFC7432bis], chapter 13.1)."
+      ],
+      [
+        "LT2",
+        "Ethernet A-D Route per EVPN Instance Route (1) RD Key ESI Key ET Key LT2 Label RTs Scope: <EVI, ET, ES> Maps to AC-based: sub-interface Others: LAG",
+        "Unicast Know Forwarding via Aliasing Path ([RFC7432bis], chapter 8.4)",
+        "Forwarding Unicast Known packets via an Alias path ([RFC7432bis], chapters 8.4)."
+      ],
+      [
+        "LT3 or BUM",
+        "Inclusive Multicast Ethernet Tag Route (3): RD Key ET Key IP Address Key PMSI Tunnel attribute L3 Label RTs Scope: <EVI, ET> Maps to DF: all interfaces of the BD Non-DF: all interfaces of the BD, except this ES",
+        "",
+        "BUM packets sent by DF or sent to non-DF."
+      ],
+      [
+        "LT4 or ESI",
+        "Ethernet A-D Route per Ethernet Segment Route (1) RD Key ESI Key ET=MAX-ET Key ESI Label Extended Community LT4 Label RTs Scope: <EVI, ES> Maps to LAG",
+        "Split Horizon ([RFC7432bis], chapter 8.3). BUM Forwarding from Non-DF to DF. Backup Path ([RFC7432bis], chapter 8.4)",
+        "BUM packets sent by non-DF to DF"
+      ]
+    ],
+    [
+      [
+        "",
+        "Note: This field must contain 0 if the EVPN Instance service type differs from vlan-aware-bundle."
+      ]
+    ],
+    [
+      [
+        "Service Type",
+        "Mapping"
+      ],
+      [
+        "vlan-based",
+        "0"
+      ],
+      [
+        "port-based",
+        ""
+      ],
+      [
+        "vlan-bundle",
+        "VLAN-ID from the input frame"
+      ],
+      [
+        "vlan-aware-bundle",
+        ""
+      ]
+    ],
+    [
+      [
+        "",
+        "Note: It is recommended that the MAC Change callback supports a small cache to drop duplicated BCM messages: If (received message is saved into the cache) Drop the message. If (there is not a free room into the cache) Delete the oldest message. Save the received message into the cache."
+      ]
+    ],
+    [
+      [
+        "AAA",
+        "Authentication Authorization & Accounting",
+        "",
+        "MLD",
+        "Multicast Listener Discovery"
+      ],
+      [
+        "ABF",
+        "ACL Based Forwarding",
+        "",
+        "MO",
+        "Managed Object"
+      ],
+      [
+        "ACE",
+        "Access Control Entry",
+        "",
+        "MPLS",
+        "Multi Protocol Label Switching"
+      ],
+      [
+        "ACL",
+        "Access Control List",
+        "",
+        "MRD",
+        "Marketing Requirements Document"
+      ],
+      [
+        "ADJ",
+        "Adjacency",
+        "",
+        "MSB",
+        "Most Significant Bit"
+      ],
+      [
+        "ANSI",
+        "American National Standardization Institute",
+        "",
+        "NSM",
+        "Network Service Module"
+      ],
+      [
+        "AP",
+        "Access Point",
+        "",
+        "OEM",
+        "Original Equipment Manufacturer"
+      ],
+      [
+        "AUX",
+        "Auxiliary",
+        "",
+        "OS",
+        "Operating System"
+      ],
+      [
+        "BFD",
+        "Bidirectional Forwarding Detection",
+        "",
+        "OSPF",
+        "Open Shortest Path First (IGP protocol)"
+      ],
+      [
+        "BGP",
+        "Border Gateway Protocol",
+        "",
+        "PBR",
+        "Policy Based Routing"
+      ],
+      [
+        "CE",
+        "Control Element",
+        "",
+        "PD",
+        "Platform Dependent"
+      ],
+      [
+        "CLI",
+        "Command Line Interface",
+        "",
+        "PI",
+        "Platform Independent"
+      ],
+      [
+        "CPM",
+        "Centralized Processing Module (route processor card)",
+        "",
+        "PIM",
+        "Protocol Independent Multicast (family of multicast protocols)"
+      ],
+      [
+        "CRC",
+        "Cyclic Redundancy Check",
+        "",
+        "PIM-SM",
+        "PIM Sparse Mode (PIM protocol)"
+      ],
+      [
+        "CTQ",
+        "Critical to Quality",
+        "",
+        "POP",
+        "Point Of Presence"
+      ],
+      [
+        "CUPL",
+        "Compass Unified Policy Language",
+        "",
+        "PRD",
+        "Product Requirement Document"
+      ],
+      [
+        "DAL",
+        "Distribution Abstraction Layer",
+        "",
+        "QoS",
+        "Quality of Service"
+      ],
+      [
+        "DHCP",
+        "Dynamic Host Configuration Protocol",
+        "",
+        "RAM",
+        "Random Access Memory"
+      ],
+      [
+        "DUT",
+        "Device Under Test",
+        "",
+        "RIB",
+        "Routing Information Base"
+      ],
+      [
+        "ETRD",
+        "External Technical Requirement Document",
+        "",
+        "RPC",
+        "Remote Procedure Call"
+      ],
+      [
+        "EWB",
+        "Embedded Web",
+        "",
+        "RPF",
+        "Reverse Path Forwarding"
+      ],
+      [
+        "FA",
+        "Feature Agent (LC part of feature application)",
+        "",
+        "RSVP",
+        "Resource ReSerVation Protocol"
+      ],
+      [
+        "FAA",
+        "Feature Agent Application (feature specific part of FA)",
+        "",
+        "Rx",
+        "Received"
+      ],
+      [
+        "FAI",
+        "Feature Agent Infra (common lib of all FAs)",
+        "",
+        "S/N",
+        "Serial number"
+      ],
+      [
+        "FCS",
+        "First Customer Shipment",
+        "",
+        "sACL",
+        "security ACL"
+      ],
+      [
+        "FE",
+        "Forwarding Element",
+        "",
+        "SAL",
+        "SW Abstraction Layer"
+      ],
+      [
+        "FIB",
+        "Forwarding Information Base",
+        "",
+        "SDD",
+        "Software Design Document"
+      ],
+      [
+        "FAM",
+        "FAult Management",
+        "",
+        "SDP",
+        "Software Development Plan"
+      ],
+      [
+        "FM",
+        "Feature Manager (CPM part of feature application)",
+        "",
+        "SFS",
+        "System/SW Functional Specifications"
+      ],
+      [
+        "FMI",
+        "Feature Manager Infra (common lib of all FMs)",
+        "",
+        "SHA",
+        "Secure Hash Algorithm"
+      ],
+      [
+        "FMA",
+        "Feature Manager Application (feature specific part of FM)",
+        "",
+        "SIB",
+        "Sub-channel Information Base"
+      ],
+      [
+        "FRR",
+        "Fast ReRoute",
+        "",
+        "SNMP",
+        "Simple Network Management Protocol"
+      ],
+      [
+        "FTP",
+        "File Transfer Protocol",
+        "",
+        "SSDD",
+        "System, Sub-system Design Document"
+      ],
+      [
+        "HA",
+        "High Availability",
+        "",
+        "SSH",
+        "Secure Shell"
+      ],
+      [
+        "HAL",
+        "Hardware Abstraction Layer",
+        "",
+        "STP",
+        "Software Tests Plan"
+      ],
+      [
+        "HSI",
+        "Hardware to Software Interface",
+        "",
+        "STR",
+        "Software Tests Report"
+      ],
+      [
+        "HTTP",
+        "Hypertext Transfer Protocol",
+        "",
+        "SW",
+        "Software"
+      ],
+      [
+        "IPC",
+        "Inter Protocol Communication",
+        "",
+        "TBD",
+        "To Be Determined"
+      ],
+      [
+        "IDB",
+        "Interface Descriptor Block",
+        "",
+        "TCP",
+        "Transmission Control Protocol"
+      ],
+      [
+        "IGMP",
+        "Internet Group Management Protocol",
+        "",
+        "TE",
+        "Traffic Engineering"
+      ],
+      [
+        "IGP",
+        "Interior Gateway Protocol",
+        "",
+        "TFTP",
+        "Trivial File Transfer Protocol"
+      ],
+      [
+        "ILM",
+        "Incoming Label Map (MLPS table)",
+        "",
+        "TIPC",
+        "Transparent Inter-Process Communication"
+      ],
+      [
+        "IPMI",
+        "Intelligent Platform Management Interface",
+        "",
+        "Tx",
+        "Transmit"
+      ],
+      [
+        "IPRS",
+        "Internal Packet Routing System",
+        "",
+        "UC",
+        "Unicast"
+      ],
+      [
+        "ISIS",
+        "Intermediate System to Intermediate System (IGP protocol)",
+        "",
+        "Ucode",
+        "microcode"
+      ],
+      [
+        "LAG",
+        "Link Aggregation",
+        "",
+        "UDP",
+        "User Datagram Protocol"
+      ],
+      [
+        "LAN",
+        "Local Area Network",
+        "",
+        "UM",
+        "Unified Manager"
+      ],
+      [
+        "LBL",
+        "Load Balancing",
+        "",
+        "URPF",
+        "Unicast Reverse Path Forwarding"
+      ],
+      [
+        "LC",
+        "Line Card",
+        "",
+        "UTP",
+        "Unit Test Procedure"
+      ],
+      [
+        "LDP",
+        "Label Distribution Protocol",
+        "",
+        "VLAN",
+        "Virtual Local Area Network"
+      ],
+      [
+        "LSB",
+        "Least Significant Byte",
+        "",
+        "VSA",
+        "Vendor-Specific Attributes"
+      ],
+      [
+        "MAC",
+        "Media Access Control",
+        "",
+        "WLAN",
+        "Wireless Local Area Networks"
+      ],
+      [
+        "Mbps",
+        "Megabits Per Second",
+        "",
+        "WMAN",
+        "Wireless Metro Area Network"
+      ],
+      [
+        "MC",
+        "Multicast",
+        "",
+        "WPAN",
+        "Wireless Personal Area Networks"
+      ],
+      [
+        "MGID",
+        "Multicast Group ID",
+        "",
+        "WWAN",
+        "Wireless Wide Area Networks"
+      ],
+      [
+        "MIB",
+        "Management Information Base",
+        "",
+        "XML",
+        "eXtensible Markup Language"
+      ]
+    ]
+  ],
+  "list_items": [
+    "MACT Forwarding Table (MACT).",
+    "One or more Broadcast Domains (BDs). A BD is identified by VLAN-ID.",
+    "RD",
+    "RT",
+    "Single-Homed Device (SHD)",
+    "Multi-Homed Device (MHD)",
+    "All-active load balancing: Supports multi-homed devices with per-flow load balancing. This mode allows the access device to connect via a \"single\" Ethernet bundle to multiple PEs and to send / receive traffic of the \"same\" VLAN from all the PEs in the same Ethernet segment.",
+    "Single-active load balancing: Supports multi-homed devices with per-vlan load balancing. In this mode, the access device connects via \"separate\" Ethernet bundles to multiple PEs. PE routers in turn automatically perform service carving in order to divide VLAN forwarding responsibilities across the PEs in the Ethernet segment. The access device learns via the data-plane which Ethernet bundle to use for a given VLAN.",
+    "MAC address reachability",
+    "MAC mass withdrawal",
+    "Access split-horizon filtering",
+    "Aliasing",
+    "VPN endpoint discovery",
+    "Redundancy Group discovery",
+    "Designated forwarder election",
+    "Ethernet segment reachability: The PE discovers remote ESes and their corresponding redundancy mode (all-active or single-active). In case of segment failures, PEs withdraw the routes used at this stage in order to trigger fast convergence by signaling a MAC mass withdrawal on remote PEs.",
+    "Redundancy Group membership: PEs connected to the same Ethernet segment (multi-homing) automatically discover each other and elect a Designated Forwarder (DF) that is responsible for forwarding Broadcast, Unknown unicast and Multicast (BUM) traffic for a given EVI.",
+    "VPN membership: The PE discovers all remote PE members of a given EVI. In the case of a multicast ingress replication model, this information is used to build the PE's flood list associated with an EVI.",
+    "The Layer 3 VPN is not supported:",
+    "The following fields into the created MAC/IP Advertisement Routes are filled by 0 and are ignored in the ones received ([RFC7432bis], chapter 7.2):",
+    "IP Address Length",
+    "MPLS Label2",
+    "Only Ingress Replication is supported, P2MP LSPs are not supported ([RFC7432bis], chapter 16).",
+    "Only Data-Plane MAC learning by software on interfaces attached to local CEs ([RFC7432bis, 14.2.1) is supported. Optional functionality described in ([RFC7432bis], chapter 10) is not supported.",
+    "The \"Unique VLAN EVPN\" scenario as a special case ([RFC7432bis], chapters 4, 7.9, and 7.10.1) is not supported.",
+    "Optional functionality described by ([RFC7432bis], chapters 10) is not supported.",
+    "Only ESI types 0, 1 and 4 are supported.",
+    "Only the following DF selection algorithms (see the CLI command service-carving) are supported:",
+    "default",
+    "highest-random-weight",
+    "allow-as-in",
+    "capability",
+    "inbound-soft-reconfiguration",
+    "maximum-prefix",
+    "private-as",
+    "route-reflector-client",
+    "weight",
+    "group",
+    "VLAN-Aware Bundle EVPN evpn1 for VLAN-IDs 1-3",
+    "VLAN-Aware Bundle EVPN evpn2 for VLAN-IDs 4-5",
+    "Type Field: 1",
+    "Administrator subfield: the IPv4 address configured on loopback 0.",
+    "Assigned Number subfield: the unique EVPN Instance number generated by the system.",
+    "The router does not advertise the Ethernet Segment Route (4).",
+    "The router advertises this ES as single-active in the Ethernet A-D Per Ethernet Segment Route (1).",
+    "The router advertises itself as the Designated Forwarder in the Ethernet A-D Per EVPN Instance Route (1).",
+    "The router fixes misconfiguration if this ES is advertised by another router.",
+    "Type 0",
+    "Type 1 (LACP LAGs only)",
+    "Type 4 (single-home interfaces only)",
+    "Default ([RFC7432bis], chapter 8.5)",
+    "Extended Default ([RFC8584], chapter 4)",
+    "Highest Random Weight (HRW) ([RFC8584], chapter 3)",
+    "Highest Preference ([Pref-DF])",
+    "Low Preference ([Pref-DF])",
+    "An ingress PE (DF or Non-DF) MUST include the ESI label distributed by each non-DF egress PE in the copy of a BUM packet sent to it.",
+    "Flag: 0",
+    "Type: 6 (Ingress Replication)",
+    "MPLS Label: LT3 label",
+    "Tunnel Identifier: Originating Route's IP Address",
+    "RD Key",
+    "ESI Key",
+    "ET ID = MAX-ET Key",
+    "MPLS Label = 0",
+    "ESI Label Extended Community",
+    "Single-Active flag",
+    "ESI Label (for split horizon function), label of type LT4: <EVI, ES>",
+    "Save the route and don't use it until all other such routes are either withdrawn or updated to the same value of this label.",
+    "Turn on the corresponding \"Mismatched Configuration\" alarm. The alarm must be turned off when this mismatch is resolved.",
+    "RTs",
+    "Next Hop field of the MP_REACH_NLRI attribute = IP address of advertising PE",
+    "RD Key",
+    "ESI Key",
+    "ET ID Key",
+    "MPLS Label LT2: per <EVI, ES, ET>",
+    "L2-Attr Extended Community",
+    "Primary flag",
+    "Backup flag",
+    "RTs",
+    "Next Hop field of the MP_REACH_NLRI attribute = IP address of advertising PE.",
+    "RD Key",
+    "ESI",
+    "ET ID Key",
+    "MAC Address Key",
+    "IP Address Key",
+    "MPLS Label LT1",
+    "MPLS Label (L3 Label)",
+    "MAC Mobility Extended Community (only if relearning)",
+    "Static Flag",
+    "Sequence Number",
+    "RTs",
+    "Next Hop field of the MP_REACH_NLRI attribute = IP address of advertising PE",
+    "RD Key",
+    "ET ID Key",
+    "Originating Router's IP Address Key",
+    "PMSI Tunnel attribute",
+    "Flag = 0",
+    "Type = 6 (Ingress Replication)",
+    "MPLS Label, LT3:",
+    "Tunnel Identifier = Originating Route's IP Address",
+    "L2-Attr Extended Community",
+    "L2 MTU",
+    "Flow Label flag",
+    "Control Word flag",
+    "RTs",
+    "Next Hop field of the MP_REACH_NLRI attribute = IP address of advertising PE",
+    "RD Key",
+    "ESI Key",
+    "Originating Router's IP Address Key",
+    "ES-Import Route Target Extended Community",
+    "Type: 0x06",
+    "Sub-Type: 0x02 (RT)",
+    "ES-Import: the high-order 6-octet portion of the 9-octet ESI value",
+    "DF Election Extended Community ([RFC8584], chapter 2.2):",
+    "DF Alg",
+    "0: Default DF election algorithm, or modulus-based algorithm ([RFC7432bis] and ([RFC8584]).",
+    "1: HRW Algorithm ([RFC8584], chapter 3).",
+    "2: Highest-Preference algorithm [Pref-DF]",
+    "3: Lowest-Preference algorithm [Pref-DF]",
+    "Types 4-30: Unassigned.",
+    "31 Reserved for Experimental Use.",
+    "Bitmap (2 octets)",
+    "Bit 0: [Pref-DF] D bit or 'Don't Preempt' bit (DP hereafter), determines if the PE advertising the ES route requests the remote PEs in the ES not to preempt it as DF. The default value is DP=0, which is compatible with the 'preempt' or 'revertive' behavior in the Default DF Alg [RFC7432bis]. The DP capability is supported by Alg 2 and Alg 3, and MAY be used with DF Alg 0 or 1. The procedures of the DP capability for DF Alg 0 or 1 are out of the scope of [Pref-DF].",
+    "Bit 1: ([RFC8584]) AC-DF Capability (AC-Influenced DF Election, ([RFC8584], chapter 4)).",
+    "Bits 2-15: Unassigned.",
+    "DF Preference ([Pref-DF]): defines a 2-octet value that indicates the PE preference to become the DF in the ES. The allowed values are within the range 0-65535, and the default value MUST be 32767. This value is the midpoint in the allowed Preference range of values, which gives the operator the flexibility of choosing a significant number of values, above or below the default Preference. The DF Preference field is specific to DF Alg 2 and DF Alg 3 and does not represent any Preference value for other Algs. If the DF 3 is different than Alg 2 or Alg 3, these two octets can be encoded differently.",
+    "Next Hop field of the MP_REACH_NLRI attribute = IP address of advertising PE",
+    "LT1",
+    "LT2",
+    "LT3",
+    "LT4",
+    "The input attachment circuit if the MAC frame arrives from a local CE.",
+    "The frame EVPN label (LT1) is if the MAC frame arrives from a remote CE.",
+    "VLAN-ID Key",
+    "MAC Address Key",
+    "ESI",
+    "Next Hop - one from the following types:",
+    "Local Next Hop, one of the following types:",
+    "Attachment circuit",
+    "ifIndex",
+    "Remote Next Hop, one of the following types:",
+    "Primary (Single-Active)",
+    "IP Address",
+    "Label of type LT1",
+    "List of Backup Paths (Single-Active)",
+    "IP Address",
+    "Label of type LT2",
+    "Balancing Group List (All-Active)",
+    "IP Address",
+    "Label",
+    "Of type LT1, if non-Alias path (the MAC/IP Advertisement Route has been received)",
+    "Of type LT2, if Alias path (the MAC/IP Advertisement Route has not been received)",
+    "MAC/IP Address Advertisement Route (2)",
+    "Ethernet A-D Route per EVPN Instance Route (1)",
+    "MPLS Label LT4 Key",
+    "ifIndex",
+    "Ethernet A-D Route per Ethernet Segment Route (1)",
+    "Input ifIndex",
+    "VLAN-ID",
+    "List of local interfaces",
+    "List of remote PEs",
+    "IP Address",
+    "MPLS Label ET3 (BUM label)",
+    "MPLS Label LT4 (ES label) or 0.",
+    "MPLS Label ET3 (BUM label) Key",
+    "MPLS Label LT4 (ES label) or 0",
+    "List of local interfaces",
+    "A frame arriving from a local CE is never forwarded back to this local CE.",
+    "A frame arriving from a remote CEs is forwarded only to the local CEs.",
+    "A BUM frame arriving from a remote CEs is never forwarded to an ES if the PE is non-DF PE on this ES.",
+    "The input interface specifies the EVPN instance and therefore its TMAC Table.",
+    "Unicast Known MAC frames",
+    "Forward using the MACT table.",
+    "BUM MAC frames",
+    "Forward using the BUM Database.",
+    "LT1 Label",
+    "Forward using the MACT, specified by this label. If the MACT's entry does not exist, then DROP.",
+    "LT2 Label",
+    "Forward on the ES, specified by this label.",
+    "LT3 Label",
+    "Forward on the list of ACs, specified by this label.",
+    "LT3, LT4 Label",
+    "Forward on the list of ACs, specified by the LT3 label, except the interface (ES) specified by the LT4 label.",
+    "LACP for each Ethernet Segment",
+    "VLAN-ID translation if it is required.",
+    "Ethernet Segment",
+    "BGP",
+    "EVPN instance itself.",
+    "Multi-homed ES misconfiguration for ESI esi-value(agg-eth n): from ip-address, LACP System MAC MAC-address, DF Algorithm algorithm.",
+    "Duplicated MAC address mac-address is frozen temporarily (see [RFC7432bis], chapter 15.1).",
+    "Duplicated MAC address mac-address is frozen permanently (see [RFC7432bis], chapter 15.1).",
+    "Relearning of static MAC address mac-address from ip-address (see [RFC7432bis], chapter 15.2).",
+    "Every time the state if an alarm is changed the corresponded syslog message must be sent with the following severity:",
+    "OFF => ON: warning",
+    "ON => OFF: informational",
+    "TBD",
+    "Local static",
+    "Local dynamic",
+    "Remote controlled",
+    "Uknown",
+    "Learned on another local interface",
+    "Remote controlled.",
+    "AFI = 25 (L2VPN)",
+    "SAFI = 70 (EVPN)",
+    "debug evpn event",
+    "Multihoming Events",
+    "EVPN Ethernet Segment is created with the following output:",
+    "EVPN Ethernet Segment Identifier",
+    "Attachment circuit",
+    "Configured Carving Service (Default Forwarder Election method)",
+    "Configured",
+    "Negotiated",
+    "EVPN Ethernet Segment is removed with the following output:",
+    "EVPN Ethernet Segment Identifier with the following output:",
+    "EVPN Ethernet Segment connected PE is detected with the following output:",
+    "EVPN Ethernet Segment Identifier",
+    "IP Address",
+    "Configured Carving Service (Default Forwarder Election method)",
+    "Configured",
+    "Negotiated",
+    "EVPN Instance Events",
+    "EVPN Instance is created with the following output:",
+    "EVPN Instance name",
+    "EVPN Instance is removed with the following output:",
+    "EVPN Instance name",
+    "Ethernet Segment is added with the following output:",
+    "EVPN Instance name",
+    "Ethernet Segment Identifier",
+    "Ethernet Segment is removed with the following output:",
+    "EVPN Instance name",
+    "Ethernet Segment Identifier",
+    "Attachment Circuit is added with the following output:",
+    "EVPN Instance name",
+    "ifIndex",
+    "Attachment Circuit is removed with the following output:",
+    "EVPN Instance name",
+    "ifIndex",
+    "Remote PE is detected with the following output:",
+    "EVPN Instance name",
+    "PE IP address",
+    "Split Horizon Label",
+    "Remote PE is removed with the following output:",
+    "EVPN Instance name",
+    "PE IP address",
+    "Remote EVPN Instance Ethernet Segment is detected with the following output:",
+    "EVPN Instance name",
+    "Ethernet Segment Identifier",
+    "PE IP address",
+    "Label",
+    "Primary/Backup/None",
+    "DF",
+    "Remote EVPN Instance Ethernet Segment is removed with the following output:",
+    "EVPN Instance name",
+    "Ethernet Segment Identifier",
+    "PE IP address",
+    "DF",
+    "MAC Address Events with the following output:",
+    "Remote MAC Address is installed with the following output:",
+    "EVPN Instance name",
+    "VLAV",
+    "MAC Address",
+    "Ethernet Identifier",
+    "Source BGP Address",
+    "Source BGP MAC Label",
+    "Sequence Number",
+    "Remote MAC Address is removed with the following output:",
+    "EVPN Instance name",
+    "VLAV",
+    "MAC Address",
+    "Reason",
+    "Local MAC Address is installed with the following output:",
+    "EVPN Instance name",
+    "VLAV",
+    "MAC Address",
+    "Type",
+    "Attachment circuit",
+    "Ethernet Identifier",
+    "Local MAC Address is removed with the following output:",
+    "EVPN Instance name",
+    "VLAV",
+    "MAC Address",
+    "Reason"
+  ]
+}

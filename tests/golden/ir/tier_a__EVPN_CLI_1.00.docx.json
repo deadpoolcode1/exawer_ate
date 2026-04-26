@@ -1,0 +1,1720 @@
+{
+  "headings": [
+    {
+      "level": 1,
+      "number": "",
+      "text": "About the CLI Command Reference Manual"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "EVPN Configuration Example"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "Interface Commands"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Interface Configuration Commands"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "ethernet-segment"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "identifier"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "lacp-key"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "lacp-system-mac"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "load-balancing-mode"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "service-carving"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Interface Show Commands"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "show interface detail"
+    },
+    {
+      "level": 1,
+      "number": "",
+      "text": "Routing Commands"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "BGP Routing Commands"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "BGP Configuration Commands"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "af-l2vpn evpn"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "BGP Show Commands"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show bgp l2vpn evpn neighbors advertised/received routes"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show bgp l2vpn evpn table evi"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show bgp l2vpn evpn table ethernet-segment"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show bgp neighbors brief/detail"
+    },
+    {
+      "level": 2,
+      "number": "",
+      "text": "Routing and Forwarding Information Base Commands"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "L2 Services Configuration Commands"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "advertise-mac"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "auto-discovery"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "control-word (evpn)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "es-waiting-time"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "evpn"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "export-rt"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "host mac-address-duplication-detection"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "import-rt"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "interface (VPLS/EVPN)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "mac-address-static (EVPN)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "mac-address-static (VPLS)"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "mac-aging-time"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "mac-limit"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "unknown-mac-flooding"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "L2 Services Operational Commands"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "clear evpn Frozen mac-addresses"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "clear evpn mac address-table"
+    },
+    {
+      "level": 3,
+      "number": "",
+      "text": "L2 Services Show Commands"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show evpn broadcast-domains"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show evpn bum routing-table"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show evpn ethernet-segments"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show evpn frozen mac-addresses"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show evpn global"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show evpn mac address-table"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show evpn summary"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show fib evpn-ac"
+    },
+    {
+      "level": 4,
+      "number": "",
+      "text": "show fib evpn-neighbor"
+    }
+  ],
+  "paragraphs": [
+    "EVPN CLI",
+    "Release 1.0.83",
+    "February 2023",
+    "Disclaimer",
+    "Copyright © 2022 Exaware Ltd. All rights reserved",
+    "The software contains proprietary information of Exaware Ltd.; it is provided under a license agreement containing restrictions on use and disclosure and is also protected by copyright law. Reverse engineering of the software is prohibited.",
+    "Due to continued product development this information may change without notice. The information and intellectual property contained herein is confidential between Exaware Ltd. and the client and remains the exclusive property of Exaware Ltd.",
+    "If you find any problems in the documentation, please report them to us in writing. Exaware Ltd. does not warrant that this document is error-free.",
+    "No part of this publication may be reproduced, stored in a retrieval system, or transmitted in any form or by any means, electronic, mechanical, photocopying, recording or otherwise without the prior written permission of Exaware Ltd.",
+    "Exaware Ltd. 5 Hamelacha St Netanya 42505 ISRAEL",
+    "Phone: +972-73-212-4500 Fax: +972-73-212-4600",
+    "Email: info@exaware.com",
+    "Website: http://www.exaware.com",
+    "Table of Contents",
+    "Changed existing CLI commands"
+  ],
+  "code_blocks": [
+    "/* LACP Configuration */\n\nexaware# config\nexaware(config)# interface agg-eth 1\nexaware(config-interface-agg-eth-1)# lacp active\nexaware(config-interface-agg-eth-1)# lacp-system-mac 00:45:12:00:04:00\nexaware(config-interface-agg-eth-1)# exit\nexaware(config)# interface agg-eth 2\nexaware(config-interface-agg-eth-1)# lacp active\n\n/* Interface Configuration */\n\nexaware# config\nexaware(config)# interface agg-eth 1.4\nexaware(config-agg-eth-1.4)# l2-transport enable\nexaware(config-agg-eth-1.4)# exit\n!\nexaware(config)# interface agg-eth 2.4\nexaware(config-agg-eth-2.4)# l2-transport enable\nexaware(config-agg-eth-2.4)# exit\n!\nexaware(config)# interface x-eth 0/0/1.4\nexaware(config-x-eth-0/0/1.4)# l2-transport enable\nexaware(config-x-eth-0/0/1.4)# exit\nexaware(config)# interface x-eth 0/0/2.4\nexaware(config-x-eth-0/0/2.4)# l2-transport enable\nexaware(config-x-eth-0/0/2.4)# exit\n!\nexaware(config)# interface x-eth 0/0/2.25\nexaware(config-x-eth-0/0/2.25)# l2-transport enable\nexaware(config-x-eth-0/0/2.25)# exit\n!\nexaware(config)# interface x-eth 0/0/5.1\nexaware(config-x-eth-0/0/5.1)# l2-transport enable\nexaware(config-x-eth-0/0/5.1)# vlan-id 1-4\nexaware(config-x-eth-0/0/5.1)# exit\n!\nexaware(config)# interface x-eth 0/0/6.1\nexaware(config-x-eth-0/0/6.1)# l2-transport enable\nexaware(config-x-eth-0/0/6.1)# vlan-id 1-4\nexaware(config-x-eth-0/0/5.1)# exit\n\n\n/*   Ethernet Segment Configuration */\n\nexaware# config\nexaware(config)# interface agg-eth 1\nexaware(config-interface-agg-eth-1)# ethernet-segment\nexaware(config-interface-agg-eth-1-ethernet-segment)# )# identifier type 0 esi 1a.2b.3c.4d.5e.6f.77.88.99\nexaware(config-interface-agg-eth-1-ethernet-segment)# load-balancing-mode all-active\nexaware(config-interface-agg-eth-1-ethernet-segment)# service-carving highest-random-weight\n\n\n/* BGP Configuration */\n\nexaware# config\nexaware(config)# routing bgp 123\nexaware(config-routing-bgp-123)# vrf default\nexaware(config-routing-bgp-123-vrf-default)# router-id 10.10.10.10\nexaware(config-routing-bgp-123-vrf-default)# neighbor 10.10.10.1\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.1)# remote-as-number 123\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.1)# description MPLSFACING-PEER1\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.1)# af-l2vpn evpn\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.1)# exit\nexaware(config-routing-bgp-123-vrf-default)# neighbor 10.10.10.2\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.2)# remote-as-number 123\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.2)# description MPLSFACING-PEER2\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.2)# af-l2vpn evpn\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.2)# exit\nexaware(config-routing-bgp-123-vrf-default)# neighbor 10.10.10.3\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.3)# remote-as-number 123\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.3)# description MPLSFACING-PEER3\nexaware(config-routing-bgp-123-vrf-default-neighbor-10.10.10.3)# af-l2vpn evpn\n\n/* EVPN Configuration */\n\nexaware(config)# l2-services\nexaware(config-l2-services)# evpn evpn1\nexaware(config-l2-services-evpn-evpn1)# advertise-mac\nexaware(config-l2-services-evpn-evpn1)# auto-discovery\nexaware(config-l2-services-evpn-evpn1-auto-discovery)# export-rt 100:200\nexaware(config-l2-services-evpn-evpn1-auto-discovery)# import-rt 100:200\nexaware(config-l2-services-evpn-evpn1-auto-discovery)# exit\nexaware(config-l2-services-evpn-evpn1)# service-type vlan-based\nexaware(config-l2-services-evpn-evpn1)# mac-limit 500\n!\nexaware(config)# l2-services\nexaware(config-l2-services)# evpn evpn2\nexaware(config-l2-services-evpn-evpn1)# advertise-mac\nexaware(config-l2-services-evpn-evpn1)# auto-discovery\nexaware(config-l2-services-evpn-evpn1-auto-discovery)# export-rt 100:200\nexaware(config-l2-services-evpn-evpn1-auto-discovery)# import-rt 100:200\nexaware(config-l2-services-evpn-evpn1-auto-discovery)# exit\nexaware(config-l2-services-evpn-evpn1)# service-type vlan-aware-burst\nexaware(config-l2-services-evpn-evpn1)# mac-limit 500\nexaware(config-l2-services-evpn-evpn1)# interface x-eth 0/0/5.1\nexaware(config-l2-services-evpn-evpn1)# interface x-eth 0/0/6.1"
+  ],
+  "tables": [
+    [
+      [
+        "Description",
+        "To enable EVPN multi-homing mode and enter the EVPN ethernet segment command mode, use the ethernet-segment command. To disable the Ethernet segment configuration, use the no form of this command."
+      ],
+      [
+        "CommandSyntax",
+        "ethernet-segment no ethernet-segment"
+      ],
+      [
+        "Command Mode",
+        "configuration interface agg-eth configuration interface x-eth"
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: attributes: exaware# config exaware(config)# interface agg-eth 5 exaware(config-interface-agg-eth-5)# l2-transport enable exaware(config-interface-agg-eth-5)# ethernet-segment exaware(config- interface-agg-eth-5-ethernet-segment)# exit exaware(config)# interface x-eth 0/0/2 exaware(config-interface-x-eth-0/0/1)# l2-transport enable exaware(config-interface-x-eth-0/0/1)# ethernet-segment exaware(config- interface-x-eth-0/0/1-ethernet-segment)#"
+      ],
+      [
+        "Notes",
+        "The command can be configured only if: The interface is specified as a L2 interface by command l2-transport AND The interface and all sub-interfaces defined on it are not used by another non-EVPN L2 application. The command cannot be configured if the interface or a sub-interface on it is already attached to an EVPN instance. It means that you cannot change the EVPN parameters of an already attached to EVPN interface`. If an ES is configured on the base interface, then its sub-interfaces can be attached only to EVPN instances."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To set the Ethernet segment identifier (ESI) value of an interface, use the identifier command. To restore the default configuration (identifier of type 4), use the no form of this command."
+      ],
+      [
+        "CommandSyntax",
+        "identifier 0 type0-value identifier 1 identifier 4"
+      ],
+      [
+        "Command Mode",
+        "configuration interface agg-eth ethernet-segment configuration interface x-eth ethernet-segment"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "type0-value",
+        "9 octets in the hex-decimal format: xx.xx.xx.xx.xx.xx.xx.xx.xx",
+        "Specifies the ESI value (9 octets)."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: attributes: exaware# config exaware(config)# interface agg-eth 5 exaware(config-interface-agg-eth-5)# ethernet-segment exaware(config-interface-agg-eth-5-ethernet-segment)# identifier 0 1a.2b.3c.4d.5e.6f.77.88.99 exaware(config)# interface agg-eth 6 exaware(config-interface-agg-eth-6)# ethernet-segment exaware(config-interface-agg-eth-6-ethernet-segment)# identifier 1"
+      ],
+      [
+        "Notes",
+        "ESI consists of 1 octet of type followed by 9 octets of value. For type 0 the value is configured manually and for types 1 and 4 the value is generated by the system. The type 1 can be configured only on a multi-homed ES and its value consists of the followed parts extracted from LACP message sent be CE: LACP System MAC address (6 octets) LACP Key (2 octets) One zero octet. The type 4 can be configured only on a Single-Homed ES and its value consists of the following parts: IPv4 Address configured on loopback 0 (4 octets) Interface's ifIndex (4 octets). One zero octet. You cannot change the EVPN parameters of already attached to EVPN interface."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To set the LACP Administrative Key, use the lacp-key command. Use the no form of the command to restore the default configuration (the agg-eth interface number)."
+      ],
+      [
+        "CommandSyntax",
+        "lacp-key key-value no lacp-key"
+      ],
+      [
+        "Command Mode",
+        "configuration interface agg-eth"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "key-value",
+        "Integer into range 0..65535",
+        "Specifies the LACP Administrative Key."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware# config exaware(config)# interface agg-eth 5 exaware(config-interface-agg-eth-5)# lacp-key 4"
+      ],
+      [
+        "Notes",
+        "The LACP Key defines the ability of a port to aggregate with other ports. You must configure the same key on each port of the same LACP multi-homing LAG, You cannot change the EVPN parameters of an interface already attached to EVPN."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To set the LACP System MAC address, use the lacp-system-mac command. Use the no form of the command to restore the default configuration (the LAG MAC address)."
+      ],
+      [
+        "CommandSyntax",
+        "lacp-system-mac mac-address no lacp-system-mac"
+      ],
+      [
+        "Command Mode",
+        "configuration interface agg-eth"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "mac-address",
+        "xx:xx:xx:xx:xx:xx",
+        "Specifies the LACP System MAC Address."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware# config exaware(config)# interface agg-eth 5 exaware(config-interface-agg-eth-5)# lacp-system-mac 00:45:12:00:04:00"
+      ],
+      [
+        "Notes",
+        "All agg-eth interfaces of different PEs belonging to the same multi-home Ethernet Segment must use the same LACP system MAC address. You cannot change the EVPN parameters of already ttached to EVPN interface."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To configure the load-balancing mode, use the load-balancing-mode command. To restore the default configuration, use the no form of the command (single-active)."
+      ],
+      [
+        "CommandSyntax",
+        "load-balancing-mode single-active | all-active no load-balancing-mode"
+      ],
+      [
+        "Command Mode",
+        "configuration interface agg-eth ethernet-segment configuration interface x-eth ethernet-segment"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "single-active",
+        "",
+        "Enables the singe-active load-balancing mode."
+      ],
+      [
+        "",
+        "all-active",
+        "",
+        "Enables the all-active load-balancing mode."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: attributes: exaware# config exaware(config)# interface agg-eth 5 exaware(config-interface-agg-eth-5)# ethernet-segment exaware(config-interface-agg-eth-5-ethernet-segment)# load-balancing-mode all-active"
+      ],
+      [
+        "Notes",
+        "The command cannot be configured if the interface or a sub-interface on it is already attached to an EVPN instance. It means that you cannot change the EVPN parameters of an interface already attached to EVPN. You cannot change the EVPN parameters of an interface already attached to EVPN."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To configure the carving service (Default Forwarder Election method), use the service-carving command. To restore the default configuration, use the no form of the command. By default, the default carving service is used."
+      ],
+      [
+        "CommandSyntax",
+        "service-carving default | {highest-random-weight} | {{highest-preference | lowest-preference} [preference]} no service-carving"
+      ],
+      [
+        "Command Mode",
+        "configuration interface agg-eth ethernet-segment configuration interface x-eth ethernet-segment"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "default",
+        "",
+        "Specifies the Extended Default DF election algorithm defined by RFC 8584, chapter 4."
+      ],
+      [
+        "",
+        "highest-random-weight",
+        "",
+        "Specifies the Highest Random Weight DF election algorithm defined by RFC 8584, chapter 3."
+      ],
+      [
+        "",
+        "highest-preference",
+        "",
+        "Specifies the Highest Preference DF election algorithm defined by draft-ietf-bess-evpn-pref-df."
+      ],
+      [
+        "",
+        "lowest-preference",
+        "",
+        "Specifies the LOwest Preference DF election algorithm defined by draft-ietf-bess-evpn-pref-df."
+      ],
+      [
+        "",
+        "preference",
+        "0..65535",
+        "Specifies the DF preference. The default value is 37237."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: attributes: exaware# config exaware(config)# interface agg-eth 5 exaware(config-interface-agg-eth-5)# ethernet-segment exaware(config-interface-agg-eth-5-ethernet-segment)# service-carving highest-random-weight"
+      ],
+      [
+        "Notes",
+        "If at least one PE connected to the same ES advertises an algorithm differing from the one advertised by this PE, the PE falls back to the Default Algorithm defined by RFC 7432. You cannot change the EVPN parameters of an interface already attached to EVPN."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Shows detailed operational data for all interfaces or for a specific interface.If no parameter is selected, the full information is displayed for all interfaces."
+      ],
+      [
+        "Command Syntax",
+        "show interface [loopback loop-if | x-eth eth-if | mgmt mgmt-if | agg-eth agg-id] detail"
+      ],
+      [
+        "Command Mode",
+        "operational"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "",
+        "interface type and instance: loopback loop-if x-eth eth-ifmgmt mgmt-ifagg-eth agg-id",
+        "Specifies the interface to be displayed."
+      ]
+    ],
+    [
+      [
+        "Examples",
+        "The following examples show typical output for different types of interfaces:"
+      ],
+      [
+        "This example shows a physical Ethernet interface: exaware# show interface x-eth 0/0/1 detail interface x-eth 0/0/1 Oper-state: up MPLS: disabled Multicast: enabled Layer 1 Parameters Link capabilities: 10G 100G Link Speed: 100G Fec mode: cl91 Flow control: disabled Layer 2 Parameters MAC address: 00:0c:29:a2:bd:be L2 MTU: 1500 bytes Encapsulation: Ethernet II LLDP: disable Layer 3 Parameters L3 MTU: 1482 bytes VRF name: default VRF ID: 0 Handling of IP options: to-cpu IPV4 primary address: f:fea2:bdbe IPV4 MTU: 1500 IPV4 unicast RPF: disabled IPV6 link local address: fe80::4212:e4ff:fe00:2c4c IPV6 unicast addresses: 2001::1/64 IPV6 mc solicited addresses: ff02::1:ff00:2c4c ff02::1:ff00:1 IPV6 MTU: 1500 IPV6 unicast RPF: disabled MPLS MTU: 1500 ARP timeout: 14400sec NDP timeout: 14400sec Statistics Last clear counters: 19min 29sec Rx statistics Tx statistics Total bytes: 470649924756 Total bytes: 468326579292 Total packets: 1188509911 Total packets: 1182642877 IPv4: 1188509911 IPv4: 1182642877 IPv6: 0 IPv6: 0 MPLS: 0 MPLS: 0 Other: 0 Other: 0 Physical port statistics Rx statistics Tx statistics Total bytes: 475404199200 Total bytes: 475404203600 Total packets: 1188510498 Total packets: 1188510509 Average rate: 9.52 gbps Average rate: 9.52 gbps Average packet rate: 2.97 mpps Average packet rate: 2.97 mpps Received packets: 1188510498 Transmitted packets: 1188510509 Ucast: 1188510498 Ucast: 1188510509 Mcast: 0 Mcast: 0 Bcast: 0 Bcast: 0 Control: 0 Control: 0 Pause: 0 Pause: 0 Error packets: 0 Error packets: 0 CRC errors: 0 Runts: 0 Giants: 0 Ignored: 0 Discard packets: 0 MAC filtered: 0 FIFO drop: 0"
+      ]
+    ],
+    [
+      [
+        "This example shows a physical Ethernet interface with LACP enabled on the aggregator: exaware# show interface x-eth 0/0/2 detail interface x-eth 0/0/2 Oper-state: up Aggregated in agg-eth 5, LACP-state: up Link up delay: disabled Link down delay: disabled MPLS: disabled Interface index: 0x2000fff SNMP ifIndex: 0x2000000 Layer 1 Parameters Link capabilities: 10G 100G Link Speed: 100G Fec mode: cl91 Flow control: disabled Layer 2 Parameters MAC address: 00:0c:29:89:09:fe L2 MTU: 1518 bytes Encapsulation: Ethernet II Link capabilities: 10G-Base LLDP: disable"
+      ]
+    ],
+    [
+      [
+        "This example shows a sub-interface: exaware# show interface x-eth 0/1/5.6 detail interface x-eth 0/1/5.6 Oper-state: up Link up delay: disabled Link down delay: disabled Interface index: 0x2045fff SNMP ifIndex: 0x6045000 Layer 2 Parameters MAC address: 40:12:e4:00:00:1d L2 MTU: 9200 Bytes Encapsulation: Ethernet II Link capabilities: 10G-Base Layer 3 Parameters VRF name: default VRF ID: 0 IPv4 primary address: 50.50.50.3/24 IPv4 MTU: 9200 Bytes IPv4 unicast RPF: disabled ICMPv4: disabled Handling of IP options: to-cpu IPv6 link local address: fe80::4212:e4ff:fe00:2c4c IPv6 unicast addresses: 2001::1/64 IPv6 mc solicited addresses: ff02::1:ff00:2c4c ff02::1:ff00:1 IPv6 MTU: 9200 Bytes IPv6 unicast RPF: disabled ICMPv6: disabled Handling of hop by hop option extension header: to-cpu MPLS: disabled MPLS MTU: 9200 Bytes ARP timeout: 14400sec NDP timeout: 14400sec Statistics Last clear counters: 19min 29sec Rx statistics Tx statistics Total bytes: 470649924756 Total bytes: 468326579292 Total packets: 1188509911 Total packets: 1182642877 IPv4: 1188509911 IPv4: 1182642877 IPv6: 0 IPv6: 0 MPLS: 0 MPLS: 0 Other: 0 Other: 0"
+      ],
+      [
+        "This example shows a physical management interface: exaware# show interface mgmt 0/0/0 detail interface mgmt 0/0/0 Description: mgmt Oper-state: up Full-duplex 1000Mbit/sec Auto-negotiation: enabled Layer 2 Parameters MAC address: 00:0c:29:c9:42:f4 L2 MTU: 1389 bytes Encapsulation: Ethernet II Link capabilities: 1G 10G Link Speed: 10G Layer 3 Parameters L3 MTU: 1371 bytes VRF name: management VRF ID: 8191 IPV4 primary address is not set IPV4 MTU: 1385 IPV6: disabled IPV6 MTU: 1389 ARP timeout: 14400sec Statistics Last clear counters: 19min 37sec Rx packets: 118521 Tx packets: 0 Rx bytes: 2772720 Tx bytes: 0 Rx drops: 0 Tx drops: 0 Rx IPV4 packets: 118521 Tx IPV4 packets: 0 Rx IPV6 packets: 0 Tx IPV6 packets: 0 L2 Statistics Rx packets: 21349 Tx packets: 0 Rx bytes: 3308471 Tx bytes: 0 Rx errors: 0 Tx errors: 0 Rx drops: 0 Tx drops: 0 Rx ucast packets: 21349 Tx ucast packets: 0 Rx mcast packets: 0 Tx mcast packets: 0 Rx bcast packets: 0 Tx bcast packets: 0 Rx CRC errors: 0 Tx collisions: 0 Rx runts: 0 Rx giants: 0"
+      ]
+    ],
+    [
+      [
+        "This example shows a management VLAN interface: exaware# show interface mgmt 0/0/0.1 detail interface mgmt 0/0/0.1 Description: man Oper-state: up MPLS: disabled Multicast: enabled Layer 2 Parameters MAC address: 00:0c:29:89:09:fe L2 MTU: 1500 bytes Encapsulation: 802.1Q Virtual LAN, VLAN Id 1 Layer 3 Parameters L3 MTU: 1478 bytes VRF name: default VRF ID: 0 Handling of IP options: to-cpu IPV4 primary address is not set IPV4 MTU: 1500 IPV4 unicast RPF: disabled IPV6: disabled IPV6 MTU: 1500 IPV6 unicast RPF: disabled MPLS MTU: 1500 ARP timeout: 14400sec Statistics Last clear counters: 39sec Rx packets: 18446744073709551568 Tx packets: 48 Rx bytes: 432345564227567568 Tx bytes: 48 Rx drops: 0 Tx drops: 0 Rx IPV4 packets: 18446744073709551600 Tx IPV4 packets: 16 Rx IPV6 packets: 0 Tx IPV6 packets: 0 Rx MPLS packets: 0 Tx MPLS packets: 0"
+      ]
+    ],
+    [
+      [
+        "This example shows a loopback interface: exaware# show interface loopback 0 detail interface loopback 0 Oper-state: up Layer 3 Parameters VRF name: default VRF ID: 0 IPV4 primary address is not set IPV6: disabled This example shows an agg-eth interface with LACP active and where the interval is short: exaware# show interface agg-eth 5 interface agg-eth 5 Oper-state: up Aggregated interfaces: x-eth0/1/5, oper-state: up, member-state: up x-eth0/1/6, oper-state: up, member-state: up LACP: active, short-interval (rx-interval: 350ms, tx-interval: 500ms) Configured-members: 2, currently-up: 2 Min-links: 1 Link up delay: disabled Link down delay: disabled SNMP interface index: 1610633216 Ethernet Segment Parameters: Identifier: 0001.0203.0405.0607.0809 LACP System MAC: 00:01:af:11:22:bf LACP Key: 4 Load Balancing Mode: All-Active} Service Carving: highest-random-weight, weight=100 Layer 1 Parameters ..."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Enables the L2VPN EVPN AFI/SAFI in neighbor or neighbor group. Use the no form of the command to disable the L2VPN EVPN AFI/SAFI in neighbor or neighbor group."
+      ],
+      [
+        "Command Syntax",
+        "af-l2vpn evpn no af-l2vpn evpn"
+      ],
+      [
+        "Command Mode",
+        "configuration routing bgp vrf neighbor configuration routing bgp vrf neighbor-group"
+      ],
+      [
+        "Parameters Table",
+        "N/A"
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware# config exaware(config)# routing bgp 123 exaware(config-routing-bgp-123)# vrf default exaware(config-routing-bgp-123-vrf-default)# neighbor 3.3.3.2 exaware(config-vrf-vrf1-neighbor-3.3.3.2)# af-l2vpn evpn exaware# config exaware(config)# routing bgp 123 exaware(config-routing-bgp-123)# vrf default exaware(config-routing-bgp-123-vrf-default)# neighbor-group EVPN-neighbors exaware(config-vrf-vrf1-neighbor-group-EVPN-neighbors)# af-l2vpn evpn"
+      ],
+      [
+        "Notes",
+        "The af-l2vpn evpn command is supported only in VRF default."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays BGP EVPN routes received from the peer."
+      ],
+      [
+        "Command Syntax",
+        "show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "neighbor-ip",
+        "IPv4 or IPv6 address",
+        "IP address of specific neighbor.(Default = all)"
+      ],
+      [
+        "",
+        "evpn-prefix",
+        "1#rd#esi#vlan-id 2#rd#vlan-id#mac-addr#ip-addr 3#rd#vlan-id#orig-ip-addr 4#rd#esi#orig-ip-addr esi - 9-octets field in the hexadecimal format xxxxxxxxxxxxxxxxxx, where x is a character from range 0-9, a-f, or A-F. vlan-id - integer in range 0-4095",
+        "EVPN Prefix. (Default = all)"
+      ],
+      [
+        "",
+        "brief | detail",
+        "",
+        "Default = brief"
+      ],
+      [
+        "Examples",
+        "The following examples show sample output from this command:"
+      ],
+      [
+        "exaware# show bgp l2vpn evpn neighbors advertised-routes NEXT LOC AS NEIGHBOR EVPN PREFIX HOP METRIC PRF PATH ---------------------------------------------------------------------------- 3.3.3.2 1#100:100#000102030405060708#105 3.3.3.1 100 100 64401 3.3.3.2 2#100:100#1024#00:02:03:04:05:06 3.3.3.1 100 100 64401 3.3.3.2 3#100:100#108#10.10.10/32 3.3.3.1 100 100 64401 3.3.3.3 4#200:200#000102030405060708#10.10.10.10 3.3.3.1 100 100 64401 exaware# show bgp l2vpn evpn neighbors advertised-routes detail Neighbor 3.3.3.2 Type=1: RD=200:400, ESI=0:0001.0203.0405.0607.0809, VLAN-ID=10 As path: 64401 Next-hop: 3.3.3.1 Metric: 100 Local pref: 100 Weight: 0 MPLS Label=4052 Extended Communities: L2-Attr: P=0, B=0 RT: 100:200 Last update: Wed Apr 29 10:28:52 2015 Type=1: RD=200:400, ESI=0:0001.0203.0405.0607.0809, VLAN-ID=4095 As path: 64401 Next-hop: 3.3.3.1 Metric: 100 Local pref: 100 Weight: 0 MPLS Label=0 Extended Communities: ESI Label: ESI Mode=Single-Active, ESI Label 4052 L2-Attr: P=0, B=0 RT: 100:200 Last update: Wed Apr 29 10:28:52 2015 Type=2: RD=200:400, VLAN-ID=0, MAC=00:01:02:03:04:05:06 As path: 64401 Next-hop: 3.3.3.1 Metric: 100 Local pref: 100 Weight: 0 ESI=0:0001.0203.0405.0607.0809 MPLS Label=4051 Extended Communities: MAC Mobility: StaticFlag=0, SeqNum=1 RT: 64401:200 Last update: Wed Apr 29 10:28:52 2015 Type=3: RD=200:400, VLAN-ID=0, Originating Router's IP=10.10.10.1 Next-hop: 4.4.4.1 Metric: 100 Local pref: 100 Weight: 0 MPLS Label: 4052 Extended Communities: L2-Attr: F=0, C=0, MTU=1500 PMSI Tunnel Attribute: Flag=0, Type=6, MPLS Label=4053, Tunnel-ID=10.10.10.1 RT: 100:200 Last update: Wed Apr 29 10:28:52 2015 Last update: Wed Apr 29 10:28:52 2015 Type=4: RD=100:100, ESI=00010203040506070809, Orig. Router's IP=10.10.10.1 Next-hop: 4.4.4.1 Metric: 100 Local pref: 100 Weight: 0 MPLS Label: 4052 Extended Community: ES-Import RT: 66051:263430 DF Election: DF Alg=Hig-Pref, Bimap=00, Prefer=200 Last update: Wed Apr 29 10:28:52 2015 exaware# show bgp l2vpn evpn neighbors received-routes NEXT LOC AS NEIGHBOR EVPN PREFIX HOP METRIC PRF PATH ---------------------------------------------------------------------------- 3.3.3.2 1#100:100#000102030405060708#105 3.3.3.1 100 100 64401 3.3.3.2 2#100:100#1024#00:02:03:04:05:06 3.3.3.1 100 100 64401 3.3.3.2 3#100:100#108#10.10.10/32 3.3.3.1 100 100 64401 3.3.3.3 4#200:200#000102030405060708#10.10.10.10 3.3.3.1 100 100 64401 exaware# show bgp l2vpn evpn neighbors advertised-routes evi-name EVPN1 detail Neighbor 3.3.3.2 Type=1: RD=200:400, ESI=0:0001.0203.0405.0607.0809, VLAN-ID=10 As path: 64401 Next-hop: 3.3.3.1 Metric: 100 Local pref: 100 Weight: 0 MPLS Label=4052 Extended Communities: L2-Attr: F=0, C=0, P=1, B=0 RT: 100:200 Last update: Wed Apr 29 10:28:52 2015 Type=2: RD=200:400, VLAN-ID=0, MAC=00:01:02:03:04:05:06 As path: 64401 Next-hop: 3.3.3.1 Metric: 100 Local pref: 100 Weight: 0 ESI=0:0001.0203.0405.0607.0809 MPLS Label=4051 Extended Communities: MAC Mobility: StaticFlag=0, SeqNum=1 RT: 100:200 Last update: Wed Apr 29 10:28:52 2015 Type=3: RD=200:400, VLAN-ID=0, Originating Router's IP=10.10.10.1 Next-hop: 4.4.4.1 Metric: 100 Local pref: 100 Weight: 0 MPLS Label: 4052 Extended Communities: PMSI Tunnel Attribute: Flag=0, Type=6, MPLS Label=4053, Tunnel-ID=10.10.10.1 RT: 100:200 Last update: Wed Apr 29 10:28:52 2015 Type=4: RD=100:100, ESI=00010203040506070809, Originating Router's IP=10.10.10.1 Next-hop: 4.4.4.1 Metric: 100 Local pref: 100 Weight: 0 Extended Community: DF Election: DF Alg=Hig-Pref, Bimap=00, Prefer=200 ES-Import RT: 66051:263430 Last update: Wed Apr 29 10:28:52 2015"
+      ],
+      [
+        "Notes",
+        "Only IPv4 addresses are supported into the EVPN routes. Type2: the IP address is an optional parameter."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays the EVPN routes of types 1,2, and 3 imported by the Router."
+      ],
+      [
+        "Command Syntax",
+        "show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evi-name",
+        "String",
+        "Name of EVPN instance. (Default = all)"
+      ],
+      [
+        "",
+        "evpn-prefix",
+        "1#esi#vlan-id 2#vlan-id#mac-addr#ip-addr 3#vlan-id#orig-ip-addr esi - 9-octets field in the hexadecimal format xxxxxxxxxxxxxxxxxx, where x is a character from range 0-9, a-f, or A-F. vlan-id - integer in range 0-4095",
+        "EVPN Prefix,"
+      ],
+      [
+        "",
+        "brief | detail",
+        "",
+        "Default: brief"
+      ],
+      [
+        "Examples",
+        ""
+      ],
+      [
+        "exaware# show bgp l2vpn evpn table evi evi-name EVPN12 Flags: s - suppressed, d - damped, h - history, * - valid, > - best i - internal, S - stale, = - multipath, a - alternate Origin: i - IGP, e - EGP, ? - incomplete EVI Name=EVPN12 NEXT LOC AS EVPN PREFIX PEER IP FLAGS HOP METRIC PRF WEIGHT PATH ORIGIN ---------------------------------------------------------------------------- 1#000102030405060708#105 3.3.3.2 *> 3.3.3.1 100 100 0 64401 i 2#1024#00:02:03:04:05:06 3.3.3.2 *> 3.3.3.1 100 100 0 64401 i 3#108#10.10.10 3.3.3.2 *> 3.3.3.1 100 100 0 64401 i exaware# show bgp l2vpn evpn table evi evi-name EVPN12 detail Flags: s - suppressed, d - damped, h - history, * - valid, > - best i - internal, S - stale, = - multipath, a - alternate Origin: i - IGP, e - EGP, ? - incomplete EVI Name=VPN1 Type=1: ESI=0:0001.0203.0405.0607.0809, VLAN-ID=4095 MPLS Label: 0 Peer IP: 3.3.3.2 Flags: *>i Metric: 100 Local Preference: 100 Weight: 0 AS Path: 64401:200 L2-Attr: F=0, C=0, P=0, B=0 Last update: Wed Apr 29 10:28:52 2015 Type=1: ESI=0:0001.0203.0405.0607.0809, VLAN-ID=10 MPLS Label: 2200 Peer IP: 3.3.3.2 Flags: *>i Metric: 100 Local Preference: 100 Weight: 0 L2-Attr: F=0, C=0, P=1, B=0 Last update: Wed Apr 29 10:28:52 2015 Type=2: VLAN-ID=10, MAC=00:01:02:03:04:05:06 ESI ID: 00000102030405060708 MPLS Label: 2655 Static Flag: 0 Sequence Number: 0 Peer IP: 3.3.3.2 Flags: *>i Metric: 100 Local Preference: 100 Weight: 0 AS Path: 64401:200 Last update: Wed Apr 29 10:28:52 2015 Type=3: VLAN-ID=10, Originating Router's IP=10.10.10.1 MPLS Label: 2666 Transmission Mode: Replication Peer IP: 3.3.3.2 Flags: *>i Metric: 100 Local Preference: 100 Weight: 0 AS Path: 64401:200 Last update: Wed Apr 29 10:28:52 2015"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays the Ethernet Segments Table (EVPN routes of type 4) imported by the Router."
+      ],
+      [
+        "Command Syntax",
+        "show bgp table evpn ethernet-segment [evpn-prefix] [brief | detail]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-prefix",
+        "4#rd#esi#orig-ip-addr esi - 9-octets field in the hexadecimal format xxxxxxxxxxxxxxxxxx, where x is a character from range 0-9, a-f, or A-F.",
+        "EVPN Prefix,"
+      ],
+      [
+        "",
+        "brief | detail",
+        "",
+        "Default = brief"
+      ],
+      [
+        "Examples",
+        ""
+      ],
+      [
+        "Exaware# show bgp l2vpn evpn table ethernet-segment Flags: s - suppressed, d - damped, h - history, * - valid, > - best i - internal, S - stale, = - multipath, a - alternate Origin: i - IGP, e - EGP, ? - incomplete NEXT LOC AS EVPN PREFIX PEER IP FLAGS HOP METRIC PRF WEIGHT PATH ORIGIN ---------------------------------------------------------------------------------- 4#000102030405060708#10.10.10.10 3.3.3.2 *> 3.3.3.1 100 100 0 64401 i Exaware# show bgp l2von evpn table ethernet-segment detail Flags: s - suppressed, d - damped, h - history, * - valid, > - best i - internal, S - stale, = - multipath, a - alternate Origin: i - IGP, e - EGP, ? - incomplete ESI = 000102030405060708 Originating Router's IP=10.10.10.1 MPLS Label: 4042 DF Algorithm: Highest Preference, DF Preference= 20 Don't Preempt: Enabled Peer IP: 3.3.3.2 Flags: *>i Metric: 100 Local Preference: 100 Weight: 0 AS Path: 64401:200 Last update: Wed Apr 29 10:28:52 2015 Originating Router's IP=10.10.10.2 MPLS Label: 4042 DF Algorithm: Highest Preference, DF Preference= 20 Don't Preempt: Enabled Peer IP: 3.3.3.2 Flags: *>i Metric: 100 Local Preference: 100 Weight: 0 AS Path: 64401:200 Last update: Wed Apr 29 10:28:52 2015"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays BGP neighbor operational data."
+      ],
+      [
+        "Command Syntax",
+        "show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "vrf-name",
+        "Name, *",
+        "Name of VRF instance for BGP.(Default = default)"
+      ],
+      [
+        "",
+        "afi",
+        "ipv4ipv6l2vpn",
+        "IP address family (AFI) name.(Default = all)"
+      ],
+      [
+        "",
+        "safi",
+        "labeled-unicastunicastvpnflowspecvpls evpn",
+        "SAFI name.(Default = all)"
+      ],
+      [
+        "",
+        "neighbor-ip",
+        "IPv4/IPv6 address",
+        "IPv4 or IPv6 IP address of specific neighbor.(Default = all)"
+      ],
+      [
+        "Examples",
+        "The following examples show sample outputs from this command:"
+      ],
+      [
+        "exaware# show bgp neighbors VRF default : PEER MSG MSG UP/DOWN TABLE STATE/ NEIGHBOR STATE AS RCVD SENT TIME AFI/SAFI VERSION PFX-RCVD ----------------------------------------------------------------------------------- 1.1.1.1 down 111 0 0 N/A L2VPNvpls 0 Connect 20.200.0.20 up 65001 3380 3585 1D1h27m40s IPv4u 30 19 L2VPNvpls 3 2 L2VPNevpn 4 3 exaware# show bgp neighbors vrf BLUE brief 3.3.3.3 PEER MSG MSG UP/DOWN TABLE STATE/ NEIGHBOR STATE AS RCVD SENT TIME AFI/SAFI VERSION PFX-RCVD ---------------------------------------------------------------------------------- 3.3.3.3 up 64400 19724 23086 4D22h49m9s IPv4u 1191077 1 exaware# show bgp neighbors detail 20.200.0.20 VRF default : BGP peer: 20.200.0.20 Admin status: up, BGP state: Established (up for: 1d2h26m14s), link type: external BFD: disabled Connection parameters Local Router ID: 192.168.0.82 Remote Router ID: 192.168.0.20 Local host: 20.200.0.82 Remote host: 20.200.0.20 Local TCP port: 179 Remote TCP port: 63819 Local AS: 1 Remote AS: 65001 Min interval: 30 Keepalive 30sec (configured 60sec) Hold time 90sec (configured 180sec) Statistics Connections established: 1 Connections dropped: 0 Rx messages: 3511 Tx messages: 3724 Rx notifications: 0 Tx notifications: 0 Rx updates: 16 Tx updates: 5 Rx route refresh req: 0 Tx route refresh req: 0 IPv4 Unicast table: Table version: 31 Neighbor version: 30 Rx prefixes: 19 Tx prefixes: 9 L2VPN VPLS table: Table version: 5 Neighbor version: 5 Rx prefixes: 2 Tx prefixes: 0 L2VPN EVPN table: Table version: 5 Neighbor version: 5 Rx prefixes: 2 Tx prefixes: 0 Neighbor parameters Peer multihop: disabled IPv4 Unicast parameters Route reflector client: disabled Inbound soft reconfigure: disabled Next hop self: disabled Send community: none Weight: 0 Maximum prefixes: 524288 Preserve next hop: disabled Allow AS in: disabled Multipath: disabled L2VPN VPLS parameters Route reflector client: disabled Inbound soft reconfigure: enabled Send community: extended Weight: 0 Maximum prefixes: 1000 L2VPN EVPN parameters Route reflector client: disabled Inbound soft reconfigure: enabled Send community: extended Weight: 0 Maximum prefixes: 1000 Capabilites Multiprotocol (1) IPv4 Unicast: advertised and received IPv4 Labeled-Unicast: none IPv4 VPN: none IPv4 Flowspec: none IPv6 Unicast: none IPv6 Labeled-Unicast: none IPv6 VPN: none L2VPN VPLS: advertised and received L2VPN EVPN: advertised and received Route refresh (2): advertised and received (old and new) Outbound Route Filter (3) IPv4 Unicast Send mode: advertised Receive mode: advertised Rx prefix filter: none Graceful Restart (64): advertised and received Maximum stale time: 360sec Restart time Advertised: 120sec Received: 120sec IPv4 Unicast: advertised and received L2VPN VPLS: advertised and received L2VPN EVPN: advertised and received Extended asn capability (65): advertised and received Dynamic capabilities (67): none"
+      ],
+      [
+        "Notes",
+        "If a VRF is not specified, data is shown for the default VRF. AFI l2vpn is only available in VRF default, and SAFI vpls is only supported in AFI l2vpn, and is the only option there. SAFI labeled-unicast and vpn are supported only in VRF default. Default view is brief. When specifying a neighbor-ip, default view is detailed."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To allow/disallow advertising local MAC addresses to the peers, use the advertise-mac command. The local MAC is advertised to the peer in control plane using BGP. To restore the default configuration, use the no form of the command (enable)."
+      ],
+      [
+        "CommandSyntax",
+        "Advertise-mac enable | disable no admin-state"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "enable",
+        "",
+        "Local MAC addresses are advertised."
+      ],
+      [
+        "",
+        "disable",
+        "",
+        "Local MAC addresses are not advertised."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# advertise-mac disable"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Configures auto-discovery attributes.Use the no form of the command to remove everything in auto-discovery."
+      ],
+      [
+        "CommandSyntax",
+        "auto-discovery no auto-discovery"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services vpls configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "N/A"
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# vpls Service1 exaware(config-l2-services-vpls-Service1)# auto-discovery exaware(config)# l2-services exaware(config-l2-services)# evpn Service2 exaware(config-l2-services-evpn-Service2)# auto-discovery"
+      ],
+      [
+        "Notes",
+        "auto-discovery is mandatory and cannot be deleted."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To enable Control Word in EVPN MAC packets, use the control-word CLI command. Use the no form of this command, to disable (default)."
+      ],
+      [
+        "Command Syntax",
+        "control-word enable | disable no control-word"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services evpn"
+      ],
+      [
+        "Parameters Table",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "enable",
+        "",
+        "A Control Word must be present in MAC packets,"
+      ],
+      [
+        "",
+        "disable",
+        "",
+        "A Control Word must not be present in MAC packets,"
+      ],
+      [
+        "Examples",
+        "This example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-evpn-Service1)# control-word enable"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To configure Ethernet Segment waiting time, use the es-pewaitinger-time command. To restore the default configuration (3 seconds), use the no form of the command."
+      ],
+      [
+        "CommandSyntax",
+        "es-waiting-time seconds no evpn"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "seconds",
+        "Integer in range 0-3600",
+        "The PE starts the timer after sending EVPN Ethernet Segment Route (4) to allow the reception of Ethernet Segment routes from other PE nodes connected to the same Ethernet segment. This timer value should be the same across all PEs connected to the same Ethernet segment."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# es-waiting-time 10"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To create an Ethernet Virtual Private Network (EVPN) instance of the specified service type and enter EVPN configuration mode, use the evpn command. To remove the EVPN instance, use the no form of the command."
+      ],
+      [
+        "CommandSyntax",
+        "evpn evpn-name [service-type {vlan-based | vlan-bundle | vlan-aware-bundle | port-based}] no evpn"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String up to 40 characters",
+        "EVPN service name."
+      ],
+      [
+        "",
+        "service-type",
+        "",
+        "Specifies the service type of the created EVPN instance. By default: vlan-based"
+      ],
+      [
+        "",
+        "",
+        "vlan-based",
+        "MAC Address Table Keys: MAC Single Broadcast Domain. VLAN-ID Translation is done performed automatically at the received side, if it is needed. Supported Interfaces: sub-interfaces with single VLAN-ID"
+      ],
+      [
+        "",
+        "",
+        "vlan-bundle",
+        "MAC Address Table Keys: MAC Single Broadcast Domain. The same VLAN bundle must be configured on all interfaces belonging to the same EVPN instance. Input frame with VLAN-ID not belonging to the bundle is dropped. Supported Interfaces: sub-interfaces with range of VLAN-IDs"
+      ],
+      [
+        "",
+        "",
+        "vlan-aware-bundle",
+        "MAC Address Table Keys: VLAN-ID MAC Separate Broadcast Domain per VLAN Input BUM frame with VLAN-ID not belonging to the bundle is dropped. Supported Interfaces: sub-interfaces with range of VLAN-IDs"
+      ],
+      [
+        "",
+        "",
+        "port-based",
+        "MAC Address Table Keys: MAC Single Broadcast Domain Supported Interfaces: x-eth agg-eth"
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 service-type port-base",
+        ""
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Configures a list of route-target values to be exported.Use the no form of the command to remove the auto-discovery export-rt configured route-target values."
+      ],
+      [
+        "CommandSyntax",
+        "export-rt route-target no export-rt route-target"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services vpls auto-discovery configuration l2-services evpn auto-discovery"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "route-target",
+        "<2-byte ASN>:<4-byte number> <4-byte ASN>L:<2-byte number> <IPv4 address>:<2-byte number>",
+        "2-byte ASN notation. 4-byte ASN notation. IPv4 address notation."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# vpls Service1 exaware(config-l2-services-vpls-Service1)# auto-discovery exaware(config-vpls-Service1-auto-discovery)# export-rt 100:200 exaware(config-vpls-Service1-auto-discovery)# export-rt 100:201 exaware(config)# l2-services exaware(config-l2-services)# evpn evpn1 exaware(config-l2-services-evpn-evpn1)# auto-discovery exaware(config-l2-services-evpn-evpn1-auto-discovery)# export-rt 500:100"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To enable duplicate detection of host MAC address, use the host mac-address duplicate-detection command. To restore the default configuration, use the no form of this command."
+      ],
+      [
+        "CommandSyntax",
+        "host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] no host mac-address-duplicate-detection"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "enable / disable",
+        "",
+        "Enables/Disables duplication detection of host MAC address. The default value is enabled."
+      ],
+      [
+        "",
+        "move-interval",
+        "Integer in range 60-240",
+        "Interval to watch for subsequent MAC moves before freezing the MAC address. The default value is 180 seconds."
+      ],
+      [
+        "",
+        "move-count",
+        "Integer in range 1-10",
+        "The number of times to detect MAC duplication, where a 'duplicate MAC address' situation has occurred, and the duplicate MAC address has been added to a list of duplicate MAC addresses. The default value is 5."
+      ],
+      [
+        "",
+        "freeze-time",
+        "Integer in range 0-60",
+        "Interval of locking the MAC address after it has been detected as duplicate. The default value is 30 seconds."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# host mac-address-duplicate-detection move-interval 120 duplicate-detection move-count 5 freeze-time 40 retry-count 5"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Configures a list of route-target values to be imported.Use the no form of the command to remove the auto-discovery import-rt configured route-target values."
+      ],
+      [
+        "CommandSyntax",
+        "import-rt route-target no import-rt route-target"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services vpls auto-discovery configuration l2-services evpn auto-discovery"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "route-target",
+        "<2-byte ASN>:<4-byte number> <4-byte ASN>L:<2-byte number> <IPv4 address>:<2-byte number>",
+        "2-byte ASN notation. 4-byte ASN notation. IPv4 address notation."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# vpls Service1 exaware(config-l2-services-vpls-Service1)# auto-discovery exaware(config-vpls-Service1-auto-discovery)# import-rt 100:200 exaware(config-vpls-Service1-auto-discovery)# import-rt 100:201 exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# auto-discovery exaware(config-evpn-Service1-auto-discovery)# import-rt 100:200"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Configures an interface (attachment circuit) under the VPLS/EVPN service.Use the no form of the command to remove the interface configuration under the VPLS/EVPN service."
+      ],
+      [
+        "CommandSyntax",
+        "interface if-name no interface if-name"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services vpls configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "if-name",
+        "interface",
+        "VPLS service interface (attachment circuit)."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# vpls Service1 exaware(config-l2-services-vpls-Service1)# interface x-eth 0/0/3.21 exaware(config-l2-services-vpls-Service1)# interface x-eth 0/0/4.21 exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# interface x-eth 0/0/3.22 exaware(config-l2-services-evpn-Service1)# interface x-eth 0/0/4.22"
+      ],
+      [
+        "Notes",
+        "Only interfaces with l2-transport set to 'enable' can be configured as an attachment circuit. An attachment circuit can be configured on interface types x-eth, agg-eth, and on sub-interfaces of all these types."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Use the mac-address-static command to configure a static MAC address for the entire EVPN service. Use the no form of the command to remove the static MAC address."
+      ],
+      [
+        "CommandSyntax",
+        "mac-address-static mac-address interface interface | vpws vpws-name no mac-address-static [mac-address]"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "mac-address",
+        "xx:xx:xx:xx:xx:xx",
+        "MAC address."
+      ],
+      [
+        "",
+        "interface",
+        "Interface name",
+        "AC interface name."
+      ],
+      [
+        "",
+        "vpws-name",
+        "string",
+        "VPWS name."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# mac-address-static 00:01:01:02:03:04 interface x-eth 0/0/12.4"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Use the mac-address-static command to configure a static MAC address. Use the no form of the command to remove the static MAC address."
+      ],
+      [
+        "CommandSyntax",
+        "mac-address-static mac-address {interface interface | peer ip-address | vpws vpws-name} no mac-address-static [mac-address]"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services vpls"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "mac-address",
+        "xx:xx:xx:xx:xx:xx",
+        "MAC address."
+      ],
+      [
+        "",
+        "interface",
+        "Interface name",
+        "AC interface name."
+      ],
+      [
+        "",
+        "Ip-address",
+        "A.B.C.D",
+        "PW peer IP address."
+      ],
+      [
+        "",
+        "vpws-name",
+        "string",
+        "VPWS name."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# vpls Service1 exaware(config-l2-services-vpls-Service1)# mac-address-static 00:01:01:02:03:04 interface x-eth 0/0/12.4 exaware(config-l2-services-vpls-Service1)# mac-address-static 00:01:01:12:13:04 peer 10.23.1.2 exaware(config-l2-services-vpls-Service1)# mac-address-static 00:01:01:aa:bb:04 vplws VPWS1 eexaware(config-l2-services-vpls-Service1)# no mac-address-static 00:11:11:12:13:04"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Use the mac-aging-time command to configure the VPLS/EVPN MAC address table aging time. Use the no form of the command to restore the default configuration."
+      ],
+      [
+        "CommandSyntax",
+        "mac-aging-time seconds no mac-aging-time"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services vpls configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "seconds",
+        "0, 40-2400",
+        "Specifies the aging time in seconds. A value of 0 means that aging time is disabled. The default value is 300 second."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# vpls service1 exaware(config-l2-servicesvpls-service1)# mac-aging-time 400 exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# mac-aging-time 400"
+      ],
+      [
+        "Notes",
+        "Devices with Jerico1 support only the following subset of the range defined above: 0, 100-600."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Sets the maximum number of MAC addresses learned for the entire VPLS/EVPN service.Use the no form of the command to remove the mac-limit configured."
+      ],
+      [
+        "CommandSyntax",
+        "mac-limit limit no mac-limit limit"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services vpls configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "limit",
+        "1-250000",
+        "Maximum MAC addresses learned. (Default = 65520)"
+      ],
+      [
+        "Examples",
+        "The following examples show how to set the maximum number of MAC addresses learned: exaware(config)# l2-services exaware(config-l2-services)# vpls Service1 exaware(config-l2-services-vpls-Service1)# mac-limit 5000 exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# mac-limit 5000"
+      ],
+      [
+        "Notes",
+        "Mac-limit under the VPLS/EVPN service limits the number of MAC addresses learned for the entire VPLS/EVPN service."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To enable/disable unknown MAC frames, use the unknown-mac-flooding CLI command. Use the no form of the command to restore default (enable)."
+      ],
+      [
+        "CommandSyntax",
+        "unknow-mac-flooding enable | disable no unknow-mac-flooding"
+      ],
+      [
+        "Command Mode",
+        "configuration l2-services evpn"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "enable",
+        "",
+        "Enable flooding of unknow MAC frames (default)."
+      ],
+      [
+        "",
+        "disable",
+        "",
+        "Disable flooding of unknow MAC frames."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware(config)# l2-services exaware(config-l2-services)# evpn Service1 exaware(config-l2-services-evpn-Service1)# unknown=mac-flooding disable"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To clear the frozen (duplicated or locked) MAC addresses, use the clear evpn frozen mac-addresses command."
+      ],
+      [
+        "Command Syntax",
+        "clear evpn frozen mac-addresses [evpn-name [mac-address]]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String",
+        "Name of EVPN service."
+      ],
+      [
+        "",
+        "mac-address",
+        "hh:hh:hh:hh:hh:hh",
+        "MAC address."
+      ],
+      [
+        "Examples",
+        "The following examples show how to use this command: The following command unfreezes all frozen MAC addresses of all EVPN services: exaware# clear evpn frozen mac-addresses The following command unfreezes all frozen MAC addresses of the Service1 EVPN: exaware# clear evpn duplicated mac-addresses Service1 The following command unfreezes the specified frozen MAC addresses of the Service1 EVPN: exaware# clear evpn frozen mac-addresses Service1 00:43:54:43:54:43"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Clears EVPN local learnt dynamic MAC addresses."
+      ],
+      [
+        "Command Syntax",
+        "clear evpn mac address-table [name evpn-name [source interface | mac mac-address]]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String",
+        "Name of EVPN service."
+      ],
+      [
+        "",
+        "interface",
+        "Interface name",
+        "AC interface name."
+      ],
+      [
+        "Examples",
+        "The following examples show how to use this command: The following examples show how to use this command: The following command removes all local learned dynamic MAC addresses from the all EVPNs. exaware# clear evpn mac address-table all The following command removes all local learned dynamic MAC addresses from EVPN evpnService1. exaware# clear evpn mac address-table name evpnService1 all The following command removes all local learned dynamic MAC addresses from EVPN evpnService1 defined on x-eth 0/1/2.6. exaware# clear evpn mac address-table name evpnService1 source x-eth 0/1/2.6 The following command removes local learned dynamic MAC address 00:43:54:43:54:43 from EVPN evpnService1. exaware# clear evpn mac address-table name evpnService1 mac 00:43:54:43:54:43"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays the EVPN broadcast domains."
+      ],
+      [
+        "Command Syntax",
+        "show evpn broadcast-domains [name evpn-name [vlan-id vlan-id]]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String",
+        "Name of EVPN service. Default: all configured EVPN instances."
+      ],
+      [
+        "",
+        "vlan-id",
+        "1-4094",
+        "VLAN ID. Default: all configured VLANs"
+      ],
+      [
+        "Examples",
+        "The following examples show how to use this command: exaware# show evpn broadcast-domains EVPN Name: A1, Service Type: vlan-based VLAN: 0, Local BUM Label: 4000 Local Interfaces: x-eth 0/0/1.1, x-eth 0/0/2.1 Remote PEs: IP ADDRESS REMOTE BUM LABEL ---------- ---------------- 10.10.10.1 4023 10.10.10.2 4001 EVPN Name: A2, Service Type: vlan-bundle VLAN: 0, Local BUM Label: 4001 Local Interfaces: x-eth 0/0/3.10 x-eth 0/0/4.13-20 Remote PEs: IP ADDRESS REMOTE BUM LABEL ---------- ---------------- 10.10.10.1 4130 10.10.10.2 4230 EVPN Name: A3, Service Type: vlan-aware-bundle VLAN: 10, Local Label: 4003 Local Interfaces: x-eth 0/0/5.10 x-eth 0/0/6.10 Remote PEs: IP ADDRESS REMOTE BUM LABEL ---------- ---------------- 10.10.10.1 4040 10.10.10.2 4040 VLAN: 31, Local Label: 4004 Local Interfaces: x-eth 0/0/5.31 x-eth 0/0/6.31 x-eth 0/0/7.31 agg-eth 1.31 Remote PEs: IP ADDRESS REMOTE BUM LABEL ---------- ---------------- 10.10.10.1 4150 10.10.10.2 4130 EVPN Name: A4, Service Type: port-based Local BUM Label: 4005 Local Interfaces: x-eth 0/0/7 x-eth 0/0/8 Remote PEs: IP ADDRESS REMOTE BUM LABEL ---------- ---------------- 10.10.10.1 4423 10.10.10.2 4823"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays the EVPN BUM Routing Table."
+      ],
+      [
+        "Command Syntax",
+        "show evpn bum routing-table [name evpn-name [vlal-id vlan-id]]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String",
+        "Name of EVPN service. Default: all configured EVPN instances."
+      ],
+      [
+        "",
+        "vlan-id",
+        "1-4094",
+        "VLAN ID. Default: all configured VLANs"
+      ],
+      [
+        "Examples",
+        "The following examples show how to use this command:"
+      ],
+      [
+        "exaware# show evpn bum routing-table name A2 vlan-id 20 EVPN Name: A2, Service Type: vlan-aware-bundle VLAN: 20, Local BUM Label: 4003 INPUT LOCAL SPLIT OUTPUT REMOTE REMOTE SPLIT INTERFACE/PE HORIZON LABEL INTERFACE/IP BUM LABEL HORIZON LABEL --------------------------------------------------------------------- PE x-eth0/0/1 agg-eth2 100 agg-eth3 x-eth0/0/1 agg-eth2 agg-eth2 10.10.10.1 201 300 10.10.10.2 202 agg-eth2 x-eth0/0/1 agg-eth3 10.10.10.1 201 10.10.10.2 202 agg-eth3 x-eth0/0/1 agg-eth2 10.10.10.1 201 10.10.10.2 202"
+      ],
+      [
+        "NOTES",
+        "PE - A frame is received from a remote PE. Local Split Horizon Label is displayed if the outgoing local interface is configured on an Ethernet segment and the local PE is the DF. Remote Split Horizon Label is displayed if the input local interface is configured on an Ethernet segment and the remotel PE is the DF."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays the EVPN Ethernet Segments."
+      ],
+      [
+        "Command Syntax",
+        "show evpn ethernet-segments [esi es-id]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "es-id",
+        "xxxx.xxxx.xxxx.xxxx.xxxx",
+        "Ethernet Segment identifier. Default: all configured Ethernet Segments"
+      ],
+      [
+        "Examples",
+        "The following examples show how to use this command: exaware# show evpn ethernet-segments Ethernet Segment: 0001.002.003.0004.0005 Interface Name: agg-eth3 Interface MAC: 008a.5e96.0875 Operational State: Up Load Balancing Mode: Configured: all-active Operational: all-active Service Carving: highest-random-weight weight: 100 PE Status: DF ES LABEL: 4284 LACP: enabled LACP System MAC: 008a.5e96.0875 LACP Administrative Key: 4 PEER IP ADDRESS PEER STATUS ES LABEL ----------------------------------------- 10.10.10.2 Backup 4242 10.10.10.3 non-DF 4432 Ethernet Segment: 0001.002.003.0004.0025 Interface Name: agg-eth4 Interface MAC: 008a.5e96.afc0 Operational State: Up Load Balancing Mode: Configured: single-active Operational: single-active Service Carving: highest-random-weight weight: 100 PE Status: Primary ES LABEL: 4284 LACP: disabled PEER IP ADDRESS PEER STATUS ES LABEL ----------------------------------------- 10.10.10.2 Backup 4242 10.10.10.3 non-DF 4432"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "To display the frozen (duplicated or locked) MAC addresses, use the show evpn frozen mac-addresses command."
+      ],
+      [
+        "Command Syntax",
+        "show evpn frozen mac-addresses [evpn-name [mac-address]]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String",
+        "Name of EVPN service. Default: all configured EVPN Instances."
+      ],
+      [
+        "",
+        "mac-address",
+        "hh:hh:hh:hh:hh:hh",
+        "MAC address. Default: all frozen MAC addresses."
+      ],
+      [
+        "Examples",
+        "The following example shows how to use this command: exaware# show evpn frozen mac-addresses EVPN Name MAC ADDRESS STATE INTERFACE -------------- ------------------ ------------ -------------- A1 00:34:29:a2:aa:23 Duplicated x-eth 0/0/1.1 00:34:29:a2:aa:23 Locked agg-eth 2.1 00:34:29:a2:bb:23 Locked x-eth 0/0/2.1 A2 00:34:29:a2:aa:23 Duplicated x-eth 0/0/3.1"
+      ]
+    ],
+    [
+      [
+        "Notes",
+        "Duplicated MAC: The EVPN MAC/IP Advertisement routes with this MAC are not sent and processed. Locked MAC: The EVPN MAC/IP Advertisement routes for this MAC are not sent and processed. Input MAC frames with Source MAC equals to this MAC and received on this MAC's local interface are dropped. Input MAC frames with Destination MAC equals to this MAC are dropped."
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays the EVPN global status."
+      ],
+      [
+        "Command Syntax",
+        "show evpn global [name evpn-name]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String",
+        "Name of EVPN service. Default: all EVPN instances."
+      ],
+      [
+        "Examples",
+        "The following examples show how to use this command: exaware# show evpn global EVPN name: E1 Advertise MAC Addresses: Enabled ES DF Waiting Time: 3 seconds Export-rt: 100:200 Import-rt: 100.200 Service Type: vlan-Based Host MAC Address Duplicate Detection: enabled Move Interval: 180 seconds Move Counter: 5 Freeze Time: 30 seconds MAC Aging Time: 400 seconds MAC Limit: 4000 Unknown MAC Flooding: Enabled Control Word: Disabled Local Interfaces: INTERFAC ESI ES LABEL -------------- ------------------------ -------- agg-eth 1 0001.0203.0405.0607.0809 4302 agg-eth 2.1 x-eth 0/0/1.1 x-eth 0/0/2.1"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Show the EVPN MAC Address table."
+      ],
+      [
+        "Command Syntax",
+        "show evpn mac-address-table [name evpn-name [source interface | mac mac-address]]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String",
+        "Name of EVPN service. Default: all configured EVPN Instances."
+      ],
+      [
+        "",
+        "interface",
+        "Interface name",
+        "AC interface name. If the parameter is configured, then only local MAC addresses learned (or configured) on this interface are displayed."
+      ],
+      [
+        "Examples",
+        "The following examples show how to use this command:"
+      ],
+      [
+        "exaware# show evpn mac-address-table LOC: L - local, R - remote L-FL: D - dynamic, S - static R-FL: N -learnt, U - Unlearnt ACT: S - Single-Active, A - All-Active EVPN Name: A1, Service Model: VLAN-Based, Local Label: 4001 VLAN MAC ADDRESS LOC SOURCE ESI L-FL ACT IP ADDR. LABEL R-FL -------------------------------------------------------------------------------------------- 00:34:29:a2:93:23 L x-eth0/0/1.1 0 D 00:34:29:a2:93:23 L x-eth0/0/1.2 0001.0203.0405.0607.080A D 00:54:8a:04:01:b4 R 0001.0203.0405.0607.0809 D A 10.10.10.1 4021 N 10.10.10.2 4131 N 10.10.10.3 4231 U 00:54:8a:04:01:11 R 0 10.10.10.1 4141 N EVPN Name: A2, Service Model: VLAN-Aware-Bundle, Local Label: 4002 VLAN MAC ADDRESS LOC SOURCE ESI L-FL ACT IP ADDR. LABEL R-FL --------------------------------------------------------------------------------------------- 1002 00:34:29:a2:93:23 L x-eth0/0/1.1 0 D 00:34:29:a2:93:23 L x-eth0/0/1.2 0001.0203.0405.0607.080A D 00:54:8a:04:01:b4 R 0001.0203.0405.0607.0809 D A 10.10.10.1 4021 N 10.10.10.2 4131 N 10.10.10.3 4231 U 1214 00:54:8a:04:01:11 R 0001.0203.0405.0607.0811 S 10.10.10.1 4141 N 00:34:29:a2:93:23 L x-eth0/0/1.1 0001.0203.0405.0607.080A D 00:34:29:a2:93:23 L x-eth0/0/1.2 0001.0203.0405.0607.080A D 00:54:8a:04:01:b4 R 0001.0203.0405.0607.0809 D A 10.10.10.1 4021 N 10.10.10.2 4131 N 10.10.10.3 4231 U 00:54:8a:04:01:11 R 0001.0203.0405.0607.0811 S 10.10.10.1 4141 N 00:54:8a:04:01:21 R 0 10.10.10.1 4141 N exaware# show evpn mac-address-table name A2 LOC: L - local, R - remote L-FL: D - dynamic, S - static R-FL: N -learnt, U - Unlearnt ACT: S - Single-Active, A - All-Active EVPN Name: A2, Service Model: VLAN-Aware-Bundle, Local Label: 4002 VLAN MAC ADDRESS LOC SOURCE ESI L-FL ACT IP ADDR. LABEL R-FL --------------------------------------------------------------------------------------------- 1002 00:34:29:a2:93:23 L x-eth0/0/1.1 0 D 00:34:29:a2:93:23 L x-eth0/0/1.2 0001.0203.0405.0607.080A D 00:54:8a:04:01:b4 R 0001.0203.0405.0607.0809 D A 10.10.10.1 4021 N 10.10.10.2 4131 N 10.10.10.3 4231 U 1214 00:54:8a:04:01:11 R 0001.0203.0405.0607.0811 S 10.10.10.1 4141 N 00:34:29:a2:93:23 L x-eth0/0/1.1 0001.0203.0405.0607.080A D 00:34:29:a2:93:23 L x-eth0/0/1.2 0001.0203.0405.0607.080A D 00:54:8a:04:01:b4 R 0001.0203.0405.0607.0809 D A 10.10.10.1 4021 N 10.10.10.2 4131 N 10.10.10.3 4231 U 00:54:8a:04:01:11 R 0001.0203.0405.0607.0811 S 10.10.10.1 4141 N 00:54:8a:04:01:21 R 0 10.10.10.1 4141 N exaware# show evpn mac-address-table name A2 interface x-eth0/0/1.2 LOC: L - local, R - remote L-FL: D - dynamic, S - static R-FL: N -learnt, U - Unlearnt ACT: S - Single-Active, A - All-Active EVPN Name: A2, Service Model: VLAN-Aware-Bundle, Local Label: 4002 VLAN MAC ADDRESS LOC SOURCE ESI L-FL ACT IP ADDR. LABEL R-FL --------------------------------------------------------------------------------------------- 1002 00:34:29:a2:93:23 L x-eth0/0/1.2 0001.0203.0405.0607.080A D 1214 00:34:29:a2:93:23 L x-eth0/0/1.2 0001.0203.0405.0607.080A D exaware# show evpn mac-address-table name A2 mac 00:54:8a:04:01:11 LOC: L - local, R - remote L-FL: D - dynamic, S - static R-FL: N -learnt, U - Unlearnt ACT: S - Single-Active, A - All-Active EVPN Name: A2, Service Model: VLAN-Aware-Bundle, Local Label: 4002 VLAN MAC ADDRESS LOC SOURCE ESI L-FL ACT IP ADDR. LABEL R-FL --------------------------------------------------------------------------------------------- 1214 00:54:8a:04:01:11 R 0001.0203.0405.0607.0811 S 10.10.10.1 4141 N exaware# show evpn mac-address-table name A3 No such EVPN instance exaware# show evpn mac-address-table name A2 interface x-eth0/0/10 The interface does not belong to the EVPN instance exaware# show evpn mac-address-table name A2 mac 00:ff:8a:04:01:11 Unknown MAC address"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Show the EVPN summary."
+      ],
+      [
+        "Command Syntax",
+        "show evpn summary [name evpn-name]"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "ParametersTable",
+        "Name",
+        "Value",
+        "Description"
+      ],
+      [
+        "",
+        "evpn-name",
+        "String",
+        "Name of EVPN service. Default: all configured EVPN Instances."
+      ],
+      [
+        "Examples",
+        "exaware# show evpn summary Number of EVPN Instances: 2 EVPN NAME: A1 Number of Local MAC Routes: 100 Number of Static MAC Routes: 10 Number of Remote MAC Routes: 2000 Number of Ethernet Segments: 1 EVPN NAME: A2 Number of Local MAC Routes: 200 Number of Static MAC Routes: 0 Number of Remote MAC Routes: 4000 Number of Ethernet Segments: 0"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays fib evpn-ac information."
+      ],
+      [
+        "Command Syntax",
+        "show fib evpn-ac"
+      ],
+      [
+        "Command Mode",
+        "operational"
+      ],
+      [
+        "Parameters Table",
+        "N/A"
+      ],
+      [
+        "Examples",
+        "The following example shows sample output from this command:"
+      ],
+      [
+        "exaware# show fib evpn-ac Legend for VLAN-OP: -o: outer tag -i: inner tag Legend for FLAGS: CM - ingress vlan-op configuration mismatch AC INGRESS EGRESS EVPN INTERFACE VLAN-OP VLAN-OP FLAGS ------------------------------------------------------------------------------------ evpnA x-eth0/1/10.202 swap(300) swap(202) x-eth0/1/5.4 pop-pop push-i(0x8100:3),push-o(0x88a8:4) CM x-eth0/1/5.5 pop-swap(10030) swap-i(0x8100:400),push-o(0x9100:401)"
+      ],
+      [
+        "Name",
+        "Value"
+      ],
+      [
+        "INGRESS VLAN-OP",
+        "pop"
+      ],
+      [
+        "",
+        "pop-o,swap-i(vlan tag)"
+      ],
+      [
+        "",
+        "pop-pop"
+      ],
+      [
+        "",
+        "transparent"
+      ],
+      [
+        "",
+        "swap (vlan tag)"
+      ],
+      [
+        "EGRESS VLAN-OP",
+        "pop"
+      ],
+      [
+        "",
+        "transparent"
+      ],
+      [
+        "",
+        "swap (vlan tag)"
+      ],
+      [
+        "",
+        "push(ethertype:vlan tag)"
+      ],
+      [
+        "",
+        "push-i(ethertype:vlan tag),push-o(ethertype:vlan tag)"
+      ],
+      [
+        "",
+        "swap-i(ethertype:vlan tag),push-o(ethertype:vlan tag)"
+      ],
+      [
+        "",
+        "none"
+      ]
+    ],
+    [
+      [
+        "Description",
+        "Displays fib evpn-neighbors information."
+      ],
+      [
+        "Command Syntax",
+        "show fib evpn-neighbor"
+      ],
+      [
+        "Command Mode",
+        "Operational"
+      ],
+      [
+        "Parameters Table",
+        "N/A"
+      ],
+      [
+        "Examples",
+        "The following example shows sample output from this command:"
+      ],
+      [
+        "exaware# show fib evpn-neighbor EVPN NEIGHBOR NEXT HOP TUNNEL NAME IP ADDRESS MAC ADDRESS INTERFACE MPLS LABELS -------------------------------------------------------------------- evpnA 10.10.10.3 00:00:a3:ae:e8:5a x-eth0/1/9.1 120 10.10.10.4 00:00:a3:ae:e8:5a x-eth0/1/9.1 130 10.10.10.6 00:00:a3:ae:ff:5a x-eth0/1/2.1 140 10.10.10.7 00:00:a3:ae:e8:5a x-eth0/1/9.1 150 10.10.10.8 00:00:a3:ae:e8:5a x-eth0/1/3.2 160 10.10.10.9 00:00:a3:ae:bb:5a x-eth0/1/4.2 170"
+      ]
+    ]
+  ],
+  "list_items": []
+}

@@ -1,0 +1,18 @@
+CLAUDE.md
+**/CLAUDE.md
+.claude/
+
+# Python
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Outputs
+out/
+*.json.tmp

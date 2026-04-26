@@ -1,0 +1,20 @@
+services:
+  ate:
+    build: .
+    image: ate:m1
+    volumes:
+      - ./references:/app/references:ro
+      - ./tests:/app/tests:ro
+      - ./out:/app/out
+    working_dir: /app
+    command: ["--help"]
+
+  ate-verify:
+    build: .
+    image: ate:m1
+    volumes:
+      - ./references:/app/references:ro
+      - ./tests:/app/tests:ro
+    working_dir: /app
+    entrypoint: ["python", "-m", "scripts.score"]
+    command: []
