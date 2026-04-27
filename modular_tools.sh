@@ -98,6 +98,42 @@ parse() {
     "$ATE" parse "$@"
 }
 
+plan() {
+    if [[ -z "${1:-}" || -z "${2:-}" ]]; then
+        echo "usage: ./modular_tools.sh plan <input> <output.xlsx>"
+        echo "       ./modular_tools.sh plan references/EVPN\\ System\\ Specification\\ 1.00.docx plans/evpn.xlsx"
+        return 2
+    fi
+    mkdir -p "$(dirname "$2")"
+    "$ATE" plan "$1" -o "$2"
+}
+
+plan_all() {
+    # Generate one M1 single-router test plan per Word reference doc.
+    mkdir -p plans
+    local n_ok=0 n_fail=0
+    echo -e "${B}[plan_all]${N} Generating single-router test plans for every Word file in references/ → plans/"
+    echo
+    for f in references/*.docx; do
+        [[ "$f" =~ "Test Plan Template" ]] && continue   # skip the output template
+        [[ "$f" =~ rfc7432bis ]] && continue              # skip the IETF RFC docx (it's a reference, not a feature spec)
+        local name
+        name=$(basename "${f%.docx}")
+        local out="plans/${name// /_}.xlsx"
+        if "$ATE" plan "$f" -o "$out" 2>/dev/null; then
+            local size
+            size=$(stat -c%s "$out")
+            printf '  %-44s → %-30s (%s bytes)\n' "$(basename "$f")" "$out" "$size"
+            n_ok=$((n_ok+1))
+        else
+            printf '  %-44s ${R}FAIL${N}\n' "$(basename "$f")"
+            n_fail=$((n_fail+1))
+        fi
+    done
+    echo
+    echo -e "${G}[done]${N} generated $n_ok plan(s), $n_fail failure(s) — see plans/"
+}
+
 parse_all() {
     # Parse every supported file in references/ to out/<name>.json
     mkdir -p out
@@ -154,6 +190,11 @@ verify() {
         echo -e "${R}M1 acceptance: RED${N}"
         return 1
     fi
+}
+
+report() {
+    echo -e "${B}[report]${N} Generating HTML test report under results/"
+    "$PY" scripts/report.py
 }
 
 verify_quick() {
@@ -251,6 +292,35 @@ e2e() {
     echo -e "${G}═══ ALL GREEN ═══${N}"
 }
 
+# THE headline command: env + corpus + pytest + coverage + scorecard +
+# requirements traceability + lint + performance + HTML report.
+# One command, one terminal summary, one HTML file path printed at the end.
+run_tests() {
+    echo -e "${B}═══ ATE M1: run-tests (full report) ═══${N}"
+    echo
+    local rc=0
+    verify_env   || rc=$?; echo
+    corpus_check || rc=$?; echo
+    "$PY" scripts/report.py || rc=$?
+    echo
+    local latest
+    latest=$(ls -t results/test-report-*.html 2>/dev/null | head -n1)
+    if [[ -n "$latest" ]]; then
+        echo
+        echo -e "${B}════════════════════════════════════════════════════════${N}"
+        echo -e "${B}HTML report:${N} $latest"
+        echo "  open in browser:   xdg-open \"$latest\""
+        echo "  open in VS Code:   code \"$latest\""
+        echo -e "${B}════════════════════════════════════════════════════════${N}"
+    fi
+    if (( rc == 0 )); then
+        echo -e "${G}═══ ALL GREEN ═══${N}"
+    else
+        echo -e "${R}═══ FAILURES — see report ═══${N}"
+    fi
+    return $rc
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # HELP
 # ─────────────────────────────────────────────────────────────────────────────
@@ -276,12 +346,21 @@ USAGE:
                      Example: ./modular_tools.sh parse references/rfc9785.txt --summary
     parse_all        Parse every supported file in references/ → out/<name>.json
 
+═══ PLAN — generate the M1 Test Plan deliverable ═══════════════════════════
+    plan <in> <out>  Generate test plan xlsx from one input document
+    plan_all         Generate plans for every Word feature spec in references/
+                     → plans/<feature>.xlsx
+
 ═══ TESTS / VERIFY (the user-facing green/red gates) ════════════════════════
-    verify           ★ M1 acceptance scorecard — green/red signal for M1 ship
+    run-tests        ★★★ THE single command: tests + coverage + scorecard
+                          + requirements traceability + lint + HTML report
+                          (writes results/test-report-<timestamp>.html)
+    verify           Just the M1 acceptance scorecard, terminal-only
     verify_quick     Fast subset (determinism only by default)
     test_unit        Pytest suite (unit, regression, parity, determinism, edge)
     regression       pytest + golden drift in one shot
-    e2e              ★ Full end-to-end: env + corpus + tests + scorecard
+    e2e              Full end-to-end (terminal output, no HTML)
+    report           HTML report only (skips env/corpus checks)
 
 ═══ GOLDEN MANAGEMENT (regression baseline) ═════════════════════════════════
     golden_diff      What would change if goldens were regenerated
@@ -299,9 +378,12 @@ USAGE:
 ═══ FOR THE PROJECT OWNER ═══════════════════════════════════════════════════
 The single command you run to know M1 is shippable:
 
-    ./modular_tools.sh e2e
+    ./modular_tools.sh run-tests
 
-If green, M1 passes acceptance. If red, the failing metric is named.
+It runs every gate (tests, coverage, lint, scorecard, performance,
+requirements traceability) and writes a single HTML report you can
+share with Exaware. If green, M1 passes acceptance. If red, the
+failing rows are named in the report.
 EOF
 }
 
@@ -316,6 +398,8 @@ if [[ -n "$*" ]]; then
         verify-env)      verify_env "$@";;
         verify-quick)    verify_quick "$@";;
         parse-all)       parse_all "$@";;
+        plan-all)        plan_all "$@";;
+        run-tests)       run_tests "$@";;
         corpus-check)    corpus_check "$@";;
         build-tier-c)    build_tier_c "$@";;
         test|tests)      test_unit "$@";;

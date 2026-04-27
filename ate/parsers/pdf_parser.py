@@ -62,7 +62,7 @@ def parse_pdf(path: Path) -> Document:
             raise EmptyDocumentError(f"{path}: no pages")
 
         # Detect scanned PDF (no text layer at all)
-        sample_chars = sum(len((p.chars or [])) for p in pdf.pages[:5])
+        sample_chars = sum(len(p.chars or []) for p in pdf.pages[:5])
         if sample_chars == 0:
             raise UnsupportedScannedPDFError(
                 f"{path}: PDF has no text layer (likely scanned). "

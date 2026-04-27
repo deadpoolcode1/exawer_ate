@@ -25,7 +25,7 @@ import re
 import unicodedata
 from typing import Any
 
-from ate.ir import CodeBlock, Document, Heading, ListItem, Paragraph, Table
+from ate.ir import Document, Heading, ListItem, Table
 
 
 def normalize(d: Document) -> dict[str, Any]:

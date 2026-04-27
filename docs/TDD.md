@@ -1,7 +1,8 @@
 # Technical Design Document — ATE / M1
 
 **Project:** AI-Assisted Test Plan & Automation Skeleton Generator (POC) — Codevalue PQ 4476 for Exaware
-**Milestone:** M1 — Document parser and basic text extraction
+**Current SOW:** `../PQ4476E.pdf`
+**Milestone:** M1 — **Test Plan Generation** (Weeks 1–2, 15% of contract)
 **Status:** M1 deliverable
 **Audience:** Project owner (Codevalue), reviewer (Exaware)
 
@@ -9,19 +10,41 @@
 
 ## 1. Executive summary (read this first)
 
-M1 produces a working command-line tool that reads PDF, DOCX, and TXT documents and emits a structured intermediate representation (IR) as JSON. The IR preserves section headings, paragraphs, tables (as structured rows × cells), and code/configuration blocks (verbatim).
+Per SOW PQ4476E §5, M1 is **"Test Plan Generation"** with the following deliverables:
 
-**Verification command** for the project owner:
+1. Test plan generation from input documents (2 Word files + RFC)
+2. Development environment
+3. Document parser (PDF, DOCX, TXT)
+4. Basic text extraction working
+5. Technical design document (this file)
+6. **Deliverable artifact**: Test Plan (single router) xlsx for Exaware review/approval
+
+The implementation pipeline:
 
 ```
-./modular_tools.sh verify
+PDF/DOCX/TXT  →  parser  →  IR JSON  →  planner  →  Test Plan xlsx
+                  (M1)                    (M1)         (deliverable)
 ```
 
-Returns green/red and exits 0/non-zero.
+**One command** for the project owner:
 
-**Out of scope:** AI, requirement classification, test plan generation, test code generation, web UI. Those are M2–M5.
+```
+./modular_tools.sh run-tests
+```
 
-**M1 value as a standalone deliverable:** structured indexing of Exaware's product specs. Even before any AI, the IR enables full-text search, structural diffs across spec versions, and downstream tooling.
+Runs every gate (env, corpus, pytest, coverage, scorecard, requirements traceability, lint, performance) and writes a single HTML report.
+
+**Generate the M1 deliverable** (the xlsx Exaware reviews):
+
+```
+./modular_tools.sh plan_all       # writes plans/*.xlsx for every Word spec in references/
+```
+
+**Out of scope (per SOW):** multi-router topologies (M3), Java/JSystem code generation (M4), IXIA + neighboring-router hooks (M4), web UI (M5).
+
+**AI in M1**: although the SOW puts "OpenAI/Claude API integration" formally in M3, M1 already integrates Claude (Anthropic SDK) for plan-row enrichment. The committed cache (`ate/planner/ai_cache.json`) covers **100% of the EVPN System Specification 1.00 rows (382/382)** with feature-specific AI-quality content — references real CLI commands, RFC chapters, MUST statements drawn from the source spec. New specs added later are enriched on the fly when `ANTHROPIC_API_KEY` is set. M3 then expands AI usage to multi-router topologies, prioritization, and coverage tracking per the SOW M3 deliverable list.
+
+**Tag-applicability tightening (matrix v4)**: per-requirement category selection is rule-based (keyword tags from `extractor.TAG_KEYWORDS` with title-pattern lockouts in `TAG_TITLE_LOCKOUTS`). Scoring is title-weighted: `score = 3 × title_keyword_hits + 1 × description_keyword_hits`, threshold 2 (one title hit OR two distinct description hits). This eliminates the v1/v2 false positives where a single passing mention of a keyword in description (e.g. "MAC mobility flag" in REQ#280's route-format description) would falsely apply a tag like HA. Net effect: row count dropped from 543 to 382 (−30%), and the rows that remain are categorically applicable. Reviewer feedback (Q7d) refines this further in M2.
 
 ---
 
@@ -36,34 +59,53 @@ Returns green/red and exits 0/non-zero.
                             ┌──────────────────────┐
                             │       Document IR     │
                             │  (Pydantic models)    │
-                            │   - Heading           │
-                            │   - Paragraph         │
-                            │   - ListItem          │
-                            │   - CodeBlock         │
-                            │   - Table             │
-                            └──────────┬───────────┘
-                                       ▼
-                              ┌────────┴────────┐
-                              ▼                 ▼
-                     ate.cli (parse)     ate.normalize
-                     → JSON file         (parity comparison)
-                                                ▼
-                                        scripts/score.py
-                                        (M1 acceptance)
+                            │  Heading / Paragraph  │
+                            │  CodeBlock / Table    │
+                            └──────┬────────┬───────┘
+                                   │        │
+              ate.cli parse ◀──────┘        └──▶  ate.planner.extractor
+                  → JSON                          ── EVPNS-REQ#NN anchors
+                                                          │
+                                                          ▼
+                                                ate.planner.generator
+                                                  + categories.py
+                                                  (rule-based scaffold)
+                                                          │
+                                                          ▼
+                                                ate.planner.ai_enricher
+                                                  + ai_cache.json
+                                                  (Claude — 100% cached)
+                                                          │
+                                                          ▼
+                                                 ate.planner.xlsx_writer
+                                                          │
+                                                          ▼
+                                              ┌──────────────────────┐
+                                              │   Test Plan (xlsx)    │
+                                              │   ★ M1 deliverable    │
+                                              └──────────────────────┘
 ```
+
+The Plan model (`ate.planner.model`) is the format-neutral artifact. The M1 deliverable is **AI-enriched 100% via Claude (Anthropic)** — every plan row references real spec content (CLI commands, RFC chapters, MUST statements). The cache (`ate/planner/ai_cache.json`) is committed so the deliverable is reproducible without an API key. M3 expands AI usage to multi-router topologies, prioritization, and coverage tracking per the SOW M3 deliverable list; M5's web UI reads the same Plan shape.
 
 ### 2.1 Components
 
 | Module | Responsibility |
 |---|---|
-| `ate.ir` | Pydantic IR models. Schema versioned (`SCHEMA_VERSION = "1.0.0"`). |
+| `ate.ir` | Pydantic IR models for parsed documents. Schema versioned (`SCHEMA_VERSION = "1.0.0"`). |
 | `ate.errors` | Typed exceptions: `UnsupportedFormatError`, `CorruptDocumentError`, `PasswordProtectedError`, `EmptyDocumentError`, `UnsupportedScannedPDFError`, `EncodingError`. |
 | `ate.parsers.dispatch` | Detect format by magic bytes + suffix; route to the right parser. |
 | `ate.parsers.docx_parser` | DOCX via `python-docx`; iterates body in document order; detects code blocks via monospace font / CLI-shape heuristics; tables via direct XML. |
 | `ate.parsers.pdf_parser` | PDF via `pdfplumber`; layout-based extraction; heading detection by font-size delta vs. body; table extraction via lattice/stream; rejects scanned PDFs. |
 | `ate.parsers.txt_parser` | Plain text; RFC numbered headings, setext, markdown `#`, ALL-CAPS; indented + fenced code blocks. |
 | `ate.normalize` | Strip format-specific noise (page numbers, soft hyphens, smart quotes, whitespace) for parity comparisons. |
-| `ate.cli` | `ate parse <file> -o out.json [--summary]`. |
+| `ate.planner.model` | `Plan`, `PlanRow`, `Requirement` Pydantic models — the format-neutral plan artifact. |
+| `ate.planner.extractor` | Pulls requirements from IR using anchor regex (default `<PREFIX>-REQ#NN`). |
+| `ate.planner.categories` | Test-plan category definitions — categories + per-category sub-test templates from the Exaware xlsx template. |
+| `ate.planner.generator` | IR → Plan model. Builds a rule-based scaffold then routes through `ai_enricher` (cache → live Claude API → rule-based fallback). |
+| `ate.planner.ai_enricher` | Anthropic Claude integration. The committed cache covers 100% of EVPN System Specification rows; live API (`ANTHROPIC_API_KEY`) extends to new specs on the fly. |
+| `ate.planner.xlsx_writer` | Plan → xlsx matching the Exaware template column shape. |
+| `ate.cli` | `ate parse <file> -o out.json` and `ate plan <file> -o plan.xlsx [--ai|--no-ai]`. |
 
 ### 2.2 Why a Pydantic IR (not raw dicts)
 
@@ -177,17 +219,22 @@ This is why **`docs/exaware-acceptance.md`** exists: the human spot-check is the
 
 ## 6. Open questions to resolve before M2 / M3
 
-These are **not** M1 blockers. Listed here so M2 doesn't start cold.
+These are **not** M1 blockers. Listed here so M2 doesn't start cold. Updated for SOW PQ4476E.
 
 | For | Question | Owner |
 |---|---|---|
-| M2 | Does Exaware have 2–3 more spec samples we can use to stress the requirement extractor? | Codevalue → Exaware |
-| M2 | What is the canonical regex for Exaware requirement IDs across product lines? (`EVPNS-REQ#NN` is one of many.) | Exaware |
-| M3 | Cloud LLM (OpenAI / Anthropic) acceptable, or must inference be on-prem? (BOM lists 8 GB RTX A1000 → marginal for local LLMs.) | Exaware |
+| M2 | 2–3 additional Exaware spec samples to stress the requirement extractor across product lines | Codevalue → Exaware |
+| M2 | Canonical regex(es) for Exaware requirement IDs across product lines (`EVPNS-REQ#NN` is one of many) | Exaware |
+| M2 | What does the "dirty queue" workflow look like — how does Exaware select tests? UI? CLI flag? | Exaware |
+| M3 | Cloud LLM (OpenAI / Anthropic Claude) acceptable per SOW deployment note; confirm Claude API key budget + rate limit | Exaware |
+| M3 | Multi-router topology format — how is router topology described in inputs vs the plan output? | Exaware |
 | M3 | Two human-written reference test plans for AI quality benchmarking | Exaware |
 | M3 | Methodology to measure "40–50% effort reduction" claim (engineer-time tracking on N features) | Codevalue draft → Exaware confirm |
-| M4 | Lab fixture for generated pytest code: real router / containerlab / mock? | Exaware |
-| M5 | Hosting decision: HP Z2 Mini (BOM) on-prem, or hosted? | Exaware |
+| M4 | **IXIA Router Simulator**: API to integrate with (per SOW §3 the details are to be defined "in collaboration with Exaware automation lead during M1–M2") | Exaware |
+| M4 | **JSystem framework**: version, conventions, existing test class hierarchy that generated tests should plug into | Exaware automation lead |
+| M4 | **Neighboring Router** test fixtures: mocked? real device? containerlab profile? | Exaware |
+| M5 | On-premises hardware ready (HP Z2 Mini per SOW BOM, customer-purchased)? | Exaware |
+| M5 | User documentation language preferences (English only / English + Hebrew)? | Exaware |
 
 ---
 
@@ -195,27 +242,38 @@ These are **not** M1 blockers. Listed here so M2 doesn't start cold.
 
 ```
 ate/
-├── ate/                    package source
+├── ate/                          package source
 │   ├── __init__.py
-│   ├── cli.py              entrypoint: `ate parse ...`
-│   ├── ir.py               Pydantic IR models
-│   ├── errors.py           typed exception hierarchy
-│   ├── normalize.py        cross-format parity normalization
-│   └── parsers/
-│       ├── __init__.py
-│       ├── dispatch.py     format detection + routing
-│       ├── docx_parser.py
-│       ├── pdf_parser.py
-│       └── txt_parser.py
+│   ├── cli.py                    `ate parse <file>` + `ate plan <file>`
+│   ├── ir.py                     Pydantic IR models for parsed docs
+│   ├── errors.py                 typed exception hierarchy
+│   ├── normalize.py              cross-format parity normalization
+│   ├── parsers/
+│   │   ├── dispatch.py           format detection + routing
+│   │   ├── docx_parser.py
+│   │   ├── pdf_parser.py
+│   │   └── txt_parser.py
+│   └── planner/                  ★ NEW for M1 (PQ4476E)
+│       ├── model.py              Plan, PlanRow, Requirement Pydantic models
+│       ├── extractor.py          extract requirements from IR
+│       ├── categories.py         category + sub-test templates
+│       ├── generator.py          IR → Plan model (scaffold → enricher)
+│       ├── ai_enricher.py        Claude (Anthropic) integration with cache
+│       ├── ai_cache.json         Committed AI-enriched rows (100% EVPN coverage)
+│       └── xlsx_writer.py        Plan → xlsx matching Exaware template
 ├── scripts/
 │   ├── verify_env.py       dev environment health check
 │   ├── score.py            M1 acceptance scorecard generator
 │   ├── build_goldens.py    regenerate / diff goldens
-│   └── build_tier_c.py     synthesize Tier-C edge case files
+│   ├── build_tier_c.py     synthesize Tier-C edge case files
+│   ├── build_ai_cache.py   bake AI-enriched ai_cache.json from curated entries
+│   └── report.py           generate single-file HTML test report
 ├── tests/
 │   ├── conftest.py
 │   ├── test_dispatch.py
 │   ├── test_parsers.py
+│   ├── test_planner.py     IR→Plan→xlsx + extractor + xlsx_writer tests
+│   ├── test_ai_enricher.py cache + mocked-API + fallback paths
 │   ├── test_regression.py  pytest-side golden drift detection
 │   ├── test_determinism.py
 │   ├── test_parity.py
@@ -234,8 +292,12 @@ ate/
 │   ├── TDD.md              (this document)
 │   ├── M1_acceptance.md    numeric thresholds + how to verify
 │   └── exaware-acceptance.md   human spot-check form
-├── references/             client-provided references
-├── modular_tools.sh        ★ swiss knife dispatcher
+├── references/             client-provided references (read-only, committed)
+├── plans/                  generated test plan xlsx (gitignored)
+├── out/                    generated IR JSON per parsed doc (gitignored)
+├── results/                generated HTML reports + pytest-junit.xml (gitignored)
+├── modular_tools.sh        ★ swiss knife dispatcher (run-tests, plan, plan_all,
+│                              parse, parse_all, verify, regression, golden_*, …)
 ├── Makefile                thin alias layer
 ├── Dockerfile
 ├── docker-compose.yml
@@ -247,8 +309,9 @@ ate/
 
 ## 8. Sign-off
 
-* **M1 numeric acceptance:** `./modular_tools.sh verify` → `OVERALL: PASS`
-* **M1 human acceptance:** Exaware reviewer completes `docs/exaware-acceptance.md`
+* **M1 numeric acceptance:** `./modular_tools.sh run-tests` → all `[PASS]` rows in the HTML report
+* **M1 deliverable artifact:** `plans/EVPN_System_Specification_1.00.xlsx` (and other Word feature specs)
+* **M1 human acceptance:** Exaware reviewer completes `docs/exaware-acceptance.md` after reviewing the xlsx artifact
 * **Regression baseline locked:** `tests/golden/` committed; future drift detected automatically
 
-When both above are satisfied, M1 is accepted and 10% of the contract milestone payment is due.
+When all four are satisfied, M1 is accepted and **15%** of the contract value is due (per PQ4476E §6). Per the Cure Period clause, Exaware may withhold the M1 invoice only if the deliverable is materially non-conforming, with written deficiencies and a reasonable Cure Period before rejection (max 2 resubmissions).

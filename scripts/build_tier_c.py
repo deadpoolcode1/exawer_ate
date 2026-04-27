@@ -6,7 +6,6 @@ section asserts that each file produces exactly the expected error class.
 """
 from __future__ import annotations
 
-import struct
 import zipfile
 from pathlib import Path
 
