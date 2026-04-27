@@ -23,7 +23,7 @@ Per SOW PQ4476E §5, **M1 = "Test Plan Generation"**:
                                                        (M5: web UI)
 ```
 
-Every output JSON has the same schema regardless of what went in:
+Every output JSON has the same schema regardless of what went in — verified across all 7 reference documents (PDF/DOCX/TXT) producing exactly one top-level shape `{schema_version, source_path, source_format, blocks, metadata}`:
 
 ```json
 {
@@ -262,7 +262,7 @@ Every file in `references/` (except the xlsx output template) is in the test cor
 - ❌ IXIA + neighboring-router test hooks (M4)
 - ❌ Web interface, plan editor, deployment package (M5)
 - ❌ OCR for scanned PDFs (parser raises `UnsupportedScannedPDFError`)
-- ❌ Convert PDF↔DOCX↔TXT — M1 reads, doesn't convert
+- ❌ Format-to-format file conversion (PDF↔DOCX↔TXT) — M1 reads each format and emits a **single canonical JSON IR**; it does *not* produce a converted PDF/DOCX/TXT file as output. (All three formats *are* normalized to the same JSON schema — see the schema example near the top of this README.)
 
 ---
 
