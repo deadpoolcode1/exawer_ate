@@ -11,9 +11,12 @@ Per SOW PQ4476E §5, **M1 = "Test Plan Generation"**:
 1. **Normalize** any of {PDF, DOCX, TXT} → single canonical JSON IR
 2. **Extract requirements** anchored by `<PREFIX>-REQ#NN` markers (e.g. `EVPNS-REQ#280`)
 3. **Generate a Test Plan** (single-router) as an xlsx matching the Exaware template
-   - **All 382 rows AI-enriched (Claude / Anthropic)** for the EVPN System Specification — feature-specific action steps using actual CLI commands, VLAN-IDs, ESI types, RFC chapters, and MUST statements from the source
-   - The AI cache is committed (`ate/planner/ai_cache.json`) so the deliverable is reproducible without an API key. New specs get enriched on the fly when `ANTHROPIC_API_KEY` is set.
-4. **Deliverable**: a Test Plan xlsx for Exaware review and approval (per §5)
+   - Every row uses the **Setup → Action → Verify** scaffolding with **Pass / Fail-on** expectations, plus an explicit **Test Equipment** column (DUT only / IXIA traffic gen / neighbor PE / scale rig / power-cycle harness / NETCONF client / ONIE image server / syslog collector). Closes the M1 review feedback gaps.
+   - When the EVPN CLI doc is supplied (`--cli-doc`), every config command (lacp-key, identifier, service-carving, …) generates a row family covering happy-path, range/type validation per parameter, mutual exclusion, default behaviour, `no` form, persistence, and prerequisite enforcement.
+   - When RFC sources are supplied (`--rfc`), normative MUST/SHALL clauses become rows; section content drives mechanism-specific rows (route types 1–4, DF election, MAC mobility, ESI handling, label allocation, BUM forwarding).
+   - Rule-based rows are demo-quality on their own; AI enrichment (cache → live Claude) sharpens individual rows further. The AI cache (`ate/planner/ai_cache.json`) is committed so output is reproducible without an API key.
+4. **Deliverable**: a Test Plan xlsx for Exaware review and approval (per §5).
+   The current EVPN deliverable lives at `plans/EVPN_test_plan_with_RFCs.xlsx`. To regenerate: `make plan-evpn`.
 
 ```
    EVPN spec.docx  ─┐
@@ -59,6 +62,16 @@ Two batch helpers for processing every reference doc at once:
 ```
 
 Type `./modular_tools.sh help` to see every command grouped by category.
+
+### Release gate — install once
+
+```bash
+make install-hooks   # symlinks scripts/git-hooks/* into .git/hooks/
+```
+
+After this, `git push <tag>` runs the pytest suite locally and aborts the
+push if anything fails. Branch pushes are unaffected. To bypass in an
+emergency: `git push --no-verify` (avoid on master).
 
 ---
 
@@ -286,7 +299,11 @@ ate/
 │       ├── categories.py         per-category step templates (rule-based fallback)
 │       ├── generator.py          orchestrator: parse → extract → enrich → Plan
 │       ├── ai_enricher.py        Claude (Anthropic) cache-first enrichment
-│       ├── ai_cache.json         committed enriched rows (382 for EVPN spec)
+│       ├── ai_cache.json         committed AI-enriched rows (v2 prompt shape)
+│       ├── ai_cache.v1.json.bak  archived v1 cache (pre-M1-respin) — read-only
+│       ├── cli_extractor.py      mine EVPN CLI doc tables → CliCommand objects
+│       ├── cli_rows.py           per-command CLI configuration rows (Yossi gap #4)
+│       ├── equipment.py          per-row Test Equipment / IXIA tags (Yossi gap #6)
 │       └── xlsx_writer.py        Plan → Exaware-template-shaped xlsx
 ├── scripts/
 │   ├── verify_env.py             dev environment health check
@@ -294,7 +311,8 @@ ate/
 │   ├── report.py                 single-file HTML test report
 │   ├── build_goldens.py          regenerate / diff goldens
 │   ├── build_tier_c.py           synthesize edge case files
-│   └── build_ai_cache.py         build/refresh ate/planner/ai_cache.json
+│   ├── build_ai_cache.py         build/refresh ate/planner/ai_cache.json (v2 prompt)
+│   └── build_ai_cache_v1_archive.py  archived pre-respin builder — do not run
 ├── tests/                        68 tests
 │   ├── test_dispatch.py
 │   ├── test_parsers.py

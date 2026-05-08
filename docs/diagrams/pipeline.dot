@@ -1,0 +1,18 @@
+digraph pipeline {
+  rankdir=LR;
+  bgcolor="white";
+  pad="0.3";
+  nodesep=0.6;
+  ranksep=0.7;
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=14, height=0.7, margin="0.25,0.18"];
+  edge [arrowsize=0.9, penwidth=1.4, color="#555555"];
+
+  inputs   [label="PDF / DOCX / TXT",       fillcolor="#E8F0FE"];
+  parser   [label="parser\n(M1)",            fillcolor="#C6DBFA"];
+  ir       [label="IR JSON\n(canonical)",    fillcolor="#FFF1B8"];
+  planner  [label="planner\n(M1)",           fillcolor="#C6DBFA"];
+  output   [label="Test Plan (xlsx)\n★ M1 deliverable",
+            fillcolor="#CFEAD0", penwidth=2, color="#2E7D32"];
+
+  inputs -> parser -> ir -> planner -> output;
+}

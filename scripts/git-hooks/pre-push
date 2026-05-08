@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# pre-push hook: block tag pushes when the test suite fails.
+#
+# Branch pushes are unaffected — tests only run when at least one tag ref
+# is being pushed. Tags are intended to mark releases; we want every release
+# to be backed by a green pytest run.
+#
+# Install:  make install-hooks   (symlinks this file to .git/hooks/pre-push)
+#
+# Bypass (use sparingly, never on master):  git push --no-verify
+set -euo pipefail
+
+pushing_tag=0
+while read -r _local_ref _local_sha remote_ref _remote_sha; do
+    case "$remote_ref" in
+        refs/tags/*) pushing_tag=1 ;;
+    esac
+done
+
+if [ "$pushing_tag" -eq 0 ]; then
+    exit 0
+fi
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+if [ -x .venv/bin/python ]; then
+    PY=.venv/bin/python
+else
+    PY=$(command -v python3 || command -v python || true)
+fi
+if [ -z "${PY:-}" ]; then
+    echo "[pre-push] no python interpreter found; cannot run tests" >&2
+    exit 1
+fi
+
+echo "[pre-push] tag push detected — running pytest before push…" >&2
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 "$PY" -m pytest -q

@@ -19,16 +19,29 @@ class Requirement(BaseModel):
     rfc_refs: list[str] = Field(default_factory=list)  # ["RFC7432bis ch.7.2", ...]
     code_blocks: list[str] = Field(default_factory=list)  # CLI examples in section
     tags: list[str] = Field(default_factory=list)  # ["CONFIG", "PACKET", ...]
+    # "spec" → vendor SFS (defines CLI, NETCONF, upgrade behavior).
+    # "rfc"  → IETF RFC (defines protocol behavior only — no CLI/mgmt/upgrade).
+    # Drives category masking in categories_for_tags().
+    source: str = "spec"
 
 
 class PlanRow(BaseModel):
-    """One row of the xlsx test plan."""
+    """One row of the xlsx test plan.
+
+    `action_steps` is a multi-line string with the Yossi-required
+    Setup → Action → Verify scaffolding (each stage prefixed with its
+    label). `expectation` carries the measurable pass criterion.
+    `equipment` is a short tag like "DUT only" or "DUT + IXIA traffic gen
+    + 3rd-party PE" — added in the M1 respin so QA knows what test rig
+    to bring up before reading the row.
+    """
     category: str          # column A — top-level category (e.g. "CLI configuration")
     sub_category: str = "" # appears as another row under category
-    action_steps: str = "" # column B
-    sfs_requirement_id: str = ""  # column C — for traceability
-    expectation: str = ""  # column D
-    # E/F/G are runtime fields filled in by the QA engineer (build, pass/fail, comment)
+    equipment: str = ""    # column B — Test Equipment / topology
+    action_steps: str = "" # column C — Setup / Action / Verify
+    sfs_requirement_id: str = ""  # column D — for traceability
+    expectation: str = ""  # column E
+    # F/G/H are runtime fields filled in by the QA engineer (build, pass/fail, comment)
 
 
 class Plan(BaseModel):

@@ -1,0 +1,52 @@
+digraph architecture {
+  rankdir=TB;
+  bgcolor="white";
+  pad="0.3";
+  nodesep=0.45;
+  ranksep=0.55;
+  splines=ortho;
+  node [shape=box, style="rounded,filled", fontname="Helvetica", fontsize=12, margin="0.22,0.14"];
+  edge [arrowsize=0.9, penwidth=1.3, color="#555555"];
+
+  // ── Inputs ────────────────────────────────────────────
+  subgraph cluster_inputs {
+    label="Inputs";
+    fontname="Helvetica-Bold";
+    fontsize=12;
+    color="#888888";
+    style="rounded,dashed";
+    bgcolor="#F7F9FC";
+    pdf  [label="PDF",  fillcolor="#E8F0FE"];
+    docx [label="DOCX", fillcolor="#E8F0FE"];
+    txt  [label="TXT",  fillcolor="#E8F0FE"];
+    {rank=same; pdf; docx; txt;}
+  }
+
+  parsers  [label="ate.parsers\n(dispatch + format)", fillcolor="#C6DBFA"];
+
+  ir       [label=<<B>Document IR</B><BR/>(Pydantic models)<BR/>Heading · Paragraph · CodeBlock · Table>,
+            fillcolor="#FFF1B8", shape=note];
+
+  // ── Two consumers ─────────────────────────────────────
+  cli       [label="ate.cli parse\n→ JSON", fillcolor="#E8F0FE"];
+
+  extractor [label="ate.planner.extractor\nEVPNS-REQ#NN anchors", fillcolor="#C6DBFA"];
+  generator [label="ate.planner.generator\n+ categories.py\n(rule-based scaffold)", fillcolor="#C6DBFA"];
+  enricher  [label="ate.planner.ai_enricher\n+ ai_cache.json\n(Claude — 100% cached)", fillcolor="#FBE6C9"];
+  writer    [label="ate.planner.xlsx_writer", fillcolor="#C6DBFA"];
+
+  plan      [label="Test Plan (xlsx)\n★ M1 deliverable",
+             fillcolor="#CFEAD0", penwidth=2, color="#2E7D32"];
+
+  // ── Edges ─────────────────────────────────────────────
+  pdf  -> parsers;
+  docx -> parsers;
+  txt  -> parsers;
+  parsers   -> ir;
+  ir        -> cli       [xlabel="debug / M2..M4 input", fontsize=10, fontcolor="#555555"];
+  ir        -> extractor;
+  extractor -> generator;
+  generator -> enricher;
+  enricher  -> writer;
+  writer    -> plan;
+}

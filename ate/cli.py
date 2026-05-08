@@ -39,8 +39,27 @@ def main(argv: list[str] | None = None) -> int:
     p_plan.add_argument("--no-ai", action="store_true",
                         help="Disable AI enrichment (force rule-based templates only)")
     p_plan.add_argument("--ai", action="store_true",
-                        help="Force AI enrichment: call Anthropic API for any "
-                             "row not in ai_cache.json. Requires ANTHROPIC_API_KEY.")
+                        help="Force AI enrichment for any row not in ai_cache.json. "
+                             "Routes through the backend chosen by --ai-backend.")
+    p_plan.add_argument("--ai-backend", choices=("cli", "sdk"), default=None,
+                        help="AI transport for enrichment. 'cli' (default) shells "
+                             "out to `claude -p` using your local Claude Code "
+                             "auth — no API key needed. 'sdk' uses the Anthropic "
+                             "Python SDK and requires ANTHROPIC_API_KEY. Env var "
+                             "ATE_AI_BACKEND overrides the default if this flag "
+                             "is omitted.")
+    p_plan.add_argument("--rfc", action="append", default=None, metavar="PATH",
+                        help="Additional RFC source whose normative (MUST/SHALL) "
+                             "clauses are extracted as requirements alongside the "
+                             "spec anchors. Repeatable, e.g. "
+                             "--rfc references/rfc9785.txt --rfc references/draft-...txt")
+    p_plan.add_argument("--cli-doc", default=None, metavar="PATH",
+                        help="EVPN CLI doc (DOCX). When provided, every config "
+                             "command in the doc generates its own CLI Configuration "
+                             "row family (happy-path / range / mutex / default / `no` "
+                             "/ persistence / prerequisite). Replaces the generic CLI "
+                             "templates and feeds the AI prompt with command evidence. "
+                             "E.g. --cli-doc 'references/EVPN CLI 1.00.docx'")
 
     args = p.parse_args(argv)
 
@@ -89,13 +108,20 @@ def _cmd_plan(args) -> int:
         use_ai = True
     else:
         use_ai = None  # cache-only by default
+    rfc_paths = args.rfc if args.rfc else None
+    cli_doc_path = args.cli_doc if args.cli_doc else None
     try:
         if args.summary:
-            plan = generate_plan(src, feature_name=args.feature_name, use_ai=use_ai)
+            plan = generate_plan(src, feature_name=args.feature_name,
+                                 use_ai=use_ai, rfc_paths=rfc_paths,
+                                 cli_doc_path=cli_doc_path,
+                                 ai_backend=args.ai_backend)
         else:
             plan = generate_plan_to_xlsx(src, args.out,
                                          feature_name=args.feature_name,
-                                         use_ai=use_ai)
+                                         use_ai=use_ai, rfc_paths=rfc_paths,
+                                         cli_doc_path=cli_doc_path,
+                                         ai_backend=args.ai_backend)
     except ATEParseError as e:
         print(f"error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1

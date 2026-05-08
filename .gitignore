@@ -18,3 +18,6 @@ out/
 plans/
 results/
 *.json.tmp
+
+# Transient working backups (the v1 archive .bak is intentionally tracked)
+ate/planner/ai_cache.pre-*.bak
