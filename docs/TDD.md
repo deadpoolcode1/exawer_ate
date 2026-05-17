@@ -37,7 +37,8 @@ Runs every gate (env, corpus, pytest, coverage, scorecard, requirements traceabi
 **Generate the M1 deliverable** (the xlsx Exaware reviews):
 
 ```
-./modular_tools.sh plan_all       # writes plans/*.xlsx for every Word spec in references/
+./modular_tools.sh plan-feature EVPN   # auto-discovers references/EVPN/{SFS,CLI,RFCs}
+./modular_tools.sh plan_all            # one plans/*.xlsx per references/<FEATURE>/ folder
 ```
 
 **Out of scope (per SOW):** multi-router topologies (M3), Java/JSystem code generation (M4), IXIA + neighboring-router hooks (M4), web UI (M5).
@@ -410,6 +411,8 @@ ate/
 │   ├── M1_acceptance.md    numeric thresholds + how to verify
 │   └── exaware-acceptance.md   human spot-check form
 ├── references/             client-provided references (read-only, committed)
+│   ├── <FEATURE>/          one folder per feature (e.g. EVPN/) — SFS + CLI doc + RFCs
+│   └── *.xlsx              cross-feature output templates
 ├── plans/                  generated test plan xlsx (gitignored)
 ├── out/                    generated IR JSON per parsed doc (gitignored)
 ├── results/                generated HTML reports + pytest-junit.xml (gitignored)

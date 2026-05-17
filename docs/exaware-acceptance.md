@@ -7,13 +7,13 @@ Per SOW PQ4476E §5, the M1 deliverable is a **Test Plan (single router) for Exa
 ## Setup (one minute)
 
 ```bash
-./modular_tools.sh setup       # only the very first time
-./modular_tools.sh plan_all    # generates plans/*.xlsx for every Word feature spec
-./modular_tools.sh parse "references/EVPN System Specification 1.00.docx" -o ir.json
+./modular_tools.sh setup                    # only the very first time
+./modular_tools.sh plan-feature EVPN        # generates plans/EVPN_test_plan_with_RFCs.xlsx
+./modular_tools.sh parse "references/EVPN/EVPN System Specification 1.00.docx" -o ir.json
 ```
 
 You now have:
-- `plans/EVPN_System_Specification_1.00.xlsx` — the **deliverable artifact** (single-router test plan)
+- `plans/EVPN_test_plan_with_RFCs.xlsx` — the **deliverable artifact** (single-router test plan)
 - `ir.json` — the structured IR the plan was generated from
 
 ## Verification tasks

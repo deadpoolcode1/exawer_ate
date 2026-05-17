@@ -16,8 +16,8 @@ from ate.planner.rfc_extractor import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-RFC7432BIS = ROOT / "references" / "draft-ietf-bess-rfc7432bis-13.txt"
-RFC9785 = ROOT / "references" / "rfc9785.txt"
+RFC7432BIS = ROOT / "references" / "EVPN" / "draft-ietf-bess-rfc7432bis-13.txt"
+RFC9785 = ROOT / "references" / "EVPN" / "rfc9785.txt"
 
 
 # ─── Filename → short name ──────────────────────────────────────────────────

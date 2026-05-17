@@ -12,8 +12,8 @@ from ate.planner.extractor import extract_requirements
 
 ROOT = Path(__file__).resolve().parents[1]
 EVPN_SPEC = ROOT / "tests/corpus/tier_a/EVPN System Specification 1.00.docx"
-RFC7432BIS = ROOT / "references" / "draft-ietf-bess-rfc7432bis-13.txt"
-RFC9785 = ROOT / "references" / "rfc9785.txt"
+RFC7432BIS = ROOT / "references" / "EVPN" / "draft-ietf-bess-rfc7432bis-13.txt"
+RFC9785 = ROOT / "references" / "EVPN" / "rfc9785.txt"
 
 
 # ─── Requirement extraction ─────────────────────────────────────────────────

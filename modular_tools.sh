@@ -101,46 +101,65 @@ parse() {
 plan() {
     if [[ -z "${1:-}" || -z "${2:-}" ]]; then
         echo "usage: ./modular_tools.sh plan <input> <output.xlsx>"
-        echo "       ./modular_tools.sh plan references/EVPN\\ System\\ Specification\\ 1.00.docx plans/evpn.xlsx"
+        echo "       ./modular_tools.sh plan references/EVPN/EVPN\\ System\\ Specification\\ 1.00.docx plans/evpn.xlsx"
         return 2
     fi
     mkdir -p "$(dirname "$2")"
     "$ATE" plan "$1" -o "$2"
 }
 
+plan_feature() {
+    # Auto-discover SFS/CLI/RFCs under references/<NAME>/ and generate the plan.
+    if [[ -z "${1:-}" ]]; then
+        echo "usage: ./modular_tools.sh plan-feature <NAME> [extra args passed to ate plan-feature]"
+        echo "       ./modular_tools.sh plan-feature EVPN"
+        echo
+        echo "Feature folders under references/:"
+        for d in references/*/; do
+            printf '  %s\n' "$(basename "$d")"
+        done
+        return 2
+    fi
+    mkdir -p plans
+    "$ATE" plan-feature "$@"
+}
+
 plan_all() {
-    # Generate one M1 single-router test plan per Word reference doc.
+    # Generate one test plan per feature folder under references/.
     mkdir -p plans
     local n_ok=0 n_fail=0
-    echo -e "${B}[plan_all]${N} Generating single-router test plans for every Word file in references/ → plans/"
+    echo -e "${B}[plan_all]${N} Generating test plans for every references/<FEATURE>/ folder → plans/"
     echo
-    for f in references/*.docx; do
-        [[ "$f" =~ "Test Plan Template" ]] && continue   # skip the output template
-        [[ "$f" =~ rfc7432bis ]] && continue              # skip the IETF RFC docx (it's a reference, not a feature spec)
+    local found=0
+    for d in references/*/; do
+        found=1
         local name
-        name=$(basename "${f%.docx}")
-        local out="plans/${name// /_}.xlsx"
-        if "$ATE" plan "$f" -o "$out" 2>/dev/null; then
+        name=$(basename "$d")
+        local out="plans/${name}_test_plan_with_RFCs.xlsx"
+        if "$ATE" plan-feature "$name" -o "$out" >/dev/null 2>&1; then
             local size
             size=$(stat -c%s "$out")
-            printf '  %-44s → %-30s (%s bytes)\n' "$(basename "$f")" "$out" "$size"
+            printf '  %-20s → %-50s (%s bytes)\n' "$name" "$out" "$size"
             n_ok=$((n_ok+1))
         else
-            printf '  %-44s ${R}FAIL${N}\n' "$(basename "$f")"
+            printf '  %-20s ${R}FAIL${N}\n' "$name"
             n_fail=$((n_fail+1))
         fi
     done
+    if [[ $found -eq 0 ]]; then
+        echo -e "${Y}  (no feature folders found under references/)${N}"
+    fi
     echo
     echo -e "${G}[done]${N} generated $n_ok plan(s), $n_fail failure(s) — see plans/"
 }
 
 parse_all() {
-    # Parse every supported file in references/ to out/<name>.json
+    # Parse every supported file in references/ (recursively) to out/<name>.json
     mkdir -p out
     local n_ok=0 n_skip=0 n_fail=0
     echo -e "${B}[parse_all]${N} Writing IR JSON for every supported file in references/ → out/"
     echo
-    for f in references/*; do
+    while IFS= read -r -d '' f; do
         local name
         name=$(basename "$f")
         case "$f" in
@@ -164,7 +183,7 @@ parse_all() {
                 n_skip=$((n_skip+1))
                 ;;
         esac
-    done
+    done < <(find references -type f -print0)
     echo
     echo -e "${G}[done]${N} parsed $n_ok, skipped $n_skip, failed $n_fail. Files in out/"
 }
@@ -347,9 +366,13 @@ USAGE:
     parse_all        Parse every supported file in references/ → out/<name>.json
 
 ═══ PLAN — generate the M1 Test Plan deliverable ═══════════════════════════
-    plan <in> <out>  Generate test plan xlsx from one input document
-    plan_all         Generate plans for every Word feature spec in references/
-                     → plans/<feature>.xlsx
+    plan <in> <out>          Generate test plan xlsx from one input document
+                             (advanced — use plan-feature instead for normal flow)
+    plan-feature <NAME>      ★ Auto-discover SFS/CLI/RFCs under references/<NAME>/
+                             and write plans/<NAME>_test_plan_with_RFCs.xlsx.
+                             Example: ./modular_tools.sh plan-feature EVPN
+    plan_all                 Generate plans for every feature folder under
+                             references/ → plans/<NAME>_test_plan_with_RFCs.xlsx
 
 ═══ TESTS / VERIFY (the user-facing green/red gates) ════════════════════════
     run-tests        ★★★ THE single command: tests + coverage + scorecard
@@ -399,6 +422,8 @@ if [[ -n "$*" ]]; then
         verify-quick)    verify_quick "$@";;
         parse-all)       parse_all "$@";;
         plan-all)        plan_all "$@";;
+        plan-feature)    plan_feature "$@";;
+        plan_feature)    plan_feature "$@";;
         run-tests)       run_tests "$@";;
         corpus-check)    corpus_check "$@";;
         build-tier-c)    build_tier_c "$@";;

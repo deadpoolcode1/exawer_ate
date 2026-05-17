@@ -100,13 +100,13 @@ Single dispatcher. All work goes through it. No `cd .venv/bin/...` ceremony.
 # Three usage patterns:
 
 # A. Quick summary (counts only — fastest sanity check)
-./modular_tools.sh parse "references/EVPN System Specification 1.00.docx" --summary
+./modular_tools.sh parse "references/EVPN/EVPN System Specification 1.00.docx" --summary
 
 # B. Full structured JSON to file (this is what M3/M4 will consume)
-./modular_tools.sh parse "references/EVPN System Specification 1.00.docx" -o ir.json
+./modular_tools.sh parse "references/EVPN/EVPN System Specification 1.00.docx" -o ir.json
 
 # C. Stream JSON to stdout (pipe into other tools)
-./modular_tools.sh parse references/rfc9785.txt | jq '.blocks[0]'
+./modular_tools.sh parse references/EVPN/rfc9785.txt | jq '.blocks[0]'
 ```
 
 Works on any `.pdf`, `.docx`, `.txt`. Unsupported formats raise a typed error, not a crash.
@@ -116,11 +116,14 @@ Works on any `.pdf`, `.docx`, `.txt`. Unsupported formats raise a typed error, n
 ### Generate a test plan (M1 deliverable)
 
 ```bash
-# Single file → single xlsx
-./modular_tools.sh plan "references/EVPN System Specification 1.00.docx" plans/evpn.xlsx
+# Auto-discover SFS / CLI doc / RFCs from a feature folder (recommended)
+./modular_tools.sh plan-feature EVPN
 
-# Every Word feature spec in references/ → plans/<feature>.xlsx
+# Every feature folder under references/ → plans/<FEATURE>_test_plan_with_RFCs.xlsx
 ./modular_tools.sh plan_all
+
+# Single file → single xlsx (manual / advanced)
+./modular_tools.sh plan "references/EVPN/EVPN System Specification 1.00.docx" plans/evpn.xlsx
 ```
 
 Under the hood this calls `ate plan <input> -o <output.xlsx>`, which exposes the following flags:
@@ -135,55 +138,95 @@ Under the hood this calls `ate plan <input> -o <output.xlsx>`, which exposes the
 
 ### Adding a new RFC (or any new client document)
 
-End-to-end workflow when the client hands you a new RFC, SFS, or CLI doc:
+`references/` is organized **one folder per feature**. Each feature folder
+contains its SFS, optional CLI doc, and zero-or-more RFCs. The `ate
+plan-feature` command auto-discovers them so you don't pass file paths
+on the command line.
 
-1. **Drop the file under `references/`** — the canonical input directory. Supported formats: `.docx`, `.pdf`, `.txt`. Filenames with spaces are fine.
-   ```bash
-   cp ~/Downloads/rfc9999.txt references/
-   ```
+```
+references/
+├── EVPN/                                          ← one folder per feature
+│   ├── EVPN System Specification 1.00.docx        ← SFS (one)
+│   ├── EVPN CLI 1.00.docx                         ← CLI doc (zero or one)
+│   ├── draft-ietf-bess-rfc7432bis-13.txt          ← RFC (any number)
+│   ├── rfc9785.txt
+│   └── rfc9785.{docx,pdf}                         ← extra format copies (parser parity)
+├── DHCP-snoopy_TP_with_PW.xlsx                    ← cross-feature output template
+└── Feature Name Test Plan Template.xlsx
+```
 
-2. **Pick the role.** Three slots on the `ate plan` command line:
-   - **Feature SFS** (positional `<path>`) — the spec that anchors the plan. Exactly one per run.
-   - **RFC(s)** (`--rfc PATH`, repeatable) — normative MUST/SHALL clauses get promoted to first-class requirement rows.
-   - **CLI doc** (`--cli-doc PATH`) — per-command row families (happy-path / range / mutex / default / `no` / persistence / prerequisite).
+**Adding an RFC to an existing feature** (e.g. another RFC into EVPN):
 
-3. **Generate the xlsx.** Either run `ate plan` directly:
-   ```bash
-   ate plan 'references/EVPN System Specification 1.00.docx' \
-     -o plans/EVPN_test_plan_with_RFCs.xlsx \
-     --rfc references/draft-ietf-bess-rfc7432bis-13.txt \
-     --rfc references/rfc9785.txt \
-     --rfc references/rfc9999.txt \
-     --cli-doc 'references/EVPN CLI 1.00.docx'
-   ```
-   …or edit the `plan-evpn` target in `Makefile` to add the new `--rfc` line and run `make plan-evpn`. The Makefile target is the source of truth for the committed EVPN deliverable — keep them in sync.
+```bash
+cp ~/Downloads/rfc9999.txt references/EVPN/
+./modular_tools.sh plan-feature EVPN
+```
 
-4. **Output lands in `plans/`.** The main deliverable is `plans/EVPN_test_plan_with_RFCs.xlsx`. Open it and check the **Synthesized — Review** sheet for orphan RFC mandates the auto-row pass couldn't anchor — those flag as `synthesized — review` in column 9 and need a human pass before shipping to the client.
+That's it. Output lands at `plans/EVPN_test_plan_with_RFCs.xlsx`.
 
-5. **(Optional) Bake AI rows for the new RFC.** Default runs are cache-only. The committed `ate/planner/ai_cache.json` covers the existing EVPN corpus; new RFC rows fall through to rule-based templates until baked. To enrich them:
-   ```bash
-   ate plan ... --ai --ai-backend cli        # uses local `claude -p` auth, no API key
-   # or
-   ANTHROPIC_API_KEY=sk-... ate plan ... --ai --ai-backend sdk
-   ```
-   A full bake of the EVPN corpus takes ~10 h via the CLI backend (see `memory/project_m1_full_bake_cost.md`). Commit the updated `ai_cache.json` when done.
+**Adding a brand new feature** (e.g. DHCP-Snooping):
 
-6. **Verify nothing regressed.**
-   ```bash
-   ./modular_tools.sh regression    # pytest + golden drift
-   ```
+```bash
+mkdir references/DHCP-Snooping
+cp ~/Downloads/dhcp_snooping_sfs.docx references/DHCP-Snooping/
+cp ~/Downloads/dhcp_snooping_cli.docx references/DHCP-Snooping/   # optional
+cp ~/Downloads/rfc8910.txt              references/DHCP-Snooping/   # optional, repeat for more
+./modular_tools.sh plan-feature DHCP-Snooping
+```
+
+Auto-discovery rules (case-insensitive on the basename):
+- Files starting with `rfc` or containing `draft-` → RFC. The `.txt` form is
+  preferred for planning; sibling `.docx`/`.pdf` copies are silently ignored
+  by the planner (but stay on disk for parser parity tests).
+- A `.docx` whose name contains `CLI` → CLI doc (at most one per folder).
+- The remaining non-RFC `.docx` → SFS (exactly one per folder).
+- `*[Tt]emplate*.xlsx` → ignored.
+
+If auto-discovery picks the wrong file or you need to bypass it, fall back
+to the explicit form:
+
+```bash
+ate plan 'references/EVPN/EVPN System Specification 1.00.docx' \
+  -o plans/EVPN_test_plan_with_RFCs.xlsx \
+  --rfc references/EVPN/rfc9785.txt \
+  --cli-doc 'references/EVPN/EVPN CLI 1.00.docx'
+```
+
+**After generating**, open `plans/<FEATURE>_test_plan_with_RFCs.xlsx` and
+check the **Synthesized — Review** sheet for orphan RFC mandates the
+auto-row pass couldn't anchor — those flag as `synthesized — review` in
+column 9 and need a human pass before shipping to the client.
+
+**(Optional) Bake AI rows for new content.** Default runs are cache-only.
+The committed `ate/planner/ai_cache.json` covers the existing EVPN corpus;
+new RFC/feature rows fall through to rule-based templates until baked:
+
+```bash
+./modular_tools.sh plan-feature EVPN --ai --ai-backend cli   # local Claude Code auth
+# or
+ANTHROPIC_API_KEY=sk-... ./modular_tools.sh plan-feature EVPN --ai --ai-backend sdk
+```
+
+A full bake of the EVPN corpus takes ~10 h via the CLI backend (see
+`memory/project_m1_full_bake_cost.md`). Commit `ai_cache.json` when done.
+
+**Verify nothing regressed:**
+
+```bash
+./modular_tools.sh regression    # pytest (149 tests) + golden IR drift
+./modular_tools.sh plan-all      # regenerates every feature folder's xlsx
+```
 
 **Where things live:**
 
 | Stage | Location |
 |---|---|
-| Client-provided inputs | `references/` (committed, read-only) |
+| Client-provided inputs (per feature) | `references/<FEATURE>/` |
+| Cross-feature output templates | `references/*.xlsx` (top-level) |
 | Parsed IR (debug only) | `out/<name>.json` (gitignored) |
-| Generated test plans | `plans/<feature>.xlsx` |
+| Generated test plans | `plans/<FEATURE>_test_plan_with_RFCs.xlsx` |
 | AI enrichment cache | `ate/planner/ai_cache.json` (committed) |
 | Hand-curated BGP sub-config inheritance | `ate/planner/cli_inheritance.py` |
-
-> **Note:** `./modular_tools.sh plan_all` is *not* RFC-aware — it iterates every `.docx` in `references/` with no `--rfc` / `--cli-doc` flags. For the EVPN deliverable always go through `make plan-evpn` (or `ate plan` directly with the flags above).
 
 ### Verify (the user-facing green/red gate)
 
@@ -269,8 +312,8 @@ If **all** lines say `[PASS]`, M1 is shippable. If any line says `[FAIL]`, the n
 ### `parse … --summary` output
 
 ```
-$ ./modular_tools.sh parse references/rfc9785.pdf --summary
-path:        references/rfc9785.pdf
+$ ./modular_tools.sh parse references/EVPN/rfc9785.pdf --summary
+path:        references/EVPN/rfc9785.pdf
 format:      pdf
 schema:      1.0.0
 blocks:      72
@@ -302,7 +345,7 @@ If drift is detected, the diff is printed inline. You decide: revert the parser 
 
 ## What's tested
 
-Every file in `references/` (except the xlsx output template) is in the test corpus and acceptance scorecard:
+Every file under `references/<FEATURE>/` (except the cross-feature xlsx output templates) is in the test corpus and acceptance scorecard:
 
 | File | In acceptance scorecard? | In regression goldens? | Tier |
 |---|:---:|:---:|---|

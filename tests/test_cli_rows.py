@@ -21,7 +21,7 @@ from ate.planner.cli_extractor import config_commands
 from ate.planner.cli_rows import cli_command_rows, rows_for_command
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI_DOC = ROOT / "references" / "EVPN CLI 1.00.docx"
+CLI_DOC = ROOT / "references" / "EVPN" / "EVPN CLI 1.00.docx"
 
 
 @pytest.fixture(scope="module")

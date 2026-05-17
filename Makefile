@@ -49,11 +49,8 @@ edge-cases:
 	@$(PY) scripts/score.py --only edge_cases
 
 plan-evpn:
-	@$(PY) -m ate.cli plan 'references/EVPN System Specification 1.00.docx' \
-	  -o plans/EVPN_test_plan_with_RFCs.xlsx \
-	  --rfc 'references/draft-ietf-bess-rfc7432bis-13.txt' \
-	  --rfc 'references/rfc9785.txt' \
-	  --cli-doc 'references/EVPN CLI 1.00.docx'
+	@$(PY) -m ate.cli plan-feature EVPN \
+	  -o plans/EVPN_test_plan_with_RFCs.xlsx
 
 ai-bake-curated:
 	$(PY) scripts/build_ai_cache.py

@@ -20,7 +20,7 @@ from ate.planner.cli_extractor import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-CLI_DOC = ROOT / "references" / "EVPN CLI 1.00.docx"
+CLI_DOC = ROOT / "references" / "EVPN" / "EVPN CLI 1.00.docx"
 
 
 @pytest.fixture(scope="module")

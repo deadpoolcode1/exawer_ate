@@ -534,26 +534,27 @@ def _section_performance() -> Section:
 def _section_corpus() -> Section:
     section = Section("Corpus Inventory (references/)")
     refs = ROOT / "references"
-    files = sorted(refs.iterdir()) if refs.exists() else []
+    files = sorted(p for p in refs.rglob("*") if p.is_file()) if refs.exists() else []
     sys.path.insert(0, str(ROOT))
     from ate.parsers import parse  # noqa: PLC0415
 
     for i, p in enumerate(files, 1):
+        rel = p.relative_to(refs)
         ext = p.suffix.lower()
         size_kb = p.stat().st_size / 1024
         if ext in {".pdf", ".docx", ".txt"}:
             try:
                 d = parse(p)
-                desc = (f"{p.name} ({size_kb:.0f} KB) — "
+                desc = (f"{rel} ({size_kb:.0f} KB) — "
                         f"{d.source_format}, {len(d.blocks)} blocks, "
                         f"{len(d.headings)} headings, {len(d.tables)} tables, "
                         f"{len(d.code_blocks)} code blocks")
                 result = "PASS"
             except Exception as e:
-                desc = f"{p.name} — parse failed: {type(e).__name__}: {e}"
+                desc = f"{rel} — parse failed: {type(e).__name__}: {e}"
                 result = "FAIL"
         else:
-            desc = f"{p.name} ({size_kb:.0f} KB) — skipped (format {ext})"
+            desc = f"{rel} ({size_kb:.0f} KB) — skipped (format {ext})"
             result = "SKIP"
         section.rows.append(Row(f"C.{i:02d}", desc, result))
     return section
