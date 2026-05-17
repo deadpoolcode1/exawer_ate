@@ -1,9 +1,10 @@
 """Generate concrete CLI Configuration rows from the parsed CLI doc.
 
-Closes Yossi's M1 review gap: "CLI Configuration — missing aspects of
-CLI commands: validations, defaults, etc.". For each configuration
-command (lacp-key, identifier, service-carving, …) we emit a focused
-row family that names the actual command, its parameters, ranges,
+Closes the QA review gap: "CLI tests are aimed to test the commands
+required by the feature (structure, allowed options, allowed values,
+**filters, help**, persistency)." For each configuration command
+(lacp-key, identifier, service-carving, …) we emit a focused row
+family that names the actual command, its parameters, ranges,
 defaults, and the negative cases:
 
     Configure              — happy path with the documented example
@@ -12,12 +13,22 @@ defaults, and the negative cases:
     Mutual exclusion       — only emitted for choice-type parameters
     `no` form              — only if the syntax shows it
     Persistence            — reload survives the configuration
+    Help & completion      — `?` lists allowed tokens, TAB completes
+    Output filter          — `show running-config | include <cmd>`
+                             returns only matching lines
+
+For documented show commands (`show evpn …`, `show running-config`,
+`show alarms`, …) we emit a separate per-show-command family:
+
+    Show invocation        — happy path with the documented example
+    Show output filter     — `… | include`, `… | exclude` filter pipes
+    Show help              — `?` after the show command lists sub-tokens
 
 Each row carries:
   - category = "CLI configuration"
-  - sfs_requirement_id = "CLI:<command_name>" (synthetic anchor for traceability)
+  - sfs_requirement_id = "CLI:<command_name>" (synthetic anchor)
   - equipment = "DUT only (CLI session via console / SSH)"
-  - action_steps = Setup/Action/Verify scaffolded multi-line
+  - action_steps = numbered Setup/Action/Verify steps
   - expectation = Pass / Fail-on multi-line
 
 These rows replace the generic CLI Configuration template rows for any
@@ -32,8 +43,34 @@ from ate.planner.model import PlanRow
 EQUIPMENT = equipment_for_cli_row()
 
 
-def _scaffold(setup: str, action: str, verify: str) -> str:
-    return f"Setup:  {setup}\nAction: {action}\nVerify: {verify}"
+def _numbered(items: list[str]) -> str:
+    """Render `items` as numbered steps "1. … 2. … 3. …".
+
+    Numbered steps make rows directly translatable to test code: each
+    step maps to one assertion / command invocation in the generated
+    runner. Closes the QA pushback that prose-form steps were too
+    template-shaped to feed automation codegen.
+    """
+    return "\n".join(f"  {i}. {s}" for i, s in enumerate(items, 1))
+
+
+def _scaffold(setup: list[str] | str, action: list[str] | str,
+              verify: list[str] | str) -> str:
+    """Render Setup / Action / Verify with numbered sub-steps.
+
+    Each section accepts either a single sentence (legacy callers) or a
+    list of step strings — list inputs render as numbered steps so
+    codegen can iterate.
+    """
+    def _block(label: str, body: list[str] | str) -> str:
+        if isinstance(body, list):
+            return f"{label}:\n{_numbered(body)}"
+        return f"{label}:  {body}"
+    return "\n".join([
+        _block("Setup", setup),
+        _block("Action", action),
+        _block("Verify", verify),
+    ])
 
 
 def _expect(pass_: str, fail_on: str = "") -> str:
@@ -259,6 +296,86 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
         ),
     ))
 
+    # ── Help & completion row ─────────────────────────────────────────────
+    # QA explicitly listed "help" + "filters" as required CLI-test
+    # aspects. This row validates that interactive help (`?`) and TAB
+    # completion expose the documented sub-tokens / parameters and
+    # carry non-empty descriptions — without this, an operator can't
+    # discover the command from the prompt.
+    rows.append(PlanRow(
+        category=cat,
+        sub_category=cmd.name,
+        equipment=EQUIPMENT,
+        sfs_requirement_id=req_anchor,
+        action_steps=_scaffold(
+            [
+                f"DUT in mode `{mode}` (no `{cmd.name}` configured yet).",
+            ],
+            [
+                f"At the prompt, type `{cmd.name.split()[0]} ?` and inspect "
+                "the help listing.",
+                f"At the prompt, type the first letters of `{cmd.name.split()[0]}` "
+                "and press TAB; observe completion behaviour.",
+                f"After entering `{cmd.name.split()[0]} `, type `?` again to "
+                "list the next-token completions for this command.",
+            ],
+            [
+                f"Help (`?`) lists `{cmd.name.split()[0]}` with a non-empty "
+                "one-line description.",
+                "TAB completes uniquely (or offers the documented set when "
+                "ambiguous); zero tokens outside the CLI doc's Parameters "
+                "Table.",
+                "Sub-token help shows every documented parameter from the "
+                "CLI doc's Parameters Table (no missing token, no extra).",
+            ],
+        ),
+        expectation=_expect(
+            f"`{cmd.name}` is discoverable from `?` and TAB; sub-token help "
+            "lists exactly the documented parameters.",
+            "Command absent from `?` listing, TAB does not complete, or "
+            "sub-token help drops / invents parameters vs. the CLI doc.",
+        ),
+    ))
+
+    # ── Output-filter / running-config introspection row ────────────────
+    # QA explicitly listed "filters" as required. `show running-config |
+    # include <token>` is the standard way an operator inspects a
+    # configured command in isolation; it must work for every config
+    # command and must return only matching lines.
+    rows.append(PlanRow(
+        category=cat,
+        sub_category=cmd.name,
+        equipment=EQUIPMENT,
+        sfs_requirement_id=req_anchor,
+        action_steps=_scaffold(
+            [
+                f"`{cmd.name}` configured and committed under {mode}.",
+            ],
+            [
+                f"Run `show running-config | include {cmd.name.split()[0]}` "
+                "and inspect the output.",
+                f"Run `show running-config | exclude {cmd.name.split()[0]}` "
+                "and inspect the output.",
+                "Run `show running-config | begin <parent-mode>` to scope "
+                f"output to the {mode} block.",
+            ],
+            [
+                f"`| include` returns only lines that contain `{cmd.name.split()[0]}` "
+                "(no false positives, no missing matches).",
+                f"`| exclude` omits all `{cmd.name.split()[0]}` lines but "
+                "keeps the rest of the running-config intact.",
+                f"`| begin` correctly scopes output to the parent mode "
+                f"({mode}) and preserves indentation.",
+            ],
+        ),
+        expectation=_expect(
+            "All three filter forms behave per documented semantics; "
+            "filtered output matches the unfiltered grep equivalent.",
+            "Filter pipe rejects the command, returns wrong subset, "
+            "drops the matching command line, or breaks indentation.",
+        ),
+    ))
+
     # ── Notes-driven prerequisite row ────────────────────────────────────
     # Many EVPN commands document hard preconditions in Notes
     # ("can be configured only if the interface is L2", "cannot be
@@ -293,14 +410,142 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
     return rows
 
 
+def rows_for_show_command(cmd: CliCommand) -> list[PlanRow]:
+    """Row family for a `show` / `clear` command.
+
+    Three rows:
+      - Invocation: command runs without a parent feature; output
+        structurally well-formed (header, columns, no parser error).
+      - Output filter: `| include`, `| exclude`, `| begin` filter the
+        output as documented; field counts are sane.
+      - Help & completion: `?` lists the command's sub-tokens; TAB
+        completes; help text is non-empty.
+
+    Empty list for a command without a recognizable name.
+    """
+    if cmd.kind not in ("show", "clear"):
+        return []
+
+    rows: list[PlanRow] = []
+    req_anchor = f"CLI:{cmd.name}"
+    cat = "CLI configuration"
+    invocation = (
+        cmd.syntax_lines[0] if cmd.syntax_lines else cmd.name
+    )
+    head_token = cmd.name.split()[0] if cmd.name else "show"
+
+    # ── Show invocation ─────────────────────────────────────────────────
+    rows.append(PlanRow(
+        category=cat,
+        sub_category=cmd.name,
+        equipment=EQUIPMENT,
+        sfs_requirement_id=req_anchor,
+        action_steps=_scaffold(
+            [
+                "DUT booted; CLI session via console / SSH; no parent "
+                "feature required for the show command itself.",
+            ],
+            [
+                f"Issue `{invocation}` at the operational prompt.",
+                "Issue the command twice in succession to confirm "
+                "idempotence on a stable system.",
+            ],
+            [
+                "Output rendered without a parser error; header / column "
+                "labels match the documented format.",
+                "Subsequent invocations produce identical output for an "
+                "unchanged system state.",
+            ],
+        ),
+        expectation=_expect(
+            f"`{cmd.name}` produces well-formed output, idempotent on "
+            "stable state.",
+            "Parser error, missing columns, or output drift on a stable "
+            "system.",
+        ),
+    ))
+
+    # ── Output filter ───────────────────────────────────────────────────
+    rows.append(PlanRow(
+        category=cat,
+        sub_category=cmd.name,
+        equipment=EQUIPMENT,
+        sfs_requirement_id=req_anchor,
+        action_steps=_scaffold(
+            [
+                f"DUT booted; `{cmd.name}` returns multi-line output.",
+            ],
+            [
+                f"Run `{cmd.name} | include <known-token>` for a token that "
+                "appears in the unfiltered output.",
+                f"Run `{cmd.name} | exclude <known-token>`.",
+                f"Run `{cmd.name} | begin <known-section-header>`.",
+                f"Run `{cmd.name} | count` (if supported by the platform).",
+            ],
+            [
+                "`| include` returns only lines containing the token.",
+                "`| exclude` returns the unfiltered output minus those lines.",
+                "`| begin` skips lines until the named section.",
+                "`| count` returns an integer matching the unfiltered line "
+                "count (or `| count` reported as unsupported with a clear "
+                "message).",
+            ],
+        ),
+        expectation=_expect(
+            "All four filter pipes behave per documented semantics.",
+            "Filter rejects, returns wrong subset, or breaks output structure.",
+        ),
+    ))
+
+    # ── Help & completion for the show command ─────────────────────────
+    rows.append(PlanRow(
+        category=cat,
+        sub_category=cmd.name,
+        equipment=EQUIPMENT,
+        sfs_requirement_id=req_anchor,
+        action_steps=_scaffold(
+            [
+                "DUT booted; CLI session attached.",
+            ],
+            [
+                f"At the operational prompt type `{head_token} ?`.",
+                f"Type the first letters of `{head_token}` and press TAB.",
+                f"After typing `{cmd.name} `, type `?` to list sub-token "
+                "completions.",
+            ],
+            [
+                f"Help (`?`) lists `{head_token}` with a non-empty "
+                "description.",
+                "TAB completes uniquely or offers the documented set; "
+                "zero tokens outside the CLI doc's Parameters Table.",
+                f"Sub-token help under `{cmd.name}` lists each documented "
+                "argument / filter (matches the CLI doc).",
+            ],
+        ),
+        expectation=_expect(
+            f"`{cmd.name}` is discoverable via `?` and TAB; sub-token help "
+            "lists every documented argument.",
+            "Command absent from help, TAB does not complete, or "
+            "sub-token help diverges from the CLI doc.",
+        ),
+    ))
+
+    return rows
+
+
 def cli_command_rows(commands: list[CliCommand]) -> list[PlanRow]:
     """Concatenate all CLI configuration rows in stable order.
 
-    Group order: commands appear in the order they were extracted from
-    the doc (which is doc order), so QA can read the section linearly
-    against the CLI manual.
+    Group order: config commands first (in doc order), then show /
+    clear commands. Within each command, the row family is emitted in
+    a fixed order so QA reads the section linearly against the CLI
+    manual.
     """
     out: list[PlanRow] = []
     for cmd in commands:
-        out.extend(rows_for_command(cmd))
+        if cmd.is_config:
+            out.extend(rows_for_command(cmd))
+    for cmd in commands:
+        if cmd.kind in ("show", "clear"):
+            out.extend(rows_for_show_command(cmd))
     return out

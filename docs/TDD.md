@@ -63,27 +63,42 @@ Runs every gate (env, corpus, pytest, coverage, scorecard, requirements traceabi
                             │  CodeBlock / Table    │
                             └──────┬────────┬───────┘
                                    │        │
-              ate.cli parse ◀──────┘        └──▶  ate.planner.extractor
-                  → JSON                          ── EVPNS-REQ#NN anchors
-                                                          │
-                                                          ▼
-                                                ate.planner.generator
-                                                  + categories.py
-                                                  (rule-based scaffold)
-                                                          │
-                                                          ▼
-                                                ate.planner.ai_enricher
-                                                  + ai_cache.json
-                                                  (Claude — 100% cached)
-                                                          │
-                                                          ▼
-                                                 ate.planner.xlsx_writer
-                                                          │
-                                                          ▼
-                                              ┌──────────────────────┐
-                                              │   Test Plan (xlsx)    │
-                                              │   ★ M1 deliverable    │
-                                              └──────────────────────┘
+              ate.cli parse ◀──────┘        ▼
+                  → JSON           ┌─────────────────────────────┐
+                                   │  Requirements Builder       │  ★ M1 respin
+                                   │  ate.planner.requirements_  │  (2026-05-17)
+                                   │  builder                    │
+                                   │   ├ extractor (SFS)          │
+                                   │   ├ rfc_extractor            │
+                                   │   ├ cli_extractor            │
+                                   │   └ cli_inheritance (BGP)    │
+                                   │   → RequirementCatalog       │
+                                   └──────────────┬──────────────┘
+                                                  ▼
+                                       ate.planner.generator
+                                         + flows.py + cli_rows.py
+                                         (rule-based scaffold,
+                                          synth_anchors for orphan RFC)
+                                                  │
+                                                  ▼
+                                       ate.planner.ai_enricher
+                                         + ai_cache.json
+                                         (Claude — cached)
+                                                  │
+                                                  ▼
+                                       ate.planner.atomic_rows
+                                         PlanRow → AtomicRow stream
+                                         (DHCP-snoopy 9-col shape)
+                                                  │
+                                                  ▼
+                                       ate.planner.xlsx_writer
+                                         + Synthesized — Review sheet
+                                                  │
+                                                  ▼
+                                       ┌──────────────────────┐
+                                       │  Test Plan (xlsx)    │
+                                       │  ★ M1 deliverable    │
+                                       └──────────────────────┘
 ```
 
 The Plan model (`ate.planner.model`) is the format-neutral artifact. The M1 deliverable is **AI-enriched 100% via Claude (Anthropic)** — every plan row references real spec content (CLI commands, RFC chapters, MUST statements). The cache (`ate/planner/ai_cache.json`) is committed so the deliverable is reproducible without an API key. M3 expands AI usage to multi-router topologies, prioritization, and coverage tracking per the SOW M3 deliverable list; M5's web UI reads the same Plan shape.
@@ -214,6 +229,108 @@ This is why **`docs/exaware-acceptance.md`** exists: the human spot-check is the
 | 5 | Style-variance across Exaware specs unknown (only EVPN spec validated) | Stress-test in M2 with 2–3 more spec samples |
 | 6 | Pydantic 2 + python-docx incompatibility at major version bumps | Versions pinned in pyproject.toml |
 | 7 | Host environment leakage (ROS2/system pytest plugins) | `PYTEST_DISABLE_PLUGIN_AUTOLOAD=1` set in Makefile and `modular_tools.sh` |
+
+---
+
+## 9. Requirements Builder + DHCP-snoopy row shape (M1 client respin, 2026-05-17)
+
+### Why
+
+Client review (Eyal Ozeri, 2026-05-14) flagged two structural defects
+and shared `references/DHCP-snoopy_TP_with_PW.xlsx` as the visual target:
+
+1. **RFC not handled as a first-class requirement source.** Pipeline
+   treated SFS as SSOT; RFC MUST clauses extracted by `rfc_extractor.py`
+   were folded into the same flat list and run through the flow
+   selector. RFC clauses no flow happened to claim landed in the
+   Coverage-orphan sheet — the main TP shipped without testing them.
+2. **Hierarchical CLI sub-configs not expanded.** `af-l2vpn evpn`
+   appears in the EVPN CLI doc as one command with empty parameters,
+   but in reality it opens a sub-mode whose 7 BGP-neighbor sub-configs
+   (`allow-as-in`, `capability`, `inbound-soft-reconfiguration`,
+   `maximum-prefix`, `policy`, `private-as`, `route-reflector-client`)
+   are documented in Exaware's BGP CLI manual — which we do not have.
+3. **Row shape diverges from what QA writes.** DHCP-snoopy uses
+   atomic-row-under-topic-banner with one-sentence Action / Expectation
+   / Monitor columns. The previous generator emitted multi-line
+   Setup/Action/Verify **blobs in one cell** (introduced for Yossi's
+   2026-05-07 review — see `memory/project_m1_yossi_respin.md`).
+
+### What changed
+
+A pre-agent **Requirements Builder** stage now unifies three independent
+sources into one catalog with provenance tracking. The xlsx renderer
+emits a 9-column DHCP-snoopy schema; multi-line PlanRow blobs decompose
+into atomic action rows at render time (so the AI-enrichment cache
+survives the shape change).
+
+#### New modules
+
+| Module | Responsibility |
+|---|---|
+| `ate.planner.requirements_builder` | Orchestrates `extract_requirements`, `extract_rfc_requirements`, `extract_commands`, `cli_inheritance.expand`. Returns `RequirementCatalog` (requirements, cli_commands, synth_anchors, provenance, inherited_cmd_names). `mark_claimed()` populates `synth_anchors` from RFC reqs no flow claimed. |
+| `ate.planner.cli_inheritance` | Hand-curated table of sub-mode inheritance. Single entry today: `BGP_NEIGHBOR_AF_L2VPN_EVPN` with 7 sub-configs. `expand(extracted)` injects each sub-config as a `CliCommand`; idempotent if the real BGP doc is later integrated. |
+| `ate.planner.atomic_rows` | `PlanRow → list[AtomicRow]` decomposer. Parses the multi-line Setup/Action/Verify blob into atomic step lists, extracts show commands from Verify into the Monitor column, emits banner + N action rows. Provenance (`synth` / `cli-inherit`) flows through to the Comment column. |
+
+#### Modified modules
+
+| Module | Change |
+|---|---|
+| `ate.planner.generator` | Replaces inline SFS/RFC/CLI extraction with `build_catalog()`; calls `mark_claimed()` after flow matching so RFC orphans surface as `synth_anchors`. |
+| `ate.planner.xlsx_writer` | Rewritten "Test Plan Topics" sheet for 9-column schema. New "Synthesized — Review" sheet lists every banner with provenance `synth` or `cli-inherit`. PlanRow blobs are decomposed via `atomic_rows.rows_for_plan_row()` at write time. |
+
+#### Output xlsx 9-column schema
+
+| # | Header | Content |
+|---|---|---|
+| 1 | Topic | Banner row label (`FLOW-010 — …`, `RFC7432bis §7.2 — …`, `allow-as-in`). Empty on continuation rows. |
+| 2 | Action | One-sentence verb phrase. |
+| 3 | SFS / RFC Req ID | Comma-joined `EVPNS-REQ#NN`, `RFC*-§N.N`, `CLI:<name>` tokens. |
+| 4 | Expectation | One-sentence pass criterion (last action row of a topic carries the full Pass / Fail-on). |
+| 5 | Monitor | Show / clear commands extracted from the Verify steps. |
+| 6 | Test Equipment | `DUT only`, `DUT + IXIA + neighbor PE`, … |
+| 7 | Build number | QA fills. |
+| 8 | Results (Pass/Fail) | QA fills. |
+| 9 | Comment | `synthesized — review` / `CLI inheritance — review` markers on auto-generated rows; QA bug numbers. |
+
+Banner rows are tinted: blue (flow), yellow (RFC-synth), violet (CLI-inherit).
+Atomic rows under a banner leave col A blank — they inherit the topic
+visually (matches DHCP-snoopy).
+
+### Yossi-alignment note
+
+Yossi's 2026-05-07 review demanded "steps and expected results must be
+explicit." The shape change preserves that requirement: each Setup /
+Action / Verify step is now a *separate row* (more explicit, not less)
+under a topic banner. The change is visual, not semantic — the codegen-
+friendly per-step structure that closed Yossi's gap is preserved and
+arguably sharper.
+
+### Synthesized — Review sheet contract
+
+For every banner with provenance `synth` or `cli-inherit`, one row:
+
+| Source | Anchor | Why this row is here | Recommended QA action |
+|---|---|---|---|
+| RFC mandate (synth) | `RFC7432bis-§10.1.1` | No flow in EVPN_FLOWS claimed this RFC MUST clause. Auto-synthesised so the mandate isn't silently dropped. | Refine the action/monitor/expectation against actual device behaviour; if the use case applies broadly, promote to a named Flow. |
+| CLI inheritance | `allow-as-in` | Sub-config inherited from parent protocol's CLI (e.g. BGP). Not documented in the EVPN CLI doc. Source: <inheritance source string>. | Validate the syntax + defaults against the actual device behaviour. Replace this entry once the Exaware BGP CLI manual is integrated. |
+
+### Cache impact
+
+Cache salt remains v3 — PlanRow shape is unchanged (decomposition
+happens at render time only). The committed `ai_cache.json` continues
+to serve enriched content for the EVPN spec without re-bake. New
+inherited CLI commands (the 7 BGP sub-configs) miss the cache and fall
+back to rule-based PlanRow content; they enrich on the next AI bake.
+
+### Open follow-ups for M2
+
+- Replace `cli_inheritance.BGP_NEIGHBOR_AF_L2VPN_EVPN` with extracted
+  commands from the real Exaware BGP CLI doc when it lands. `expand()`
+  is idempotent on name — no other code changes required.
+- The atomic-row decomposer mechanically splits Setup/Action/Verify
+  prose into rows. M2 should consider hand-curating per-flow
+  `atomic_steps` lists on each `Flow` for higher-quality decomposition.
 
 ---
 

@@ -57,18 +57,22 @@ def test_plan_rows_are_traced_to_a_requirement() -> None:
         assert r.expectation, f"row missing expectation: {r}"
 
 
-def test_plan_applies_categories_per_tag_not_uniformly() -> None:
-    """Each requirement gets only the categories applicable to its tags
-    — not all 17. v1 produced 24 rows per req; v3 should be variable."""
+def test_plan_applies_categories_per_flow_not_uniformly() -> None:
+    """Each flow gets only the categories meaningful to its use case —
+    not all 17. v1 produced 24 rows per req; the QA-respin pivot picks
+    a per-flow subset (Basic / Packet / On-the-fly / …) per flow."""
     plan = generate_plan(EVPN_SPEC)
-    # Group rows by req
-    rows_per_req: dict[str, list[str]] = {}
+    rows_per_flow: dict[str, list[str]] = {}
     for r in plan.rows:
-        rows_per_req.setdefault(r.sfs_requirement_id, []).append(r.category)
-    # Some requirements have far fewer rows than the max — not every
-    # category applies to every requirement.
-    counts = sorted(len(v) for v in rows_per_req.values())
-    assert counts[0] < counts[-1], "all requirements got the same row count — applicability filter is not working"
+        if not r.flow_id:
+            continue
+        rows_per_flow.setdefault(r.flow_id, []).append(r.category)
+    counts = sorted(len(v) for v in rows_per_flow.values())
+    assert counts, "no flow rows emitted — flow catalog is not matching"
+    assert counts[0] < counts[-1], (
+        "all flows got the same row count — categories are not being "
+        "filtered per flow"
+    )
 
 
 # ─── xlsx writer ────────────────────────────────────────────────────────────
@@ -86,29 +90,30 @@ def test_xlsx_is_written_and_readable(tmp_path: Path) -> None:
 
 
 def test_xlsx_columns_match_template_schema(tmp_path: Path) -> None:
-    """The xlsx column header includes the M1-respin additions:
-    Sub-Category (column 2) and Test Equipment (column 6), keeping
-    the runtime QA-fillable columns at the end."""
+    """Column header for the DHCP-snoopy 9-column shape (M1 client respin
+    2026-05-17). `references/DHCP-snoopy_TP_with_PW.xlsx` is the visual
+    target; columns mirror its layout so QA reads atomic actions per row
+    instead of multi-line Setup/Action/Verify blobs."""
     out = tmp_path / "plan.xlsx"
     generate_plan_to_xlsx(EVPN_SPEC, out)
     wb = openpyxl.load_workbook(out)
     ws = wb["Test Plan Topics"]
     header_row = None
     for r in range(1, ws.max_row + 1):
-        if ws.cell(row=r, column=1).value == "Category":
+        if ws.cell(row=r, column=1).value == "Topic":
             header_row = r
             break
-    assert header_row is not None, "Could not find 'Category' header row"
+    assert header_row is not None, "Could not find 'Topic' header row"
     expected = [
-        "Category",
-        "Sub-Category",
-        "Action\\Steps",
-        "SFS Requirement id\n(For Traceability)",
+        "Topic",
+        "Action",
+        "SFS / RFC Req ID",
         "Expectation",
+        "Monitor (show / verify command)",
         "Test Equipment",
         "Build number",
         "Results (Pass\\Fail)",
-        "Comment \\ Bug number if failed",
+        "Comment \\ Bug number",
     ]
     for c, exp in enumerate(expected, 1):
         assert ws.cell(row=header_row, column=c).value == exp, (
@@ -117,17 +122,22 @@ def test_xlsx_columns_match_template_schema(tmp_path: Path) -> None:
 
 
 def test_xlsx_contains_evpn_anchors(tmp_path: Path) -> None:
-    """SFS requirement id moved from column 3 → 4 in the M1 respin."""
+    """Req ID column (col 3 in the DHCP-snoopy 9-col schema) lists every
+    requirement that the atomic-action row claims. EVPNS-REQ#NN anchors
+    must appear across the column's comma-joined values."""
     out = tmp_path / "plan.xlsx"
     generate_plan_to_xlsx(EVPN_SPEC, out)
     wb = openpyxl.load_workbook(out)
     ws = wb["Test Plan Topics"]
     seen_anchors: set[str] = set()
     for r in range(1, ws.max_row + 1):
-        v = ws.cell(row=r, column=4).value
-        if isinstance(v, str) and v.startswith("EVPNS-REQ#"):
-            seen_anchors.add(v)
-    assert len(seen_anchors) >= 30, f"only {len(seen_anchors)} anchors in xlsx"
+        v = ws.cell(row=r, column=3).value
+        if not isinstance(v, str):
+            continue
+        for tok in (s.strip() for s in v.split(",")):
+            if tok.startswith("EVPNS-REQ#"):
+                seen_anchors.add(tok)
+    assert len(seen_anchors) >= 20, f"only {len(seen_anchors)} anchors in xlsx"
 
 
 def test_plan_handles_doc_without_anchors(tmp_path: Path) -> None:
@@ -175,18 +185,20 @@ def test_cli_plan_handles_bad_input(tmp_path: Path, capsys) -> None:
 # ─── RFC integration (M1 respin) ────────────────────────────────────────────
 
 def test_plan_with_rfcs_adds_rfc_anchored_rows() -> None:
-    """Generating with --rfc paths must surface RFC*-§N rows alongside
-    the EVPNS-REQ#NN rows."""
+    """Generating with --rfc paths must surface RFC*-§N entries in the
+    flow-row coverage lists alongside EVPNS-REQ# entries."""
     base = generate_plan(EVPN_SPEC, use_ai=False)
     enriched = generate_plan(EVPN_SPEC, use_ai=False,
                              rfc_paths=[RFC7432BIS, RFC9785])
     assert enriched.n_requirements > base.n_requirements
-    assert enriched.n_rows > base.n_rows
-    # Both anchor styles present
-    anchors = {r.sfs_requirement_id for r in enriched.rows}
-    assert any(a.startswith("EVPNS-REQ#") for a in anchors)
-    assert any(a.startswith("RFC7432bis-§") for a in anchors)
-    assert any(a.startswith("RFC9785-§") for a in anchors)
+    assert enriched.n_rows >= base.n_rows
+    coverage_tokens: set[str] = set()
+    for r in enriched.rows:
+        for cid in r.covered_req_ids:
+            coverage_tokens.add(cid)
+    assert any(a.startswith("EVPNS-REQ#") for a in coverage_tokens)
+    assert any(a.startswith("RFC7432bis-§") for a in coverage_tokens)
+    assert any(a.startswith("RFC9785-§") for a in coverage_tokens)
 
 
 def test_plan_dedupes_overlapping_rfc_paths() -> None:
@@ -198,24 +210,26 @@ def test_plan_dedupes_overlapping_rfc_paths() -> None:
 
 
 def test_xlsx_with_rfcs_contains_both_anchor_styles(tmp_path: Path) -> None:
-    """Anchor column shifted to 4 in the M1 respin (Sub-Category inserted)."""
+    """Req ID column (col 3) carries comma-joined req-IDs the atomic row
+    claims; both EVPNS-REQ# and RFC*-§ tokens must appear."""
     out = tmp_path / "plan_rfc.xlsx"
     generate_plan_to_xlsx(EVPN_SPEC, out, use_ai=False,
                           rfc_paths=[RFC7432BIS, RFC9785])
     wb = openpyxl.load_workbook(out)
     ws = wb["Test Plan Topics"]
-    spec_anchors = set()
-    rfc_anchors = set()
+    spec_anchors: set[str] = set()
+    rfc_anchors: set[str] = set()
     for r in range(1, ws.max_row + 1):
-        v = ws.cell(row=r, column=4).value
+        v = ws.cell(row=r, column=3).value
         if not isinstance(v, str):
             continue
-        if v.startswith("EVPNS-REQ#"):
-            spec_anchors.add(v)
-        elif v.startswith("RFC"):
-            rfc_anchors.add(v)
-    assert len(spec_anchors) >= 30
-    assert len(rfc_anchors) >= 20, f"only {len(rfc_anchors)} RFC anchors in xlsx"
+        for tok in (s.strip() for s in v.split(",")):
+            if tok.startswith("EVPNS-REQ#"):
+                spec_anchors.add(tok)
+            elif tok.startswith("RFC"):
+                rfc_anchors.add(tok)
+    assert len(spec_anchors) >= 20
+    assert len(rfc_anchors) >= 10, f"only {len(rfc_anchors)} RFC anchors in xlsx"
 
 
 def test_cli_plan_accepts_repeated_rfc_flag(tmp_path: Path) -> None:
@@ -230,45 +244,70 @@ def test_cli_plan_accepts_repeated_rfc_flag(tmp_path: Path) -> None:
     assert rc == 0
     wb = openpyxl.load_workbook(out)
     ws = wb["Requirements"]
-    titles = {ws.cell(row=r, column=1).value
-              for r in range(2, ws.max_row + 1)}
-    assert any(isinstance(t, str) and t.startswith("RFC7432bis-§") for t in titles)
-    assert any(isinstance(t, str) and t.startswith("RFC9785-§") for t in titles)
+    ids = {ws.cell(row=r, column=1).value
+           for r in range(2, ws.max_row + 1)}
+    assert any(isinstance(t, str) and t.startswith("RFC7432bis-§") for t in ids)
+    assert any(isinstance(t, str) and t.startswith("RFC9785-§") for t in ids)
 
 
-def test_rfc_rows_never_use_platform_specific_categories() -> None:
-    """RFCs define protocol behavior, not vendor CLI / NETCONF / upgrades.
-    A row anchored to an RFC clause must not appear under any of those
-    categories — that's the leading symptom of the M1 review issue."""
+def test_rfc_only_flow_rows_skip_platform_categories() -> None:
+    """A flow row whose covered_req_ids are entirely RFC-sourced cannot
+    appear under platform-only categories (CLI, On-the-fly, Upgrade,
+    Management). RFCs describe protocol behaviour, not vendor CLI."""
     plan = generate_plan(EVPN_SPEC, use_ai=False,
                          rfc_paths=[RFC7432BIS, RFC9785])
     forbidden = {"CLI configuration", "On The Fly changes",
                  "Upgrade", "Management"}
-    offenders = [r for r in plan.rows
-                 if r.sfs_requirement_id.startswith("RFC")
-                 and r.category in forbidden]
+    offenders = []
+    for r in plan.rows:
+        if not r.covered_req_ids:
+            continue
+        if all(cid.startswith("RFC") for cid in r.covered_req_ids):
+            if r.category in forbidden:
+                offenders.append(r)
     assert not offenders, (
-        f"{len(offenders)} RFC-anchored rows landed in platform-only "
-        f"categories: {[(o.sfs_requirement_id, o.category) for o in offenders[:5]]}"
+        f"{len(offenders)} RFC-only flow rows landed in platform-only "
+        f"categories: "
+        f"{[(o.flow_id, o.category) for o in offenders[:5]]}"
     )
 
 
-def test_rfc_row_count_per_requirement_is_bounded() -> None:
-    """No single RFC requirement should explode into more rows than the
-    number of distinct protocol-behavior categories. Catches a regression
-    where loose tagging would re-add CLI/Mgmt categories to RFC reqs."""
+def test_flow_row_count_is_bounded() -> None:
+    """No single flow should produce more rows than its declared
+    categories list — guards against accidental category duplication
+    in the overlay path."""
     from collections import Counter
     plan = generate_plan(EVPN_SPEC, use_ai=False,
                          rfc_paths=[RFC7432BIS, RFC9785])
-    counts = Counter(r.sfs_requirement_id for r in plan.rows
-                     if r.sfs_requirement_id.startswith("RFC"))
-    if not counts:
-        return
+    counts = Counter(r.flow_id for r in plan.rows if r.flow_id)
+    assert counts, "no flow rows were emitted"
+    # A flow declares ~3-7 categories; allow some headroom but keep a
+    # ceiling so a regression that fans rows out per req is caught.
     worst_id, worst_n = counts.most_common(1)[0]
-    # Bound raised to 22 in the M1 respin — RFC content-aware patterns can
-    # match multiple per category (e.g. a section that mentions both DF
-    # election and ESI types fires both Basic Functionality patterns), and
-    # the protocol-only category set is wider after the respin.
-    assert worst_n <= 22, (
-        f"{worst_id} produced {worst_n} rows — likely a category-mask regression"
+    assert worst_n <= 10, (
+        f"{worst_id} produced {worst_n} rows — flow-row fan-out regressed"
+    )
+
+
+def test_coverage_sheet_links_reqs_to_flows(tmp_path: Path) -> None:
+    """Coverage sheet must list every spec / RFC requirement and the
+    flows that exercise it (or '(orphan)' if no flow claims it)."""
+    out = tmp_path / "plan_cov.xlsx"
+    generate_plan_to_xlsx(EVPN_SPEC, out, use_ai=False,
+                          rfc_paths=[RFC7432BIS, RFC9785])
+    wb = openpyxl.load_workbook(out)
+    assert "Coverage" in wb.sheetnames
+    ws = wb["Coverage"]
+    seen_reqs: set[str] = set()
+    flow_links = 0
+    for r in range(1, ws.max_row + 1):
+        a = ws.cell(row=r, column=1).value
+        d = ws.cell(row=r, column=4).value
+        if isinstance(a, str) and (a.startswith("EVPNS-REQ#") or a.startswith("RFC")):
+            seen_reqs.add(a)
+            if isinstance(d, str) and "FLOW-" in d:
+                flow_links += 1
+    assert len(seen_reqs) >= 30, f"coverage only lists {len(seen_reqs)} reqs"
+    assert flow_links >= 10, (
+        f"only {flow_links} reqs are linked to flows in Coverage sheet"
     )

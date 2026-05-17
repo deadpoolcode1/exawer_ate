@@ -109,14 +109,16 @@ CURRENT RULE-BASED ROW (replace with feature-specific content; do not parrot it)
 def _row_key(req: Requirement, row: PlanRow, sub_index: int) -> str:
     """Stable cache key for a row.
 
-    Salt v2 marks the M1-respin prompt shape (Setup/Action/Verify +
-    Pass/Fail-on + Equipment, with CLI/RFC evidence injection).
-    Old v1 entries on disk become misses, which forces re-enrichment.
+    Salt v3 marks the QA-respin prompt shape (flow-driven rows: row
+    identity now includes flow_id + covered_req_ids, since one row
+    aggregates multiple requirements). v1/v2 entries on disk become
+    misses, which forces re-enrichment for flow rows.
     """
-    salt = "v2"
+    salt = "v3"
     h = hashlib.sha256()
     h.update(salt.encode())
     h.update(req.req_id.encode())
+    h.update(row.flow_id.encode())
     h.update(row.category.encode())
     h.update(row.sub_category.encode())
     h.update(str(sub_index).encode())
@@ -227,7 +229,28 @@ def _cli_evidence_text(req: Requirement,
 
 
 def _build_prompt(req: Requirement, row: PlanRow,
-                  cli_index: dict[str, object] | None = None) -> str:
+                  cli_index: dict[str, object] | None = None,
+                  covered_reqs: list[Requirement] | None = None) -> str:
+    """Render the per-row enrichment prompt.
+
+    For flow rows, `covered_reqs` is the list of requirements the row
+    aggregates; the prompt includes their IDs + titles so the AI can
+    write a single coherent step that exercises the whole set rather
+    than the anchor requirement alone.
+    """
+    flow_context = ""
+    if row.flow_id and covered_reqs:
+        ids_titles = "\n  - ".join(
+            f"{r.req_id}: {r.title}" for r in covered_reqs[:8]
+        )
+        flow_context = (
+            f"\nFLOW (use case) the row belongs to\n"
+            f"  Flow ID: {row.flow_id}\n"
+            f"  Flow:    {row.flow_name}\n"
+            f"  This single row exercises ALL of these requirements together "
+            f"(not just the anchor). The Action must clearly visit each one:\n"
+            f"  - {ids_titles}\n"
+        )
     return PROMPT_TEMPLATE.format(
         req_id=req.req_id,
         source=req.source,
@@ -243,7 +266,7 @@ def _build_prompt(req: Requirement, row: PlanRow,
         current_action="\n".join("    " + ln for ln in row.action_steps.splitlines()),
         current_expectation="\n".join("    " + ln for ln in row.expectation.splitlines()),
         current_equipment=row.equipment or "(unset)",
-    )
+    ) + flow_context
 
 
 def _parse_response_json(text: str) -> dict | None:
@@ -442,17 +465,28 @@ def enrich_plan(plan: Plan, *,
     cli_index = _build_cli_index(cli_doc_path)
 
     req_by_id = {r.req_id: r for r in plan.requirements}
-    seen_count: dict[tuple[str, str, str], int] = {}
+    seen_count: dict[tuple[str, str, str, str], int] = {}
 
     enriched_rows: list[PlanRow] = []
     for row in plan.rows:
-        # Sub-index distinguishes multiple rows with the same (req,
-        # category, sub_category). Adding sub_category to the key
-        # ensures CLI command rows never collide with each other.
-        key_triple = (row.sfs_requirement_id, row.category, row.sub_category)
-        sub_index = seen_count.get(key_triple, 0)
-        seen_count[key_triple] = sub_index + 1
-        req = req_by_id.get(row.sfs_requirement_id)
+        # Sub-index distinguishes multiple rows with the same identity.
+        # Flow rows: keyed by (flow_id, category, joined_req_ids); CLI
+        # rows: keyed by (sfs_requirement_id, category, sub_category).
+        key_quad = (
+            row.flow_id, row.sfs_requirement_id, row.category, row.sub_category,
+        )
+        sub_index = seen_count.get(key_quad, 0)
+        seen_count[key_quad] = sub_index + 1
+
+        # Resolve the anchor requirement for this row. For CLI rows that
+        # is sfs_requirement_id directly; for flow rows it is the first
+        # covered req (which we use to source RFC refs / tags / evidence).
+        req: Requirement | None = req_by_id.get(row.sfs_requirement_id)
+        if req is None and row.covered_req_ids:
+            for rid in row.covered_req_ids:
+                if rid in req_by_id:
+                    req = req_by_id[rid]
+                    break
         if req is None:
             stats["rule_based"] += 1
             enriched_rows.append(row)
@@ -472,7 +506,10 @@ def enrich_plan(plan: Plan, *,
             continue
 
         if use_api:
-            prompt = _build_prompt(req, row, cli_index=cli_index)
+            covered = [req_by_id[r] for r in row.covered_req_ids
+                       if r in req_by_id]
+            prompt = _build_prompt(req, row, cli_index=cli_index,
+                                   covered_reqs=covered or None)
             if backend == "sdk":
                 result = _call_via_sdk(prompt, api_key) if api_key else None
             else:  # cli

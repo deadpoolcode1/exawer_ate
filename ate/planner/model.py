@@ -28,20 +28,51 @@ class Requirement(BaseModel):
 class PlanRow(BaseModel):
     """One row of the xlsx test plan.
 
-    `action_steps` is a multi-line string with the Yossi-required
-    Setup → Action → Verify scaffolding (each stage prefixed with its
-    label). `expectation` carries the measurable pass criterion.
-    `equipment` is a short tag like "DUT only" or "DUT + IXIA traffic gen
-    + 3rd-party PE" — added in the M1 respin so QA knows what test rig
-    to bring up before reading the row.
+    `action_steps` is a multi-line string with the Setup → Action →
+    Verify scaffolding (each stage prefixed with its label).
+    `expectation` carries the measurable Pass + Fail-on pair.
+    `equipment` is a short tag like "DUT + IXIA + neighbor PE" — QA
+    knows the rig before reading the row.
+
+    QA-feedback redesign: rows are now driven by **functional flows**
+    (use cases) instead of one row per requirement. Each row carries
+    `flow_id` / `flow_name` and a list of contributing requirement IDs
+    (`covered_req_ids`). For traceability with the existing template,
+    `sfs_requirement_id` keeps a comma-joined string of those IDs (or a
+    single ID for CLI-command rows that remain per-command).
     """
-    category: str          # column A — top-level category (e.g. "CLI configuration")
-    sub_category: str = "" # appears as another row under category
-    equipment: str = ""    # column B — Test Equipment / topology
-    action_steps: str = "" # column C — Setup / Action / Verify
-    sfs_requirement_id: str = ""  # column D — for traceability
-    expectation: str = ""  # column E
-    # F/G/H are runtime fields filled in by the QA engineer (build, pass/fail, comment)
+    flow_id: str = ""      # e.g. "FLOW-020"; empty for CLI rows
+    flow_name: str = ""    # human label, mirrors the flow's name
+    category: str          # top-level category (e.g. "CLI configuration")
+    sub_category: str = "" # secondary header (CLI command name, etc.)
+    equipment: str = ""    # Test Equipment / topology
+    action_steps: str = "" # Setup / Action / Verify (multi-line)
+    covered_req_ids: list[str] = Field(default_factory=list)
+    sfs_requirement_id: str = ""  # comma-joined view of covered_req_ids
+    expectation: str = ""  # Pass / Fail-on (multi-line)
+
+
+class AtomicRow(BaseModel):
+    """One row in the DHCP-snoopy-shaped xlsx ("Test Plan Topics" sheet).
+
+    The render-time projection of `PlanRow`: a multi-line Setup/Action/Verify
+    blob becomes a banner row + N atomic action rows. `topic` is populated
+    only on banners; continuation rows leave it empty so QA reads it as
+    "inherits the topic above" (matches the reference DHCP-snoopy TP).
+
+    The 9-column schema (Topic / Action / Req ID / Expectation / Monitor /
+    Equipment / Build / Results / Comment) maps 1:1 to fields below; Build,
+    Results, Comment are QA fill-in columns that we leave blank except for
+    `provenance` which surfaces synth markers in the Comment column.
+    """
+    topic: str = ""           # col A; populated only on banner rows
+    action: str = ""          # col B
+    req_ids: list[str] = Field(default_factory=list)  # col C, comma-joined
+    expectation: str = ""     # col D
+    monitor: list[str] = Field(default_factory=list)  # col E, comma-joined
+    equipment: str = ""       # col F
+    is_banner: bool = False   # styling hint
+    provenance: str = ""      # "" | "synth" | "cli-inherit" → col I marker
 
 
 class Plan(BaseModel):
@@ -49,9 +80,18 @@ class Plan(BaseModel):
     feature_name: str
     source_path: str
     machine_vendor: str = "EC"
-    machine_types: str = "e.g. MX, AX"
-    ip_versions: str = "IPv4, IPv6"
-    interfaces: str = "x-eth, Sub-if, Q-in-Q, agg-eth, vlan-range"
+    machine_types: str = (
+        "Plan is model-agnostic across Exaware MX and AX; flows apply "
+        "to either DUT without modification"
+    )
+    ip_versions: str = (
+        "IPv4 (control plane: BGP EVPN session); IPv4 + IPv6 host IPs "
+        "carried in Type 2 NLRI per RFC 7432bis §7.2 (validated in FLOW-030)"
+    )
+    interfaces: str = (
+        "x-eth, Sub-if, Q-in-Q, agg-eth, vlan-range (all five exercised "
+        "in FLOW-014; agg-eth additionally in FLOW-020..022)"
+    )
     special_interfaces: str = ""
     requirements: list[Requirement] = Field(default_factory=list)
     rows: list[PlanRow] = Field(default_factory=list)

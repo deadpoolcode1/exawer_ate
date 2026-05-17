@@ -23,6 +23,8 @@ Categories mirror references/Feature Name Test Plan Template.xlsx.
 """
 from __future__ import annotations
 
+import re
+
 # All categories from the xlsx template, in stable order.
 ALL_CATEGORIES: list[str] = [
     "CLI configuration",
@@ -169,9 +171,9 @@ CATEGORY_ACTIONS: dict[str, list[tuple[str, str]]] = {
             "{title} present in the spec but not configured on DUT.",
             "Trigger the feature without explicit configuration; observe "
             "the system's default behavior.",
-            "System falls back to documented default; no spurious alarms; "
-            "no crash."),
-         _expect("System falls back to documented default; no spurious alarms",
+            "System falls back to documented default; zero alarms raised "
+            "during the no-config window; no crash (uptime continuous)."),
+         _expect("System falls back to documented default; zero unexpected alarms",
                  "Feature partially active without configuration, or default differs from spec")),
     ],
     "On The Fly changes": [
@@ -226,14 +228,15 @@ CATEGORY_ACTIONS: dict[str, list[tuple[str, str]]] = {
     ],
     "Scale": [
         (_scaffold(
-            "Two-PE topology with {title} configured to documented system limit "
-            "(check `show evpn summary` for the limit number).",
-            "Scale {title} to the documented maximum (advertise/install at the "
-            "spec-defined ceiling); hold for ≥ 5 minutes.",
-            "Limit reached without crash; CPU and memory remain in green band; "
-            "convergence on incremental change is unchanged from baseline."),
-         _expect("Limit reached; performance and stability remain within bounds",
-                 "Crash, OOM, or per-route convergence > 2× baseline at scale")),
+            "Two-PE topology with {title} configured to the documented system "
+            "limit (64K MACs / 32 EVIs / 16 ESs — adjust per platform spec; "
+            "check `show evpn summary` for the live ceiling).",
+            "Scale {title} to the documented maximum at 1K entries/s; hold "
+            "for ≥ 5 minutes; sample CPU and memory every 60 s.",
+            "Limit reached without crash; CPU 5-min avg ≤ 70%; memory growth "
+            "over the run ≤ 5%; incremental convergence ≤ 2× idle baseline."),
+         _expect("Limit reached; CPU ≤ 70%; memory growth ≤ 5%; convergence ≤ 2× baseline",
+                 "Crash, OOM, CPU > 70%, memory > 5% growth, or per-route convergence > 2× baseline")),
     ],
     "Performance": [
         (_scaffold(
@@ -251,10 +254,10 @@ CATEGORY_ACTIONS: dict[str, list[tuple[str, str]]] = {
             "{title} active on DUT; IXIA generating background traffic.",
             "Reset the Exaware control-plane process while {title} is active "
             "(use platform reset CLI).",
-            "Feature recovers automatically; data-path remains "
-            "forwarding (no full outage); convergence ≤ documented value."),
-         _expect("Feature recovers automatically; data-path stays up",
-                 "Full outage > 1 s, no auto-recovery, or feature stuck after recovery")),
+            "Feature recovers automatically within ≤ 30 s; data-path remains "
+            "forwarding (IXIA loss histogram shows ≤ 1 s of zero-bps)."),
+         _expect("Feature recovers ≤ 30 s; data-path interruption ≤ 1 s",
+                 "Full outage > 1 s, recovery > 30 s, no auto-recovery, or feature stuck after recovery")),
         (_scaffold(
             "{title} active on DUT.",
             "Power-cycle the Exaware while {title} is active "
@@ -266,10 +269,10 @@ CATEGORY_ACTIONS: dict[str, list[tuple[str, str]]] = {
         (_scaffold(
             "{title} active on DUT; traffic flowing.",
             "Flap the relevant interface while {title} is active.",
-            "Feature recovers; convergence within fast-convergence bounds "
-            "(per [RFC7432bis] §8 mass-withdrawal)."),
-         _expect("Feature recovers; convergence within fast-convergence bounds",
-                 "Convergence above documented bound or stale FIB after flap")),
+            "Feature recovers; convergence ≤ 1 s "
+            "(per [RFC7432bis] §8 mass-withdrawal fast-convergence target)."),
+         _expect("Feature recovers; convergence ≤ 1 s per RFC 7432bis §8",
+                 "Convergence > 1 s or stale FIB after flap")),
     ],
     "PM": [
         (_scaffold(
@@ -306,19 +309,20 @@ CATEGORY_ACTIONS: dict[str, list[tuple[str, str]]] = {
             "{title} active on DUT; IXIA traffic running.",
             "Kill the relevant control-plane process while {title} is active "
             "(use platform debug command).",
-            "Process restarts; feature recovers; minimal service "
-            "interruption (≤ documented bound)."),
-         _expect("Process restarts; feature recovers; interruption ≤ documented bound",
-                 "No restart, feature stuck, or interruption > bound")),
+            "Process restarts within ≤ 5 s; feature recovers within ≤ 30 s; "
+            "service interruption ≤ 1 s on the access port."),
+         _expect("Process restarts ≤ 5 s; feature recovers ≤ 30 s; interruption ≤ 1 s",
+                 "No restart, restart > 5 s, recovery > 30 s, feature stuck, or interruption > 1 s")),
     ],
     "Long run": [
         (_scaffold(
             "{title} configured; IXIA generating mixed steady traffic profile.",
             "Run {title} under steady traffic for ≥ 24 hours.",
-            "No memory leaks (`show platform process memory` flat); "
-            "no functional regressions; counters monotonic."),
-         _expect("No leaks; no regression; counters monotonic over 24 h",
-                 "Memory growth, counter freeze, or functional drift over the run")),
+            "Memory growth over the 24 h run ≤ 5% of hour-0 baseline; "
+            "no functional regressions; counters monotonic; zero alarms "
+            "outside test-induced events."),
+         _expect("Memory growth ≤ 5% over 24 h; no regression; counters monotonic; zero unexpected alarms",
+                 "Memory growth > 5%, counter freeze, functional drift, or any unexpected alarm")),
     ],
     "Management": [
         (_scaffold(
@@ -416,10 +420,10 @@ RFC_CONTENT_PATTERNS: list[tuple[set[str], str, str, str]] = [
         "Bring up the ES; observe DF election convergence; force a re-election "
         "(remove one PE, add it back).",
         "Exactly one DF elected per ES per VLAN; non-DF blocks BUM on access; "
-        "re-election converges within documented bound."),
+        "re-election converges within ≤ 3 s of the trigger event."),
      _expect(
-        "Exactly one DF per ES per VLAN; convergence per RFC7432bis §8 / RFC8584",
-        "Two DFs (split-brain), non-DF leaks BUM, or election does not converge")),
+        "Exactly one DF per ES per VLAN; convergence ≤ 3 s per RFC 7432bis §8 / RFC 8584",
+        "Two DFs (split-brain), non-DF leaks BUM, or election convergence > 3 s")),
 
     # ── MAC Mobility / Sticky MAC / mass withdrawal ──────────────────────
     ({"mac mobility", "mass withdrawal", "mass-withdrawal",
@@ -430,10 +434,11 @@ RFC_CONTENT_PATTERNS: list[tuple[set[str], str, str, str]] = [
         "Move a host from PE1 to PE2; capture the MAC Mobility extended "
         "community on the new advertisement.",
         "MAC Mobility extended community carries an incremented sequence "
-        "number; old advertisement withdrawn within fast-convergence bound."),
+        "number; old advertisement withdrawn within ≤ 1 s (RFC 7432bis §8 "
+        "fast-convergence target)."),
      _expect(
-        "MAC Mobility EC sequence increments; withdrawal within bound",
-        "Sequence does not increment, no withdrawal, or stale MAC entry remains")),
+        "MAC Mobility EC sequence increments; withdrawal within ≤ 1 s",
+        "Sequence does not increment, no withdrawal, withdrawal > 1 s, or stale MAC entry remains")),
 
     # ── ESI types ────────────────────────────────────────────────────────
     ({"esi type", "ethernet segment identifier", "type 0 esi",
@@ -487,10 +492,10 @@ RFC_CONTENT_PATTERNS: list[tuple[set[str], str, str, str]] = [
         "load-share / backup-path behavior on PE↔PE.",
         "Traffic load-shared per the documented mode (all-active) or "
         "single-path on DF (single-active); on DF flap, backup path takes over "
-        "within fast-convergence bound."),
+        "within ≤ 1 s (RFC 7432bis §8 fast-convergence target)."),
      _expect(
-        "Load-share or backup-path per spec; failover within bound",
-        "Black-hole during failover, no load-share, or wrong PE receives traffic")),
+        "Load-share or backup-path per spec; failover within ≤ 1 s",
+        "Black-hole during failover, no load-share, failover > 1 s, or wrong PE receives traffic")),
 
     # ── BGP capability / negotiation ─────────────────────────────────────
     ({"capability", "open message", "negotiat"},
@@ -542,3 +547,591 @@ def categories_for_tags(tags: list[str], source: str = "spec") -> list[str]:
             out.append(cat)
             seen.add(cat)
     return out
+
+
+# ─── Flow × Category overlays ───────────────────────────────────────────
+# Flows give the *what* (which use case); category overlays give the
+# *how* (which test technique). For each flow row we render the flow's
+# Setup/Action/Verify base, then the category-specific overlay sharpens
+# the action and verify, and supplies a category-specific Pass/Fail-on.
+#
+# Output is **numbered** Setup/Action/Verify steps so the row maps
+# 1-to-1 onto codegen-friendly procedure: each step becomes one runner
+# call. Closes the QA pushback that prose-form rows are too template-
+# shaped for the automation-codegen PoC.
+
+_SENT_SPLIT_RE = re.compile(r"(?<=[.!?])\s+(?=[A-Za-z`])")
+
+
+def _split_steps(prose: str) -> list[str]:
+    """Split a prose block into sentence-shaped steps.
+
+    The flow catalog stores each section as one or two sentences for
+    readability; this helper turns that into numbered steps for codegen.
+    Empty inputs yield a single placeholder step so the structure is
+    preserved.
+    """
+    text = (prose or "").strip()
+    if not text:
+        return ["(no steps documented)"]
+    parts = [p.strip() for p in _SENT_SPLIT_RE.split(text) if p.strip()]
+    return parts or [text]
+
+
+def _numbered_block(label: str, items: list[str]) -> str:
+    if len(items) == 1:
+        return f"{label}:\n  1. {items[0]}"
+    return f"{label}:\n" + "\n".join(
+        f"  {i}. {s}" for i, s in enumerate(items, 1)
+    )
+
+
+def _scaffolded(setup: list[str] | str, action: list[str] | str,
+                verify: list[str] | str) -> str:
+    """Render Setup/Action/Verify with numbered sub-steps. Accepts either
+    a list (preferred — each item is one numbered step) or a prose
+    string (split on sentence boundaries).
+    """
+    s = setup if isinstance(setup, list) else _split_steps(setup)
+    a = action if isinstance(action, list) else _split_steps(action)
+    v = verify if isinstance(verify, list) else _split_steps(verify)
+    return "\n".join([
+        _numbered_block("Setup", s),
+        _numbered_block("Action", a),
+        _numbered_block("Verify", v),
+    ])
+
+
+def _expected(pass_: str, fail_on: str) -> str:
+    return f"Pass:    {pass_}\nFail-on: {fail_on}"
+
+
+# Map flow-id prefix → canonical "show" verification commands. Keeps
+# verify steps from drifting into prose; codegen can mechanically
+# capture each named command's output.
+_FLOW_SHOW_CMDS: dict[str, list[str]] = {
+    "FLOW-01": [  # EVPN service-type bring-up family
+        "show evpn evi", "show evpn mac address-table",
+        "show running-config | include evpn",
+    ],
+    "FLOW-02": [  # multi-homing + DF
+        "show evpn ethernet-segment",
+        "show evpn ethernet-segment detail",
+        "show evpn df", "show running-config | include ethernet-segment",
+    ],
+    "FLOW-03": [  # route-type packet validation
+        "show bgp l2vpn evpn", "show bgp l2vpn evpn detail",
+        "show evpn mac address-table",
+    ],
+    "FLOW-04": [  # MAC mobility
+        "show evpn mac address-table",
+        "show bgp l2vpn evpn", "show evpn duplicate-mac",
+    ],
+    "FLOW-05": [  # Static MAC
+        "show evpn mac address-table",
+        "show running-config | include mac-address-static",
+    ],
+    "FLOW-06": [  # split-horizon / aliasing
+        "show evpn ethernet-segment", "show bgp l2vpn evpn",
+        "show evpn mac address-table",
+    ],
+    "FLOW-07": [  # interop
+        "show bgp neighbor", "show bgp l2vpn evpn",
+    ],
+    "FLOW-08": [  # scale
+        "show platform process memory", "show evpn summary",
+        "show evpn mac address-table count",
+    ],
+    "FLOW-09": [  # robustness / upgrade / netconf
+        "show alarms", "show platform process",
+        "show running-config", "show version",
+    ],
+    "FLOW-10": [  # alarms / syslog
+        "show alarms", "show log",
+    ],
+    "FLOW-11": [  # on-the-fly
+        "show running-config", "show evpn evi",
+    ],
+    "FLOW-12": [  # long run
+        "show platform process memory",
+        "show evpn mac address-table count", "show alarms",
+    ],
+}
+
+
+def _show_cmds_for(flow) -> list[str]:
+    for prefix, cmds in _FLOW_SHOW_CMDS.items():
+        if flow.id.startswith(prefix):
+            return cmds
+    return ["show running-config", "show evpn evi"]
+
+
+def _rfc_phrase(flow) -> str:
+    return ", ".join(flow.rfc_refs) if flow.rfc_refs else "(no RFC refs)"
+
+
+def overlay_for_category(flow, category: str) -> tuple[str, str]:
+    """Return (action_steps, expectation) for `flow` viewed through
+    the lens of `category`. Each return is rendered as numbered
+    Setup/Action/Verify steps so codegen can iterate. Verify steps
+    name concrete `show` commands wherever possible.
+    """
+    setup_steps = _split_steps(flow.setup)
+    action_steps = _split_steps(flow.action)
+    verify_steps = _split_steps(flow.verify)
+    show_cmds = _show_cmds_for(flow)
+    rfc = _rfc_phrase(flow)
+
+    if category == "Basic Functionality":
+        verify = verify_steps + [
+            f"Capture and snapshot: {', '.join(f'`{c}`' for c in show_cmds[:3])}.",
+        ]
+        return (
+            _scaffolded(setup_steps, action_steps, verify),
+            _expected(flow.pass_, flow.fail_on),
+        )
+
+    if category == "Packet validation":
+        action = action_steps + [
+            "Capture BGP UPDATEs on the PE↔PE link and access-side frames "
+            "on ingress / egress ACs (tcpdump / wireshark or IXIA capture).",
+            f"Decode each captured packet and compare every NLRI / extended-"
+            f"community / label field against {rfc}.",
+        ]
+        verify = verify_steps + [
+            f"Snapshot `{show_cmds[0]}` and `show bgp l2vpn evpn` before "
+            "and after the action — diff against the documented expected "
+            "delta.",
+            f"Cross-check encoded fields against {rfc} byte for byte.",
+        ]
+        return (
+            _scaffolded(setup_steps, action, verify),
+            _expected(
+                f"{flow.pass_} Encoded fields match {rfc} byte for byte.",
+                f"{flow.fail_on} OR any encoded field deviates from {rfc}.",
+            ),
+        )
+
+    if category == "Malformed/unsupported packets":
+        return (
+            _scaffolded(
+                setup_steps + ["IXIA primed with a fault-injection script."],
+                [
+                    "Inject a malformed variant of the flow's protocol "
+                    "traffic (bad TLV length).",
+                    "Inject a variant with reserved bits set on the NLRI.",
+                    "Inject an oversized field (e.g. RD > 8 octets).",
+                    "Inject a truncated NLRI / shortened length-prefix.",
+                ],
+                [
+                    "Each malformed variant is dropped at ingress; the DUT "
+                    "does not crash or restart.",
+                    "Per-variant error counter increments by exactly one in "
+                    "the relevant `show` (e.g. `show bgp neighbor errors`).",
+                    "Syslog records each event with a structured reason "
+                    "(visible via `show log | include malformed`).",
+                ],
+            ),
+            _expected(
+                "Each variant dropped; no crash; error counter +1; syslog "
+                "entry present per event.",
+                "Crash, stale state, missing syslog, or malformed packet "
+                "propagated to peer.",
+            ),
+        )
+
+    if category == "On The Fly changes":
+        return (
+            _scaffolded(
+                setup_steps + [
+                    "IXIA traffic flowing through the flow's data path for "
+                    "≥ 1 minute.",
+                ],
+                action_steps + [
+                    "While traffic continues, revert each modified parameter "
+                    "to its original value and commit.",
+                ],
+                [
+                    "IXIA reports zero (or near-zero) loss during the change "
+                    "window — capture per-second loss histogram.",
+                    f"`{show_cmds[0]}` reflects the new value within ≤ 1 s.",
+                    "Running-config diff (before vs. after) shows only the "
+                    "intended change; no incidental drift.",
+                    "After revert, IXIA loss returns to baseline; running-"
+                    "config matches the original byte for byte.",
+                ],
+            ),
+            _expected(
+                "Modification applied without service interruption; "
+                "running-config consistent; revert clean.",
+                "Traffic loss > 0 packets on a documented hitless change, "
+                "new config not active within 1 s, or revert leaves drift.",
+            ),
+        )
+
+    if category == "Feature interaction":
+        return (
+            _scaffolded(
+                setup_steps + [
+                    "A neighbor feature (BGP convergence, MPLS encap, QoS, "
+                    "or another EVPN service) configured alongside on the "
+                    "same DUT.",
+                ],
+                [
+                    "Bring up the neighbor feature first; verify its "
+                    "baseline `show` output.",
+                    f"Bring up the flow on top: {flow.action}",
+                    "Drive traffic through both features simultaneously "
+                    "for ≥ 1 minute.",
+                ],
+                [
+                    f"`{show_cmds[0]}` reports the flow operating per spec.",
+                    "Neighbor feature's `show` output unchanged from baseline.",
+                    "No new alarm raised by either feature.",
+                ],
+            ),
+            _expected(
+                "Both features operate per spec; no regression in either's "
+                "show output or counters.",
+                "Either feature breaks, counters stop, or one masks the other.",
+            ),
+        )
+
+    if category == "3rd Party Interoperability":
+        return (
+            _scaffolded(
+                [
+                    "Exaware DUT + 3rd-party PE (Cisco/Juniper) connected "
+                    "over MPLS.",
+                    "BGP EVPN session up between the two; both sides "
+                    "advertise the L2VPN-EVPN AFI/SAFI capability.",
+                ] + setup_steps,
+                [
+                    f"Configure the flow on the DUT: {flow.action}",
+                    "Configure the symmetric flow on the 3rd-party side "
+                    "using its native CLI.",
+                    "Drive bidirectional traffic between the two PEs.",
+                ],
+                [
+                    "`show bgp l2vpn evpn` on each side lists the routes "
+                    "advertised by the peer.",
+                    f"Routes installed in FIB; data plane forwards "
+                    f"bidirectionally per {rfc}.",
+                    "Route encoding accepted by both sides — no NOTIFICATION "
+                    "and no rejected NLRI.",
+                ],
+            ),
+            _expected(
+                "Interop succeeds; routes/frames exchanged correctly.",
+                "Route rejected, NOTIFICATION on OPEN, encoding mismatch, "
+                "or one-way black-hole.",
+            ),
+        )
+
+    if category == "Scale":
+        return (
+            _scaffolded(
+                [
+                    "Two-PE topology with the flow's service configured.",
+                    "IXIA scale rig connected on access; documented "
+                    "ceiling: 64K MACs / 32 EVIs / 16 multi-homed ESs "
+                    "(adjust per platform spec).",
+                ],
+                [
+                    "Use IXIA to advertise / install entries up to the "
+                    "documented system limit at 1K entries/s.",
+                    "Hold for ≥ 5 minutes at the ceiling; sample CPU "
+                    "(`show platform process cpu`) and memory "
+                    "(`show platform process memory`) every 60 s.",
+                    "Trigger an incremental change while at scale "
+                    "(advertise one more entry, then withdraw); "
+                    "measure first-packet-after-advertise on IXIA.",
+                ],
+                [
+                    f"`{show_cmds[0]}` reaches the documented limit without "
+                    "rejection.",
+                    "CPU 5-min average ≤ 70%; memory growth over the run "
+                    "≤ 5% of baseline.",
+                    "Incremental convergence ≤ 2× the idle baseline "
+                    "(< 500 ms typical).",
+                ],
+            ),
+            _expected(
+                "Limit reached; CPU ≤ 70% (5-min avg); memory growth "
+                "≤ 5%; incremental convergence ≤ 2× baseline.",
+                "Crash, OOM, rejected entries below ceiling, CPU > 70% "
+                "sustained, memory growth > 5%, or convergence > 2× "
+                "baseline.",
+            ),
+        )
+
+    if category == "Performance":
+        return (
+            _scaffolded(
+                [
+                    "Two-PE topology with the flow configured.",
+                    "IXIA scale rig generating documented load profile.",
+                ],
+                [
+                    "Measure throughput on the data path under documented "
+                    "load.",
+                    "Measure end-to-end latency (per-frame median + 99th "
+                    "percentile).",
+                    "Measure convergence on a documented event (e.g. ES flap, "
+                    "MAC withdrawal).",
+                ],
+                [
+                    "Throughput ≥ 99% of offered line rate (e.g. ≥ 0.99 "
+                    "Gbps on a 1 Gbps port) under the documented load.",
+                    "Latency p99 ≤ 100 µs end-to-end across the data path.",
+                    "Convergence on documented events: MAC withdrawal "
+                    "≤ 1 s; ES flap ≤ 1 s; numeric values recorded for "
+                    "each metric against the listed thresholds.",
+                ],
+            ),
+            _expected(
+                "Throughput ≥ 99% line rate; latency p99 ≤ 100 µs; "
+                "convergence ≤ 1 s on documented events.",
+                "Throughput < 99% line rate, latency p99 > 100 µs, or "
+                "convergence > 1 s on any documented event.",
+            ),
+        )
+
+    if category == "Robustness":
+        return (
+            _scaffolded(
+                setup_steps + [
+                    "IXIA generating background traffic on the flow's data "
+                    "path."
+                ],
+                [
+                    "Identify the relevant control-plane process via "
+                    "`show platform process | include evpn` (or `bgp`).",
+                    "Reset that process using the documented platform "
+                    "reset / debug CLI.",
+                    "Watch IXIA loss histogram during the reset.",
+                ],
+                [
+                    "Process restarts within ≤ 5 s of the kill signal.",
+                    "Data-path keeps forwarding — IXIA loss histogram "
+                    "records ≤ 1 s of zero-bps on the access port.",
+                    f"`{show_cmds[0]}` recovers to its pre-reset state "
+                    "within ≤ 30 s.",
+                ],
+            ),
+            _expected(
+                "Process restarts ≤ 5 s; data-path outage ≤ 1 s; "
+                "feature recovers ≤ 30 s.",
+                "Full outage > 1 s, restart > 5 s, no auto-recovery, "
+                "or feature stuck after recovery.",
+            ),
+        )
+
+    if category == "PM":
+        return (
+            _scaffolded(
+                setup_steps + ["Reference traffic load applied for ≥ 1 min."],
+                [
+                    f"Snapshot counters: {', '.join(f'`{c}`' for c in show_cmds[:2])}.",
+                    "Issue `clear counters` (or the documented per-feature "
+                    "clear command).",
+                    "Resume traffic; re-read counters after another ≥ 1 min.",
+                    "Reload the DUT; re-read counters after boot.",
+                ],
+                [
+                    "Counters increment monotonically while traffic flows.",
+                    "Clear command resets the counters to zero (or to the "
+                    "documented baseline).",
+                    "After reload, counter persistence matches the documented "
+                    "behaviour for each counter.",
+                ],
+            ),
+            _expected(
+                "Counters increment correctly; clear works; persistence per spec.",
+                "Counter freeze, clear no-op, or persistence broken.",
+            ),
+        )
+
+    if category == "Alarms/Logs/Syslog":
+        return (
+            _scaffolded(
+                setup_steps + [
+                    "Syslog destination configured (collector reachable).",
+                    "Each documented alarm condition primed (mac-limit, "
+                    "peer flap, mismatched DF algorithm, etc.).",
+                ],
+                [
+                    "Trigger each documented error condition in sequence.",
+                    "After each trigger, run `show alarms` and inspect the "
+                    "syslog feed at the collector.",
+                    "Resolve each condition and re-check.",
+                ],
+                [
+                    "Each event raises an alarm at the documented severity.",
+                    "Each event produces a structured syslog entry with the "
+                    "documented fields (timestamp, severity, facility, "
+                    "feature, reason).",
+                    "Each alarm clears within ≤ 30 s of the resolution "
+                    "event (verifiable via `show alarms` polling).",
+                ],
+            ),
+            _expected(
+                "Per event: correct severity + syslog entry; alarm clears "
+                "within ≤ 30 s of resolution.",
+                "No alarm, wrong severity, missing syslog, or alarm still "
+                "active > 30 s after resolution.",
+            ),
+        )
+
+    if category == "Upgrade":
+        return (
+            _scaffolded(
+                [
+                    "DUT with the flow configured on the current image.",
+                    "Upgrade image staged on the ONIE image server.",
+                ],
+                [
+                    "Save running-config; reload to confirm the baseline "
+                    "replays cleanly.",
+                    "Run `onie-install` to the next image; reload onto the "
+                    "new image.",
+                    "Reload again on the new image to confirm idempotence.",
+                ],
+                [
+                    "After upgrade, `show version` reports the new image.",
+                    "`show running-config` replays without error; flow comes "
+                    "up automatically.",
+                    "BGP EVPN session re-establishes; data plane resumes "
+                    "forwarding.",
+                ],
+            ),
+            _expected(
+                "New image available; flow behaviour preserved across upgrade.",
+                "Config lost, feature regression, or upgrade rolled back.",
+            ),
+        )
+
+    if category == "HA":
+        return (
+            _scaffolded(
+                setup_steps + [
+                    "IXIA traffic running on the flow's data path."
+                ],
+                [
+                    "Identify the relevant control-plane process via "
+                    "`show platform process`.",
+                    "Kill the process via the documented platform debug "
+                    "command (not graceful restart).",
+                    "Wait for supervisor-initiated restart.",
+                ],
+                [
+                    "Process restarts within ≤ 5 s; `show platform process` "
+                    "shows it running again with a new PID.",
+                    f"Flow recovers within ≤ 30 s — `{show_cmds[0]}` "
+                    "returns to its pre-kill state.",
+                    "Service interruption ≤ 1 s on the access port "
+                    "(verified via IXIA loss histogram).",
+                ],
+            ),
+            _expected(
+                "Process restarts ≤ 5 s; flow recovers ≤ 30 s; data-path "
+                "interruption ≤ 1 s.",
+                "No restart, restart > 5 s, recovery > 30 s, flow stuck, "
+                "or interruption > 1 s.",
+            ),
+        )
+
+    if category == "Long run":
+        return (
+            _scaffolded(
+                setup_steps + [
+                    "IXIA generating mixed steady traffic profile.",
+                    "Memory baseline recorded via `show platform process "
+                    "memory`.",
+                ],
+                [
+                    "Hold the run for ≥ 24 hours.",
+                    "Sample memory hourly: `show platform process memory`.",
+                    "Sample alarm log hourly: `show alarms` and `show log "
+                    "| include error`.",
+                ],
+                [
+                    "Memory growth over the 24 h run ≤ 5% of the hour-0 "
+                    "baseline (no monotonic growth).",
+                    "No functional regression — flow still operates per "
+                    "Basic Functionality criteria at hour 24.",
+                    "Counters monotonic; zero alarms outside the test-"
+                    "induced events.",
+                ],
+            ),
+            _expected(
+                "Memory growth ≤ 5% over 24 h; no regression; counters "
+                "monotonic; zero unexpected alarms.",
+                "Memory growth > 5%, counter freeze, functional drift, "
+                "or any unexpected alarm during the run.",
+            ),
+        )
+
+    if category == "Management":
+        return (
+            _scaffolded(
+                [
+                    "DUT bare; NETCONF client (e.g. ncclient) authenticated.",
+                    "YANG model files for the flow's feature available.",
+                ],
+                [
+                    "Push the flow's canonical configuration via NETCONF "
+                    "`<edit-config>`.",
+                    "Issue NETCONF `<get-config>` and capture the running "
+                    "datastore.",
+                    "Issue equivalent CLI `show running-config` and compare.",
+                ],
+                [
+                    "NETCONF capability for the EVPN YANG model advertised "
+                    "in the hello.",
+                    "`<edit-config>` accepted; running-config matches the "
+                    "submitted model.",
+                    "CLI and NETCONF views show the same configuration; "
+                    "no schema gap.",
+                ],
+            ),
+            _expected(
+                "NETCONF configuration matches CLI behaviour.",
+                "Schema gap, transport rejects valid config, or "
+                "CLI/NETCONF view diverge.",
+            ),
+        )
+
+    if category == "Tech-support":
+        return (
+            _scaffolded(
+                setup_steps + [
+                    "The flow exercised through Basic Functionality and at "
+                    "least one Packet validation row.",
+                    "Alarms triggered if the flow has any.",
+                ],
+                [
+                    "Run `tech-support` (or the documented bundle command).",
+                    "Save the bundle off-box.",
+                    "Open the bundle and inspect for the flow's expected "
+                    "evidence.",
+                ],
+                [
+                    f"Bundle contains: {', '.join(f'`{c}`' for c in show_cmds[:3])} output.",
+                    "Bundle contains running-config and any alarm/syslog "
+                    "entries from the run.",
+                    "Bundle contains kernel forwarding tables for the EVI "
+                    "/ ES / MAC table touched by the flow.",
+                ],
+            ),
+            _expected(
+                "Tech-support contains the relevant evidence for the flow.",
+                "Missing show output, missing logs, or missing FIB tables.",
+            ),
+        )
+
+    # Fallback: emit the canonical numbered scaffold.
+    return (
+        _scaffolded(setup_steps, action_steps, verify_steps),
+        _expected(flow.pass_, flow.fail_on),
+    )

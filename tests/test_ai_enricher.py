@@ -32,18 +32,30 @@ def test_cache_loads_committed_baked_entries() -> None:
     assert isinstance(cache, dict), f"cache must be a dict, got {type(cache).__name__}"
 
 
+def _resolve_anchor_req(plan, row):
+    """Pick the anchor requirement for a row (mirrors enrich_plan's logic).
+
+    For CLI rows sfs_requirement_id is a single ID. For flow rows it is
+    a comma-joined list and the first covered_req_ids entry is the anchor.
+    """
+    by_id = {r.req_id: r for r in plan.requirements}
+    if row.sfs_requirement_id in by_id:
+        return by_id[row.sfs_requirement_id]
+    for rid in row.covered_req_ids:
+        if rid in by_id:
+            return by_id[rid]
+    raise LookupError(f"no anchor req found for row {row}")
+
+
 def test_enrich_uses_cache_without_api_key(monkeypatch, tmp_path) -> None:
-    """With a synthetic cache file containing one matching v2-keyed entry,
+    """With a synthetic cache file containing one matching v3-keyed entry,
     enrich_plan applies the hit and falls back to rule-based for misses.
     """
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     plan = generate_plan(EVPN_SPEC, use_ai=False)
-    # Synthesize one cache entry keyed against the first row so the test
-    # is independent of the production cache's salt/state.
     from ate.planner.ai_enricher import _row_key
     target = plan.rows[0]
-    target_req = next(r for r in plan.requirements
-                      if r.req_id == target.sfs_requirement_id)
+    target_req = _resolve_anchor_req(plan, target)
     key = _row_key(target_req, target, 0)
     cache_path = tmp_path / "cache.json"
     cache_path.write_text(json.dumps({key: {
@@ -71,10 +83,8 @@ def test_enrich_swaps_action_steps_for_cached_rows(tmp_path) -> None:
     from ate.planner.ai_enricher import _row_key
     cache_path = tmp_path / "cache.json"
 
-    # Cache only the first row.
     target = plan.rows[0]
-    target_req = next(r for r in plan.requirements
-                      if r.req_id == target.sfs_requirement_id)
+    target_req = _resolve_anchor_req(plan, target)
     key = _row_key(target_req, target, 0)
     cache_path.write_text(json.dumps({key: {
         "req_id": target_req.req_id,
@@ -114,8 +124,8 @@ def test_enrich_calls_api_with_key_and_writes_cache(monkeypatch, tmp_path) -> No
     cache_path.write_text("{}")
 
     plan = generate_plan(EVPN_SPEC, use_ai=False)
-    # Trim plan to one requirement to keep the test fast
-    plan.rows = [r for r in plan.rows if r.sfs_requirement_id == "EVPNS-REQ#10"]
+    # Trim plan to a small slice to keep the test fast
+    plan.rows = plan.rows[:2]
 
     fake_response = MagicMock()
     fake_message = MagicMock()
@@ -198,7 +208,7 @@ def test_enrich_uses_cli_backend_by_subprocess(monkeypatch, tmp_path) -> None:
     cache_path = tmp_path / "cache.json"
     cache_path.write_text("{}")
     plan = generate_plan(EVPN_SPEC, use_ai=False)
-    plan.rows = [r for r in plan.rows if r.sfs_requirement_id == "EVPNS-REQ#10"]
+    plan.rows = plan.rows[:1]
 
     # `claude -p --output-format json` returns a result envelope; the inner
     # `result` field carries the model's text — which itself must be JSON

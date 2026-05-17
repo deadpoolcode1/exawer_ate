@@ -1,28 +1,41 @@
-"""Plan generator — IR → Plan model → xlsx.
+"""Plan generator — IR → Plan model → xlsx (flow-driven, M1 QA respin).
 
-For each requirement we:
-  1. Determine which Categories apply (via domain tags + ALWAYS list).
-  2. For each applicable Category, instantiate the action template using
-     requirement-specific signals: title, RFC refs, CLI hint, MUST hint.
+Closes the QA review gap that the previous M1 pass left open: rows used
+to be "one row per (requirement × applicable category)", which made the
+plan a 800-row checklist of per-requirement boilerplate. QA pointed out
+that this is too shallow to validate the *flow* / use case behind a
+requirement, and that it does not feed the automation-codegen PoC in
+later milestones.
 
-For each RFC requirement we additionally dispatch on title/body content
-to emit RFC-mechanism-specific rows (route types 1-4, DF election, MAC
-mobility, label allocation, …) — closes Yossi's "RFC Support" gap.
+The new pipeline:
 
-When a CLI doc is provided we also walk every config command (lacp-key,
-identifier, service-carving, …) and emit a row family per command:
-happy-path / range validation / mutual exclusion / default / `no` form
-/ persistence / prerequisite. These rows replace the generic CLI
-configuration template — closes Yossi's "missing validations, defaults"
-gap.
+  1. **Extract requirements** (existing): pull EVPNS-REQ#NN anchors out
+     of the spec, and (optionally) RFC-MUST clauses from the referenced
+     RFCs. Each requirement carries tags + RFC refs + must statements.
 
-Each row carries an explicit `equipment` tag (DUT-only, IXIA, neighbor
-PE, …) so QA knows the test rig before reading the row — closes Yossi's
-"missing IXIA indications" gap.
+  2. **Extract CLI commands** (existing): when an EVPN CLI doc is
+     provided, every config command produces its own command-validation
+     row family (happy-path / range / mutex / default / `no` /
+     persistence / prerequisite). These rows validate the *commands
+     themselves* (structure, options, values, persistency) and are
+     **not** setup steps for other tests — that's the QA point about
+     CLI Configuration's purpose.
 
-This is rule-based / template-driven (M1). M3 will replace the per-row
-template instantiation with prompt-driven AI generation, producing the
-same Plan model.
+  3. **Synthesize flows** (new): from `flows.EVPN_FLOWS`, claim each
+     requirement that matches a flow's selector. Each flow then emits
+     one row per applicable category (Basic Functionality, Packet
+     validation, On-the-fly, …). Categories that do not apply to the
+     flow are skipped — the QA point about "categories aggregate by
+     functional aspect, not every category for every requirement".
+
+  4. **Compute coverage** (new): which requirements does each flow
+     claim, and which requirements does no flow claim ("orphans")?
+     This map is rendered as a Coverage sheet in the xlsx so reviewers
+     can see traceability without scanning the body.
+
+The generator is rule-based; M3 will swap the per-(flow, category)
+rendering for AI prompt-driven generation, producing the same Plan
+model shape.
 """
 from __future__ import annotations
 
@@ -32,103 +45,59 @@ from pathlib import Path
 from ate.ir import Document
 from ate.parsers import parse
 from ate.planner.categories import (
-    CATEGORY_ACTIONS,
-    categories_for_tags,
-    rfc_actions_for,
+    RFC_EXCLUDED_CATEGORIES,
+    overlay_for_category,
 )
-from ate.planner.cli_extractor import config_commands
 from ate.planner.cli_rows import cli_command_rows
-from ate.planner.equipment import equipment_for_row
-from ate.planner.extractor import extract_requirements
+from ate.planner.flows import EVPN_FLOWS, Flow, build_coverage, reqs_for_flow
 from ate.planner.model import Plan, PlanRow, Requirement
+from ate.planner.requirements_builder import build_catalog, mark_claimed
 from ate.planner.xlsx_writer import write_xlsx
 
 
-def _cli_hint(req: Requirement) -> str:
-    """One-line excerpt from the first CLI block in this section, if any."""
-    if not req.code_blocks:
-        return ""
-    block = req.code_blocks[0]
-    lines = [ln.strip() for ln in block.splitlines() if ln.strip()]
-    if not lines:
-        return ""
-    sample = lines[0] if len(lines) == 1 else " / ".join(lines[:2])
-    return f" (e.g. `{sample[:80]}`)"
+def _row_for_flow_category(flow: Flow, category: str,
+                           covered_reqs: list[Requirement]) -> PlanRow:
+    """Render one flow-row for a category. Covered req-ids are joined into
+    sfs_requirement_id (back-compat with the existing template column)
+    and also kept in the structured `covered_req_ids` list.
 
-
-def _rfc_refs_or(req: Requirement, fallback: str = "RFC 7432bis") -> str:
-    return ", ".join(req.rfc_refs) if req.rfc_refs else fallback
-
-
-def _must_hint(req: Requirement) -> str:
-    """Short-form MUST hint for inclusion in expectation."""
-    if not req.must_statements:
-        return ""
-    s = req.must_statements[0]
-    s = re.sub(r"\s+", " ", s).strip()
-    if len(s) > 140:
-        s = s[:137] + "…"
-    label = "RFC MUST" if req.source == "rfc" else "spec MUST"
-    return f"; {label}: \"{s}\""
-
-
-def _rfc_hint(req: Requirement) -> str:
-    if not req.rfc_refs:
-        return ""
-    return f" (per {', '.join(req.rfc_refs)})"
-
-
-def _format_template(tpl: str, req: Requirement, feature_name: str) -> str:
-    section = req.section_number if req.section_number else f'"{req.title}"'
-    section_phrase = f"§{section}" if req.section_number else "as documented"
-    return tpl.format(
-        title=req.title or feature_name,
-        req_id=req.req_id,
-        section=section_phrase,
-        cli_hint=_cli_hint(req),
-        rfc_hint=_rfc_hint(req),
-        rfc_refs_or_rfc7432bis=_rfc_refs_or(req),
-        must_hint=_must_hint(req),
-        neighbor_feature=_neighbor_feature(req, feature_name),
+    For coverage-driven flows with no requirement match, the Coverage
+    cell is rendered as "<flow_id> (coverage-driven)" so reviewers can
+    still cite the row.
+    """
+    action_steps, expectation = overlay_for_category(flow, category)
+    covered_ids = [r.req_id for r in covered_reqs]
+    if not covered_ids and flow.coverage_driven:
+        sfs = f"{flow.id} (coverage-driven)"
+    else:
+        sfs = ", ".join(covered_ids)
+    return PlanRow(
+        flow_id=flow.id,
+        flow_name=flow.name,
+        category=category,
+        sub_category="",
+        equipment=flow.equipment,
+        action_steps=action_steps,
+        covered_req_ids=covered_ids,
+        sfs_requirement_id=sfs,
+        expectation=expectation,
     )
 
 
-# Map domain tags → suggested neighboring features for "Feature interaction".
-# We pick something that's NOT the requirement's own primary subject.
-_NEIGHBORS_BY_TAG: dict[str, list[str]] = {
-    "CONFIG": ["BGP", "MPLS encapsulation", "QoS"],
-    "PACKET": ["multi-homing", "BGP attributes", "QoS"],
-    "HA": ["BGP convergence", "MPLS encapsulation", "Q-in-Q"],
-    "SCALE": ["per-EVI scale", "MAC table aging", "QoS marking"],
-    "PROTOCOL": ["multi-homing", "BGP route reflector", "MAC mobility"],
-    "MONITORING": ["BGP", "interface flap", "high-load traffic"],
-    "META": ["BGP", "MPLS encapsulation"],
-}
-
-
-def _neighbor_feature(req: Requirement, feature_name: str) -> str:
-    """Pick a neighboring feature for Feature-interaction tests."""
-    title_lc = (req.title or feature_name).lower()
-    for t in req.tags:
-        for n in _NEIGHBORS_BY_TAG.get(t, []):
-            if n.lower() not in title_lc:
-                return n
-    return "BGP"
-
-
-def _action_pairs_for(req: Requirement, cat: str) -> list[tuple[str, str]]:
-    """Return list of (action, expectation) template pairs to emit for
-    requirement `req` in category `cat`.
-
-    For RFC requirements we first try the content-aware patterns (route
-    type N, DF election, …); generic templates only run when no
-    content-aware row applies.
-    """
-    if req.source == "rfc":
-        rfc_pairs = rfc_actions_for(req.title, req.description, cat)
-        if rfc_pairs:
-            return rfc_pairs
-    return CATEGORY_ACTIONS.get(cat, [])
+def _detect_feature_name(doc: Document) -> str:
+    """Title resolution unchanged from the previous generator."""
+    title = (doc.metadata.get("core_title", "").strip()
+             if doc.metadata else "")
+    GENERIC = {"introduction", "scope", "overview", "purpose",
+               "abstract", "table of contents", "modification history"}
+    if title:
+        return title
+    for b in doc.blocks:
+        if (hasattr(b, "level") and b.level == 1
+                and getattr(b, "text", "").strip()
+                and b.text.strip().lower() not in GENERIC):
+            return b.text.strip()
+    return Path(doc.source_path).stem
 
 
 def generate_plan(doc: Document | str | Path,
@@ -143,37 +112,29 @@ def generate_plan(doc: Document | str | Path,
         doc = parse(doc)
 
     if feature_name is None:
-        title = (doc.metadata.get("core_title", "").strip()
-                 if doc.metadata else "")
-        GENERIC = {"introduction", "scope", "overview", "purpose",
-                   "abstract", "table of contents", "modification history"}
-        if title:
-            feature_name = title
-        else:
-            for b in doc.blocks:
-                if (hasattr(b, "level") and b.level == 1
-                        and getattr(b, "text", "").strip()
-                        and b.text.strip().lower() not in GENERIC):
-                    feature_name = b.text.strip()
-                    break
-        if feature_name is None:
-            feature_name = Path(doc.source_path).stem
+        feature_name = _detect_feature_name(doc)
 
-    reqs = extract_requirements(doc, anchor_re=anchor_re)
+    # ── Requirements Builder (M1 client respin 2026-05-17) ────────────
+    # Three independent sources merged before the flow generator runs:
+    #   • SFS extractor   (vendor spec; defines CLI / NETCONF / upgrade)
+    #   • RFC extractor   (protocol mandates; promoted to first-class)
+    #   • CLI inheritance (BGP-neighbor sub-configs under `af-l2vpn evpn`
+    #                      not present in the EVPN CLI doc)
+    # See ate/planner/requirements_builder.py for the unified catalog
+    # shape and ate/planner/cli_inheritance.py for the inheritance table.
+    catalog = build_catalog(
+        doc, rfc_paths=rfc_paths, cli_doc_path=cli_doc_path,
+        anchor_re=anchor_re,
+    )
 
-    if rfc_paths:
-        from ate.planner.rfc_extractor import extract_rfc_requirements  # noqa: PLC0415
-        seen_ids = {r.req_id for r in reqs}
-        for rp in rfc_paths:
-            for r in extract_rfc_requirements(rp):
-                if r.req_id in seen_ids:
-                    continue
-                seen_ids.add(r.req_id)
-                reqs.append(r)
+    # Separate CLI-anchor requirements from spec/RFC requirements for the
+    # flow loop below — flow selectors should match spec/RFC content, not
+    # the `CLI:<name>` synthetic anchors.
+    reqs = [r for r in catalog.requirements if r.source != "cli"]
+    cli_cmd_anchors = [r for r in catalog.requirements if r.source == "cli"]
 
-    rows: list[PlanRow] = []
-    if not reqs:
-        # Synthetic placeholder so empty input produces a non-empty plan
+    if not reqs and not cli_cmd_anchors:
+        # Synthetic placeholder so empty input still produces a non-empty plan
         reqs = [Requirement(
             req_id="(no-anchor)",
             title=feature_name,
@@ -182,52 +143,77 @@ def generate_plan(doc: Document | str | Path,
             tags=["CONFIG"],
         )]
 
-    # ── CLI doc-driven rows ──────────────────────────────────────────────
-    # When a CLI doc is provided, every config command produces its own
-    # row family (happy-path / range / mutex / default / `no` / persistence
-    # / prerequisite). When a CLI doc is provided, we DROP "CLI configuration"
-    # from the per-spec-requirement category set — the per-command rows are
-    # the authoritative CLI Configuration coverage.
-    cli_rows: list[PlanRow] = []
-    cli_cmd_anchors: list[Requirement] = []
-    if cli_doc_path is not None:
-        cmds = config_commands(cli_doc_path)
-        cli_rows = cli_command_rows(cmds)
-        # Synthetic Requirement entries for traceability sheet — one per
-        # command. Tag them CONFIG so they never accidentally pick up
-        # protocol-only categories.
-        for cmd in cmds:
-            cli_cmd_anchors.append(Requirement(
-                req_id=f"CLI:{cmd.name}",
-                title=cmd.name,
-                section_number=None,
-                description=(cmd.description or "")[:600],
-                tags=["CONFIG"],
-                source="cli",
-            ))
-    drop_cli_category = bool(cli_rows)
+    # ── CLI command-validation rows ───────────────────────────────────
+    # `catalog.cli_commands` already includes inherited sub-configs
+    # (e.g. allow-as-in, capability, …) when their parent appears in the
+    # EVPN CLI doc. cli_rows.py renders the same per-command row family
+    # for extracted and inherited commands uniformly.
+    cli_rows: list[PlanRow] = cli_command_rows(catalog.cli_commands)
+    normalized: list[PlanRow] = []
+    for r in cli_rows:
+        if not r.covered_req_ids and r.sfs_requirement_id:
+            r = r.model_copy(update={
+                "covered_req_ids": [r.sfs_requirement_id],
+            })
+        normalized.append(r)
+    cli_rows = normalized
 
-    # ── Per-requirement rows ─────────────────────────────────────────────
-    for r in reqs:
-        cats = categories_for_tags(r.tags, source=r.source)
-        for cat in cats:
-            if drop_cli_category and cat == "CLI configuration":
+    # ── Flow-driven rows ───────────────────────────────────────────────
+    # Two kinds of flows emit body rows:
+    #   1. Requirement-anchored: at least one requirement matches the
+    #      flow's selector. Coverage cell lists the matched req-IDs.
+    #   2. Coverage-driven (flow.coverage_driven=True): scale / upgrade /
+    #      NETCONF / on-the-fly / 24-h soak. These are test techniques
+    #      applied broadly. They emit rows so reviewers see the actual
+    #      test steps; the Coverage cell is rendered as the flow's own
+    #      ID since no spec requirement anchors them.
+    flow_rows: list[PlanRow] = []
+    flows_with_reqs: list[tuple[Flow, list[Requirement]]] = []
+    for flow in EVPN_FLOWS:
+        covered = reqs_for_flow(flow, reqs)
+        if not covered and not flow.coverage_driven:
+            continue
+        flows_with_reqs.append((flow, covered))
+        # If every covered requirement is RFC-sourced, the row describes
+        # protocol behaviour only — vendor-platform categories (CLI,
+        # On-the-fly config, Upgrade, Management) do not apply.
+        all_rfc = bool(covered) and all(r.source == "rfc" for r in covered)
+        for cat in flow.categories:
+            if all_rfc and cat in RFC_EXCLUDED_CATEGORIES:
                 continue
-            pairs = _action_pairs_for(r, cat)
-            for action_tpl, exp_tpl in pairs:
-                rows.append(PlanRow(
-                    category=cat,
-                    sub_category="",
-                    equipment=equipment_for_row(cat, r.tags, source=r.source),
-                    action_steps=_format_template(action_tpl, r, feature_name),
-                    sfs_requirement_id=r.req_id,
-                    expectation=_format_template(exp_tpl, r, feature_name),
-                ))
+            flow_rows.append(_row_for_flow_category(flow, cat, covered))
 
-    # CLI rows are emitted as a leading section so QA reads the
-    # CLI configuration block first (it's the most concrete material
-    # in the plan and what Yossi reviewed against most directly).
-    rows = cli_rows + rows
+    # Fallback: if no flow matched (e.g. doc with no requirement anchors,
+    # or a non-EVPN spec the catalog does not cover), emit one minimal
+    # row per extracted requirement so the deliverable is not empty.
+    if not flow_rows and not cli_rows:
+        for r in reqs:
+            flow_rows.append(PlanRow(
+                flow_id="",
+                flow_name="",
+                category="Basic Functionality",
+                sub_category="",
+                equipment="DUT only (no flow catalog match)",
+                action_steps=(
+                    f"Setup:  Bring up the feature described by {r.req_id} "
+                    f"({r.title}).\n"
+                    "Action: Exercise the documented behaviour as written "
+                    "in the source spec.\n"
+                    "Verify: Behaviour matches the spec; no spurious errors."
+                ),
+                covered_req_ids=[r.req_id],
+                sfs_requirement_id=r.req_id,
+                expectation=(
+                    "Pass:    Behaviour matches the spec.\n"
+                    "Fail-on: Behaviour deviates from the spec or feature "
+                    "fails to come up."
+                ),
+            ))
+
+    # ── Compose ────────────────────────────────────────────────────────
+    # CLI rows render first (most concrete material; QA reads CLI block first),
+    # then flow rows in the EVPN_FLOWS order.
+    rows = cli_rows + flow_rows
 
     plan = Plan(
         feature_name=feature_name,
@@ -236,13 +222,36 @@ def generate_plan(doc: Document | str | Path,
         rows=rows,
     )
 
-    # AI enrichment: replaces template-based rows with feature-specific ones
-    # when the row appears in ai_cache.json (committed) OR when ANTHROPIC_API_KEY
-    # is set (live API call). use_ai=False forces rule-based output.
+    # Stash coverage info on the plan via an attached attribute. This is
+    # not part of the persisted model (Plan.model_dump won't include it),
+    # but xlsx_writer reads it off the in-memory object to emit the
+    # Coverage sheet.
+    coverage_map, orphans = build_coverage(EVPN_FLOWS, reqs)
+    plan.__dict__["_coverage"] = coverage_map
+    plan.__dict__["_orphans"] = orphans
+    plan.__dict__["_flows_with_reqs"] = flows_with_reqs
+
+    # ── Requirements Builder: identify RFC requirements no flow claimed.
+    # `atomic_rows.rows_for_synth_rfc` later turns each into a banner +
+    # action rows under "Synthesized — Review". This is the path that
+    # closes Eyal's "RFC must drive the TP" feedback: no RFC MUST can be
+    # silently dropped when no flow happens to match its keywords.
+    claimed: set[str] = set()
+    for fl, covered in flows_with_reqs:
+        for r in covered:
+            claimed.add(r.req_id)
+    mark_claimed(catalog, claimed)
+    plan.__dict__["_catalog"] = catalog
+
     if use_ai is not False:
         from ate.planner.ai_enricher import enrich_plan  # noqa: PLC0415
         plan, _stats = enrich_plan(plan, use_api=use_ai, backend=ai_backend,
                                    cli_doc_path=cli_doc_path)
+        # Re-attach coverage after the model_copy in enrich_plan
+        plan.__dict__["_coverage"] = coverage_map
+        plan.__dict__["_orphans"] = orphans
+        plan.__dict__["_flows_with_reqs"] = flows_with_reqs
+        plan.__dict__["_catalog"] = catalog
     return plan
 
 
