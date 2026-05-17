@@ -133,6 +133,58 @@ Under the hood this calls `ate plan <input> -o <output.xlsx>`, which exposes the
 | `--feature-name NAME` | Override the auto-detected feature name. |
 | `--summary` | Print row counts instead of writing the xlsx. |
 
+### Adding a new RFC (or any new client document)
+
+End-to-end workflow when the client hands you a new RFC, SFS, or CLI doc:
+
+1. **Drop the file under `references/`** — the canonical input directory. Supported formats: `.docx`, `.pdf`, `.txt`. Filenames with spaces are fine.
+   ```bash
+   cp ~/Downloads/rfc9999.txt references/
+   ```
+
+2. **Pick the role.** Three slots on the `ate plan` command line:
+   - **Feature SFS** (positional `<path>`) — the spec that anchors the plan. Exactly one per run.
+   - **RFC(s)** (`--rfc PATH`, repeatable) — normative MUST/SHALL clauses get promoted to first-class requirement rows.
+   - **CLI doc** (`--cli-doc PATH`) — per-command row families (happy-path / range / mutex / default / `no` / persistence / prerequisite).
+
+3. **Generate the xlsx.** Either run `ate plan` directly:
+   ```bash
+   ate plan 'references/EVPN System Specification 1.00.docx' \
+     -o plans/EVPN_test_plan_with_RFCs.xlsx \
+     --rfc references/draft-ietf-bess-rfc7432bis-13.txt \
+     --rfc references/rfc9785.txt \
+     --rfc references/rfc9999.txt \
+     --cli-doc 'references/EVPN CLI 1.00.docx'
+   ```
+   …or edit the `plan-evpn` target in `Makefile` to add the new `--rfc` line and run `make plan-evpn`. The Makefile target is the source of truth for the committed EVPN deliverable — keep them in sync.
+
+4. **Output lands in `plans/`.** The main deliverable is `plans/EVPN_test_plan_with_RFCs.xlsx`. Open it and check the **Synthesized — Review** sheet for orphan RFC mandates the auto-row pass couldn't anchor — those flag as `synthesized — review` in column 9 and need a human pass before shipping to the client.
+
+5. **(Optional) Bake AI rows for the new RFC.** Default runs are cache-only. The committed `ate/planner/ai_cache.json` covers the existing EVPN corpus; new RFC rows fall through to rule-based templates until baked. To enrich them:
+   ```bash
+   ate plan ... --ai --ai-backend cli        # uses local `claude -p` auth, no API key
+   # or
+   ANTHROPIC_API_KEY=sk-... ate plan ... --ai --ai-backend sdk
+   ```
+   A full bake of the EVPN corpus takes ~10 h via the CLI backend (see `memory/project_m1_full_bake_cost.md`). Commit the updated `ai_cache.json` when done.
+
+6. **Verify nothing regressed.**
+   ```bash
+   ./modular_tools.sh regression    # pytest + golden drift
+   ```
+
+**Where things live:**
+
+| Stage | Location |
+|---|---|
+| Client-provided inputs | `references/` (committed, read-only) |
+| Parsed IR (debug only) | `out/<name>.json` (gitignored) |
+| Generated test plans | `plans/<feature>.xlsx` |
+| AI enrichment cache | `ate/planner/ai_cache.json` (committed) |
+| Hand-curated BGP sub-config inheritance | `ate/planner/cli_inheritance.py` |
+
+> **Note:** `./modular_tools.sh plan_all` is *not* RFC-aware — it iterates every `.docx` in `references/` with no `--rfc` / `--cli-doc` flags. For the EVPN deliverable always go through `make plan-evpn` (or `ate plan` directly with the flags above).
+
 ### Verify (the user-facing green/red gate)
 
 | Command | What it does |
