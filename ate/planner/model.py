@@ -21,8 +21,29 @@ class Requirement(BaseModel):
     tags: list[str] = Field(default_factory=list)  # ["CONFIG", "PACKET", ...]
     # "spec" → vendor SFS (defines CLI, NETCONF, upgrade behavior).
     # "rfc"  → IETF RFC (defines protocol behavior only — no CLI/mgmt/upgrade).
+    # "cli"  → synthetic CLI command anchor (`CLI:<name>`).
     # Drives category masking in categories_for_tags().
     source: str = "spec"
+    # SFS-vs-RFC relationship (Yossi 2026-05-21 follow-up): a QA engineer
+    # reads the SFS as an overlay on the RFC, not a flat list of reqs.
+    # `kind` captures how the SFS req relates to the RFC base behaviour;
+    # `rfc_links` are the RFC req_ids this req points at (resolved from
+    # rfc_refs against the RFC catalog by req_classifier).
+    #
+    #   "base_sfs"               — pure vendor req; no RFC reference.
+    #   "delta"                  — SFS modifies an RFC clause (e.g.
+    #                              "replaces SHOULD to MUST", "instead of").
+    #   "overlay"                — SFS adds new constraints on top of an
+    #                              RFC clause ("in addition to", "extends").
+    #   "pointer"                — SFS just says "implement RFC §X"; row
+    #                              defers to the RFC row for detailed test.
+    #   "sfs_with_rfc_context"   — SFS has RFC ref but adds its own
+    #                              normative content; not a clean delta.
+    #   "rfc"                    — source == "rfc" (set automatically).
+    #   "cli"                    — source == "cli" (set automatically).
+    #   ""                       — unclassified (pre-classifier code path).
+    kind: str = ""
+    rfc_links: list[str] = Field(default_factory=list)
 
 
 class PlanRow(BaseModel):
@@ -63,7 +84,7 @@ class AtomicRow(BaseModel):
     The 9-column schema (Topic / Action / Req ID / Expectation / Monitor /
     Equipment / Build / Results / Comment) maps 1:1 to fields below; Build,
     Results, Comment are QA fill-in columns that we leave blank except for
-    `provenance` which surfaces synth markers in the Comment column.
+    `provenance` which surfaces a short source marker in the Comment column.
     """
     topic: str = ""           # col A; populated only on banner rows
     action: str = ""          # col B
@@ -72,7 +93,11 @@ class AtomicRow(BaseModel):
     monitor: list[str] = Field(default_factory=list)  # col E, comma-joined
     equipment: str = ""       # col F
     is_banner: bool = False   # styling hint
-    provenance: str = ""      # "" | "synth" | "cli-inherit" → col I marker
+    # "" | "rfc-orphan" | "cli-inherit" → col I marker + row tint.
+    # "rfc-orphan": RFC mandate no flow claims (Yossi 2026-05-21: first-
+    # class on the main sheet, not "synthesized — review"). "cli-inherit":
+    # BGP-neighbor sub-config not in the EVPN CLI doc.
+    provenance: str = ""
 
 
 class Plan(BaseModel):

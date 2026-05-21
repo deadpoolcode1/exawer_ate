@@ -10,8 +10,11 @@ treated the SFS as the single source of truth and silently dropped:
 
 This module is the "process before the agent kicks in" that Eyal
 requested. It produces a `RequirementCatalog` from three independent
-sources, with provenance tracking so the xlsx Synthesized — Review sheet
-can flag mechanical / inherited rows for QA attention.
+sources, with provenance tracking so the xlsx writer can tint inherited
+rows for QA attention. RFC mandates no flow claims are promoted to
+first-class PlanRows by `generator._planrow_for_rfc_orphan()` (Yossi
+2026-05-21: SFS omits RFC-defined requirements; TP must test them
+with the same rigour as flow rows).
 
 Pipeline shape:
 
@@ -38,6 +41,7 @@ from ate.planner.cli_extractor import CliCommand, extract_commands
 from ate.planner.cli_inheritance import expand as expand_inherited
 from ate.planner.extractor import extract_requirements
 from ate.planner.model import Requirement
+from ate.planner.req_classifier import classify_all
 
 
 @dataclass
@@ -46,10 +50,11 @@ class RequirementCatalog:
 
     - `requirements`: SFS + RFC requirements, deduped by req_id.
     - `cli_commands`: extracted EVPN commands + inherited sub-configs.
-    - `synth_anchors`: RFC requirements that no flow claims (atomic_rows
-      will emit synthesized rows for these).
-    - `provenance`: req_id → "sfs" | "rfc" | "cli-inherit". The
-      xlsx Synthesized — Review sheet reads this map.
+    - `synth_anchors`: RFC requirements that no flow claims;
+      `generator._planrow_for_rfc_orphan` emits a first-class PlanRow
+      for each so the enricher writes concrete Setup/Action/Verify.
+    - `provenance`: req_id → "sfs" | "rfc" | "cli-inherit". The xlsx
+      writer uses this for row tinting on the main sheet.
     - `inherited_cmd_names`: just the names of inherited CliCommand
       objects, for fast "is this row inherited?" lookups at render time.
     """
@@ -83,9 +88,10 @@ def _merge_requirements(spec_reqs: list[Requirement],
 
 def _identify_synth_anchors(reqs: list[Requirement],
                               claimed_ids: set[str]) -> list[Requirement]:
-    """Return the RFC requirements that no flow claims — they get
-    auto-synthesized rows in the final xlsx so RFC mandates aren't
-    silently dropped.
+    """Return the RFC requirements that no flow claims —
+    `generator._planrow_for_rfc_orphan` then emits a first-class PlanRow
+    per orphan so the RFC mandate becomes a real test row (not a
+    placeholder).
 
     Only RFC requirements become synth anchors. SFS orphans are a
     different signal (flow catalog gap) and stay surfaced in the
@@ -172,6 +178,15 @@ def build_catalog(doc: Document | str | Path,
     # downstream coverage tracking treats them uniformly.
     cli_anchors = _make_cli_anchors(extracted_cmds, inherited_cmds, provenance)
     requirements = cli_anchors + requirements  # CLI anchors first for stable order
+
+    # ── Classify each req by SFS-vs-RFC relationship ──────────────────
+    # Sets r.kind ∈ {base_sfs, delta, overlay, pointer,
+    # sfs_with_rfc_context, rfc, cli} and r.rfc_links (RFC req_ids the
+    # SFS req points at, resolved against the extracted RFC catalog).
+    # Yossi 2026-05-21 follow-up: the AI enricher uses this to write
+    # rows that contrast SFS-vs-RFC behaviour explicitly instead of
+    # treating each req as a flat sibling.
+    classify_all(requirements)
 
     return RequirementCatalog(
         requirements=requirements,

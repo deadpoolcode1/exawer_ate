@@ -8,11 +8,10 @@ Layout (matches references/DHCP-snoopy_TP_with_PW.xlsx):
     blobs (so the AI-enrichment cache survives the shape change);
     `atomic_rows.rows_for_plan_row()` decomposes each blob into a banner
     row + N atomic action rows at render time.
-  - **Synthesized — Review** sheet lists every row whose provenance is
-    `synth` (auto-generated for an unclaimed RFC MUST) or `cli-inherit`
-    (BGP-neighbor sub-config from the inheritance table, not in the EVPN
-    CLI doc). Closes Eyal's "RFC must drive the TP" feedback by giving
-    QA an explicit list of what was mechanically produced.
+  - RFC mandates that no flow claims are emitted by `generator.py` as
+    first-class PlanRows (Yossi push-back 2026-05-21) — they flow
+    through the enricher and render on the main sheet alongside flow
+    rows, tinted green as "RFC mandate" so QA still sees the source.
   - **Coverage sheet** unchanged from the previous respin; reports
     requirement → flow coverage with the same orphan-highlight semantics
     as before.
@@ -28,16 +27,10 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from ate.planner.atomic_rows import (
-    AtomicRow,
-    rows_for_cli_inherited,
-    rows_for_plan_row,
-    rows_for_synth_rfc,
-)
-from ate.planner.cli_inheritance import inheritance_source_for
+from ate.planner.atomic_rows import AtomicRow, rows_for_plan_row
 from ate.planner.feature_catalog import build_catalog
 from ate.planner.flows import EVPN_FLOWS
-from ate.planner.model import Plan
+from ate.planner.model import Plan, PlanRow, Requirement
 
 # DHCP-snoopy 9-column schema. Headers chosen to match the reference TP
 # exactly where possible (Topic / Action / Expectation / Monitor / Build /
@@ -144,32 +137,126 @@ def _write_catalog(ws, catalog: list, start_row: int) -> int:
     return row
 
 
-SYNTH_FILL = PatternFill("solid", fgColor="FFF3CD")    # auto-synthesized RFC row
+RFC_FILL = PatternFill("solid", fgColor="D4EDDA")      # RFC mandate row (normative)
 INHERIT_FILL = PatternFill("solid", fgColor="E2D9F3")  # CLI-inheritance row
+
+
+# Kind-priority for picking the most informative marker when a flow row
+# aggregates multiple SFS reqs of different kinds. delta wins because a
+# vendor-modified clause is the most surprising thing a QA engineer can
+# encounter; overlay next; pointer last (it adds the least signal).
+_KIND_PRIORITY = ("delta", "overlay", "pointer",
+                  "sfs_with_rfc_context", "base_sfs")
+
+
+def _provenance_for_row(r: PlanRow,
+                        req_by_id: dict[str, Requirement],
+                        inherited_names: set[str]) -> str:
+    """Compute the provenance / kind-marker string for a PlanRow.
+
+    Returns one of:
+      "rfc-orphan"          — RFC mandate row (generator-emitted synth)
+      "cli-inherit"         — BGP sub-config row
+      "delta:<rfc_link>"    — SFS req that modifies an RFC clause
+      "overlay:<rfc_link>"  — SFS req that adds beyond an RFC clause
+      "pointer:<rfc_link>"  — SFS req that just points at an RFC clause
+      ""                    — default (flow row anchored by base SFS)
+
+    The kind markers carry the linked RFC req_id (when known) so the
+    Comment column can read "delta from RFC7432bis-§8.5" — a QA engineer
+    sees the SFS-vs-RFC relationship without opening the source docs.
+    """
+    # Source markers first — they win over kind markers because rfc-
+    # orphan / cli-inherit rows have their own dedicated visual tier.
+    is_inherited = bool(r.sub_category and r.sub_category in inherited_names)
+    is_rfc_orphan = (not r.flow_id) and r.sfs_requirement_id.startswith("RFC")
+    if is_rfc_orphan:
+        return "rfc-orphan"
+    if is_inherited:
+        return "cli-inherit"
+
+    # Walk covered_req_ids → pick the SFS req with the highest-priority
+    # kind. RFC reqs in covered_req_ids are skipped (their relationship
+    # is already implicit — "rfc"). Multi-req flow rows often mix SFS
+    # and RFC; we want the SFS relationship marker.
+    best_kind = ""
+    best_link = ""
+    best_priority = len(_KIND_PRIORITY)
+    for rid in r.covered_req_ids:
+        req = req_by_id.get(rid)
+        if req is None or req.source != "spec":
+            continue
+        if req.kind not in _KIND_PRIORITY:
+            continue
+        priority = _KIND_PRIORITY.index(req.kind)
+        if priority < best_priority:
+            best_priority = priority
+            best_kind = req.kind
+            best_link = req.rfc_links[0] if req.rfc_links else ""
+
+    if best_kind in ("delta", "overlay", "pointer"):
+        return f"{best_kind}:{best_link}"
+    return ""
+
+
+def _comment_for_provenance(provenance: str) -> str:
+    """Map provenance string → human-readable Comment-column marker.
+
+    Yossi 2026-05-21 follow-up: SFS reqs classified as delta / overlay /
+    pointer carry the linked RFC req_id in the provenance string
+    ("delta:RFC7432bis-§8.5") so a QA engineer can see the SFS-vs-RFC
+    relationship at a glance. The two source markers (rfc-orphan,
+    cli-inherit) take the same column but never co-occur with kind
+    markers since RFC-orphan reqs have kind="rfc" and inherited CLI
+    rows have kind="cli".
+    """
+    if provenance == "rfc-orphan":
+        return "RFC mandate"
+    if provenance == "cli-inherit":
+        return "CLI inheritance"
+    if provenance.startswith("delta:"):
+        link = provenance.split(":", 1)[1]
+        return f"delta from {link}" if link else "delta from RFC base"
+    if provenance.startswith("overlay:"):
+        link = provenance.split(":", 1)[1]
+        return f"overlay on {link}" if link else "overlay on RFC base"
+    if provenance.startswith("pointer:"):
+        link = provenance.split(":", 1)[1]
+        return f"pointer to {link}" if link else "pointer to RFC"
+    return ""
+
+
+def _fill_for_provenance(provenance: str) -> PatternFill | None:
+    """Banner / row tint per provenance. Returns None for default (flow)."""
+    if provenance == "rfc-orphan":
+        return RFC_FILL
+    if provenance == "cli-inherit":
+        return INHERIT_FILL
+    # delta / overlay / pointer rows keep the flow tint — the kind
+    # marker in col 9 carries the relationship info without piling on
+    # visual noise.
+    return None
 
 
 def _write_atomic_row(ws, ar: AtomicRow, row: int) -> int:
     """Render one AtomicRow into the 9-column schema. Banner rows merge
-    A→F so the topic reads like a section header (matches DHCP-snoopy)."""
+    A→F so the topic reads like a section header (matches DHCP-snoopy).
+    """
+    comment = _comment_for_provenance(ar.provenance)
+    tint = _fill_for_provenance(ar.provenance)
+
     if ar.is_banner:
         cell = ws.cell(row=row, column=1, value=ar.topic)
         cell.font = META_FONT
-        fill = FLOW_FILL
-        if ar.provenance == "synth":
-            fill = SYNTH_FILL
-        elif ar.provenance == "cli-inherit":
-            fill = INHERIT_FILL
+        fill = tint or FLOW_FILL
         cell.fill = fill
         cell.alignment = Alignment(wrap_text=True, vertical="center")
         for c in range(2, len(HEADER_ROW) + 1):
             ws.cell(row=row, column=c).fill = fill
         ws.merge_cells(start_row=row, start_column=1,
                         end_row=row, end_column=6)
-        if ar.provenance == "synth":
-            ws.cell(row=row, column=9, value="synthesized — review")
-        elif ar.provenance == "cli-inherit":
-            ws.cell(row=row, column=9,
-                    value="CLI inheritance — review")
+        if comment:
+            ws.cell(row=row, column=9, value=comment)
         ws.row_dimensions[row].height = 22
         return row + 1
 
@@ -184,95 +271,14 @@ def _write_atomic_row(ws, ar: AtomicRow, row: int) -> int:
             value=", ".join(ar.monitor) if ar.monitor else "")\
         .alignment = WRAP_LEFT
     ws.cell(row=row, column=6, value=ar.equipment).alignment = WRAP_LEFT
-    # Build / Results / Comment columns left blank for QA fill-in. Synth
-    # / inherit provenance bubbles up to col 9 so the Comment column
-    # makes the row's auto-generated nature visible alongside the data.
-    comment = ""
-    if ar.provenance == "synth":
-        comment = "synthesized — review"
-    elif ar.provenance == "cli-inherit":
-        comment = "CLI inheritance — review"
     ws.cell(row=row, column=9, value=comment).alignment = WRAP_LEFT
-    # Subtle row tint so synth/inherit rows still stand out.
-    if ar.provenance == "synth":
+    # Subtle row tint for source-marker rows (RFC / inherit). Delta /
+    # overlay / pointer rows do not tint — the comment marker suffices.
+    if tint is not None:
         for c in range(1, len(HEADER_ROW) + 1):
-            ws.cell(row=row, column=c).fill = SYNTH_FILL
-    elif ar.provenance == "cli-inherit":
-        for c in range(1, len(HEADER_ROW) + 1):
-            ws.cell(row=row, column=c).fill = INHERIT_FILL
+            ws.cell(row=row, column=c).fill = tint
     ws.row_dimensions[row].height = _row_height_for(ar.action)
     return row + 1
-
-
-def _write_synth_review_sheet(wb, atomic_rows: list[AtomicRow]) -> None:
-    """List every banner-row whose provenance ∈ {synth, cli-inherit} on
-    a dedicated sheet so QA can see exactly which rows are mechanical /
-    inherited vs. hand-designed. Format:
-
-        Source                | Anchor              | Why synthesized                              | Recommended QA action
-        RFC mandate (synth)   | RFC7432bis-§10.1.1  | No flow claims this RFC MUST                  | Refine action steps + monitor; promote to a flow if generalisable
-        CLI inheritance       | CLI:allow-as-in      | BGP sub-config inherited from parent protocol | Validate against device behaviour; replace when BGP CLI doc lands
-    """
-    ws = wb.create_sheet("Synthesized — Review")
-    widths = [22, 36, 70, 70]
-    for i, w in enumerate(widths, 1):
-        ws.column_dimensions[get_column_letter(i)].width = w
-    headers = ["Source", "Anchor",
-                "Why this row is here",
-                "Recommended QA action"]
-    for c, label in enumerate(headers, 1):
-        cell = ws.cell(row=1, column=c, value=label)
-        cell.font = HEADER_FONT
-        cell.fill = HEADER_FILL
-        cell.alignment = Alignment(wrap_text=True, vertical="center")
-    ws.row_dimensions[1].height = 28
-
-    intro = (
-        "Rows on this sheet were produced mechanically by the Requirements "
-        "Builder, not by a hand-designed flow. Review each one before "
-        "executing — auto-generated content is correct-by-construction in "
-        "intent but coarse in detail. The main 'Test Plan Topics' sheet "
-        "tints these rows yellow (RFC-synth) or violet (CLI-inherit) "
-        "so they are recognisable in context."
-    )
-    cell = ws.cell(row=2, column=1, value=intro)
-    cell.alignment = WRAP_LEFT
-    cell.font = Font(italic=True, color="555555")
-    ws.merge_cells(start_row=2, start_column=1, end_row=2, end_column=4)
-    ws.row_dimensions[2].height = _row_height_for(intro)
-
-    row = 4
-    seen: set[str] = set()
-    for ar in atomic_rows:
-        if not ar.is_banner or ar.provenance not in ("synth", "cli-inherit"):
-            continue
-        topic = ar.topic
-        if topic in seen:
-            continue
-        seen.add(topic)
-        if ar.provenance == "synth":
-            source = "RFC mandate (synth)"
-            why = ("No flow in EVPN_FLOWS claimed this RFC MUST clause. "
-                   "Auto-synthesised so the mandate isn't silently dropped.")
-            action = ("Refine the action / monitor / expectation against "
-                      "the actual device behaviour; if the use case applies "
-                      "broadly, promote to a named Flow.")
-        else:
-            source = "CLI inheritance"
-            inherit_source = inheritance_source_for(
-                topic.split(":")[-1].strip())
-            why = ("Sub-config inherited from the parent protocol's CLI "
-                   "(e.g. BGP). Not documented in the EVPN CLI doc.")
-            if inherit_source:
-                why += f"  Source: {inherit_source}"
-            action = ("Validate the syntax + defaults against the actual "
-                      "device behaviour. Replace this entry once the "
-                      "Exaware BGP CLI manual is integrated.")
-        for c, val in enumerate([source, topic, why, action], 1):
-            cell = ws.cell(row=row, column=c, value=val)
-            cell.alignment = WRAP_LEFT
-        ws.row_dimensions[row].height = _row_height_for(why)
-        row += 1
 
 
 def _write_flow_banner(ws, flow_id: str, flow_name: str, summary: str,
@@ -304,12 +310,13 @@ def _write_flow_banner(ws, flow_id: str, flow_name: str, summary: str,
 # Reviewers see these in the Coverage sheet annotated with the reason
 # rather than a bare "(orphan)" — so a 100% strict reading still
 # returns a defensible answer.
+#
+# Yossi 2026-05-21: RFC mandates do not get out-of-scope exemptions any
+# more — every RFC clause is promoted to a first-class row by the synth
+# path in generator.py. Only SFS-side meta-requirements stay here.
 _INTENTIONAL_ORPHANS: dict[str, str] = {
     "EVPNS-REQ#10": (
         "(orphan: META — lists supported RFCs; not a runnable use case)"
-    ),
-    "RFC7432bis-§10.1.1": (
-        "(orphan: IRB / L3 EVPN scope — out of M1 single-router L2 plan)"
     ),
 }
 
@@ -528,18 +535,20 @@ def write_xlsx(plan: Plan, output_path: str | Path,
     if catalog is not None:
         inherited_names = set(catalog.inherited_cmd_names)
 
-    # Build the full atomic-row stream so the Synthesized — Review sheet
-    # can scan it too. Order: CLI command rows (per command), then flow
-    # rows (per flow + category), then auto-synthesized RFC rows.
+    # Build a req_by_id lookup so we can read each PlanRow's anchor
+    # req kind (delta / overlay / pointer) — Yossi 2026-05-21 follow-up.
+    req_by_id = {r.req_id: r for r in plan.requirements}
+
+    # Build the atomic-row stream. Order: CLI command rows (per
+    # command), then flow rows (per flow + category), then RFC-mandate
+    # rows (Yossi 2026-05-21: first-class, on the main sheet).
+    # `generator.py` already emitted RFC orphans as PlanRows so they
+    # flow through the enricher; the only thing we do here is stamp
+    # provenance for tinting + Comment-column marker.
     atomic_stream: list[AtomicRow] = []
     last_topic: str | None = None
     for r in plan.rows:
-        # Detect inherited CLI rows by sub-category (CLI command name);
-        # those rows get an "cli-inherit" provenance stamp so the
-        # Synthesized — Review sheet surfaces them.
-        is_inherited = bool(
-            r.sub_category and r.sub_category in inherited_names
-        )
+        provenance = _provenance_for_row(r, req_by_id, inherited_names)
         # Suppress banner if it would repeat the previous banner (e.g.
         # multiple PlanRows for the same CLI command).
         topic_now = (f"{r.flow_id} — {r.flow_name}" if r.flow_id
@@ -547,14 +556,9 @@ def write_xlsx(plan: Plan, output_path: str | Path,
         atomic_stream.extend(rows_for_plan_row(
             r, flow_lookup=flow_lookup,
             emit_banner=(topic_now != last_topic),
-            provenance=("cli-inherit" if is_inherited else ""),
+            provenance=provenance,
         ))
         last_topic = topic_now
-
-    # Auto-synthesized RFC rows last (Eyal-respin requirement).
-    if catalog is not None:
-        for req in catalog.synth_anchors:
-            atomic_stream.extend(rows_for_synth_rfc(req))
 
     for ar in atomic_stream:
         row = _write_atomic_row(ws, ar, row)
@@ -577,10 +581,6 @@ def write_xlsx(plan: Plan, output_path: str | Path,
 
     _write_flows_sheet(wb, plan)
     _write_coverage_sheet(wb, plan)
-    # Synthesized — Review must come after the body so atomic_stream is
-    # populated. The sheet itself reads the stream and emits one summary
-    # row per provenance-tagged banner.
-    _write_synth_review_sheet(wb, atomic_stream)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)

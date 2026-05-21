@@ -50,8 +50,9 @@ def test_cli_inheritance_emits_seven_bgp_subconfigs() -> None:
 
 
 def test_mark_claimed_promotes_unclaimed_rfc_to_synth() -> None:
-    """An RFC req that no flow claims must become a synth_anchor (so the
-    atomic-row renderer can emit a Synthesized — Review entry for it)."""
+    """An RFC req that no flow claims must become a synth_anchor so
+    `generator._planrow_for_rfc_orphan` can emit a first-class PlanRow
+    that lands on the main sheet (Yossi 2026-05-21)."""
     cat = build_catalog(EVPN_SPEC, rfc_paths=[RFC7432BIS, RFC9785])
     # Pretend nothing was claimed: every RFC req becomes a synth_anchor.
     mark_claimed(cat, claimed_req_ids=set())

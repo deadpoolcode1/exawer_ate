@@ -55,6 +55,45 @@ from ate.planner.requirements_builder import build_catalog, mark_claimed
 from ate.planner.xlsx_writer import write_xlsx
 
 
+def _planrow_for_rfc_orphan(req: Requirement) -> PlanRow:
+    """Render an RFC mandate (no flow claims it) as a PlanRow so it flows
+    through the enricher pipeline and lands on the main sheet as a
+    first-class row.
+
+    Client direction (Yossi, 2026-05-21): the SFS deliberately omits
+    requirements defined in the RFC standard; the TP must test those
+    with the same rigour as flow rows — not as placeholder "synthesized
+    — review" entries on a separate sheet. The Setup/Action/Verify
+    scaffold below is replaced by AI-generated content during enrichment.
+    """
+    short = req.req_id.split("-§")[0] if "-§" in req.req_id else "RFC"
+    section = req.section_number or ""
+    section_ref = f" §{section}" if section else ""
+    must = (req.must_statements[0] if req.must_statements
+            else req.description[:240])
+    sub = (f"{short}{section_ref} — {req.title}"
+           if section else f"{short} — {req.title}")
+    return PlanRow(
+        flow_id="",
+        flow_name="",
+        category="Protocol behaviour (RFC mandate)",
+        sub_category=sub,
+        equipment="DUT only (RFC-mandated)",
+        action_steps=(
+            "Setup:  Configure the feature so the RFC clause is exercisable.\n"
+            f"Action: Exercise the behaviour the clause mandates — "
+            f"{must[:240]}.\n"
+            f"Verify: Device behaviour conforms to {short}{section_ref}."
+        ),
+        covered_req_ids=[req.req_id],
+        sfs_requirement_id=req.req_id,
+        expectation=(
+            f"Pass:    Device implements {short}{section_ref} as specified.\n"
+            "Fail-on: Observable behaviour deviates from the RFC clause."
+        ),
+    )
+
+
 def _row_for_flow_category(flow: Flow, category: str,
                            covered_reqs: list[Requirement]) -> PlanRow:
     """Render one flow-row for a category. Covered req-ids are joined into
@@ -210,10 +249,39 @@ def generate_plan(doc: Document | str | Path,
                 ),
             ))
 
+    # ── RFC orphan promotion (Yossi push-back, 2026-05-21) ───────────
+    # The SFS deliberately omits RFC-defined requirements; the TP must
+    # test them with the same rigour as flow rows. RFC mandates no flow
+    # claims are emitted as PlanRows here, so they flow through the
+    # enricher and land on the main sheet as first-class rows — not as
+    # placeholders on a separate "Synthesized — Review" sheet.
+    claimed: set[str] = set()
+    for fl, covered in flows_with_reqs:
+        for r in covered:
+            claimed.add(r.req_id)
+    mark_claimed(catalog, claimed)
+    synth_rfc_rows: list[PlanRow] = [
+        _planrow_for_rfc_orphan(req) for req in catalog.synth_anchors
+    ]
+
     # ── Compose ────────────────────────────────────────────────────────
-    # CLI rows render first (most concrete material; QA reads CLI block first),
-    # then flow rows in the EVPN_FLOWS order.
-    rows = cli_rows + flow_rows
+    # CLI rows render first (most concrete material; QA reads CLI block
+    # first), then flow rows in the EVPN_FLOWS order, then RFC-orphan
+    # rows so the deliverable ends with every RFC mandate the TP covers.
+    rows = cli_rows + flow_rows + synth_rfc_rows
+
+    # Coverage assertion: every RFC MUST extracted by rfc_extractor must
+    # appear in ≥ 1 PlanRow's covered_req_ids — either via a flow that
+    # claimed it or via the synth-PlanRow path above. A miss here is a
+    # bug in the synth promotion logic.
+    rfc_ids = {r.req_id for r in catalog.requirements if r.source == "rfc"}
+    covered_ids = {rid for row in rows for rid in row.covered_req_ids}
+    missing = rfc_ids - covered_ids
+    if missing:
+        raise ValueError(
+            "RFC requirements not covered by any row "
+            f"(synth promotion failed): {sorted(missing)}"
+        )
 
     plan = Plan(
         feature_name=feature_name,
@@ -230,17 +298,6 @@ def generate_plan(doc: Document | str | Path,
     plan.__dict__["_coverage"] = coverage_map
     plan.__dict__["_orphans"] = orphans
     plan.__dict__["_flows_with_reqs"] = flows_with_reqs
-
-    # ── Requirements Builder: identify RFC requirements no flow claimed.
-    # `atomic_rows.rows_for_synth_rfc` later turns each into a banner +
-    # action rows under "Synthesized — Review". This is the path that
-    # closes Eyal's "RFC must drive the TP" feedback: no RFC MUST can be
-    # silently dropped when no flow happens to match its keywords.
-    claimed: set[str] = set()
-    for fl, covered in flows_with_reqs:
-        for r in covered:
-            claimed.add(r.req_id)
-    mark_claimed(catalog, claimed)
     plan.__dict__["_catalog"] = catalog
 
     if use_ai is not False:

@@ -84,14 +84,18 @@ Reply ONLY with valid JSON in this exact shape, no surrounding text:
 REQUIREMENT
   ID: {req_id}
   Source: {source}   ← 'spec' = vendor SFS (CLI/NETCONF/upgrade applicable), 'rfc' = IETF (protocol behaviour only)
+  Kind: {kind}       ← 'base_sfs' | 'delta' | 'overlay' | 'pointer' | 'sfs_with_rfc_context' | 'rfc' | 'cli'
   Section: {section}
   Title: {title}
   Tags: {tags}
   RFC refs: {rfc_refs}
+  RFC links: {rfc_links}
   MUST statements (verbatim from source):{must_statements}
 
 REQUIREMENT DESCRIPTION
 {description}
+
+{relationship_block}
 
 CLI EVIDENCE (related commands from EVPN CLI doc — use the exact command/parameter names below)
 {cli_evidence}
@@ -109,15 +113,21 @@ CURRENT RULE-BASED ROW (replace with feature-specific content; do not parrot it)
 def _row_key(req: Requirement, row: PlanRow, sub_index: int) -> str:
     """Stable cache key for a row.
 
-    Salt v3 marks the QA-respin prompt shape (flow-driven rows: row
-    identity now includes flow_id + covered_req_ids, since one row
-    aggregates multiple requirements). v1/v2 entries on disk become
-    misses, which forces re-enrichment for flow rows.
+    Salt v5 marks the Yossi 2026-05-21 follow-up: prompt now carries
+    `kind` (delta/overlay/pointer/base_sfs/sfs_with_rfc_context/rfc/cli)
+    + `rfc_links` + an injected RFC-base-text block, so the AI writes
+    rows that contrast SFS-vs-RFC explicitly. v1-v4 entries on disk
+    become misses; bulk re-bake is expected.
+
+    The cache key includes `req.kind` so a reclassification (heuristic
+    bump, new cues) invalidates only the affected rows instead of
+    forcing yet another full bake.
     """
-    salt = "v3"
+    salt = "v5"
     h = hashlib.sha256()
     h.update(salt.encode())
     h.update(req.req_id.encode())
+    h.update((req.kind or "").encode())
     h.update(row.flow_id.encode())
     h.update(row.category.encode())
     h.update(row.sub_category.encode())
@@ -228,15 +238,123 @@ def _cli_evidence_text(req: Requirement,
     return "\n".join(parts)
 
 
+def _relationship_block(req: Requirement,
+                        rfc_link_reqs: list[Requirement] | None) -> str:
+    """Render a SFS-vs-RFC relationship guidance block for the prompt.
+
+    Yossi 2026-05-21 follow-up: the AI must write rows that contrast
+    SFS-vs-RFC behaviour explicitly when the SFS req modifies, extends,
+    or just points at an RFC clause — instead of treating every req as
+    a flat sibling.
+
+    The block content depends on req.kind. For delta / overlay we inject
+    the actual RFC base text (the must_statements of the linked RFC
+    reqs) so the AI sees what the SFS is modifying / extending.
+    """
+    rfc_text = ""
+    if rfc_link_reqs:
+        parts = []
+        for rl in rfc_link_reqs[:3]:
+            musts = "\n      - ".join(rl.must_statements[:2]) or "(no MUST in section)"
+            parts.append(
+                f"  - {rl.req_id} ({rl.title}):\n      - {musts}"
+            )
+        rfc_text = "\n".join(parts)
+
+    if req.kind == "delta":
+        body = (
+            "SFS-VS-RFC RELATIONSHIP — DELTA\n"
+            "  This SFS requirement MODIFIES the RFC base behaviour. The vendor\n"
+            "  has deliberately chosen to do something different from what the RFC\n"
+            "  specifies. Your row MUST:\n"
+            "    1. Make the SFS-modified behaviour the thing being tested\n"
+            "       (Action exercises it; Verify confirms the modified behaviour,\n"
+            "       not the RFC base).\n"
+            "    2. Reference the RFC clause being overridden so QA sees the\n"
+            "       contrast (e.g. \"per [SFS§N]; this overrides [RFC§M] which\n"
+            "       only required SHOULD — verify the device enforces MUST\").\n"
+            "    3. Fail-on must catch the device falling back to the RFC base\n"
+            "       (i.e. the un-modified behaviour).\n"
+        )
+        if rfc_text:
+            body += f"\nRFC BASE TEXT (the clauses the SFS modifies)\n{rfc_text}\n"
+        return body
+
+    if req.kind == "overlay":
+        body = (
+            "SFS-VS-RFC RELATIONSHIP — OVERLAY\n"
+            "  This SFS requirement ADDS new constraints on top of the RFC base.\n"
+            "  The RFC behaviour is assumed; this row tests the SFS-added\n"
+            "  constraint specifically. Action should exercise the additional\n"
+            "  constraint; Verify must confirm both the RFC base AND the SFS\n"
+            "  overlay hold simultaneously.\n"
+        )
+        if rfc_text:
+            body += f"\nRFC BASE TEXT (the SFS adds constraints beyond these)\n{rfc_text}\n"
+        return body
+
+    if req.kind == "pointer":
+        body = (
+            "SFS-VS-RFC RELATIONSHIP — POINTER\n"
+            "  This SFS requirement is essentially a traceability pointer: it\n"
+            "  says \"implement what the RFC specifies\" and adds no new\n"
+            "  normative content of its own. Keep your row brief: confirm the\n"
+            "  RFC-mandated feature is configurable and enabled on the device.\n"
+            "  The detailed protocol-behaviour test is driven by the RFC row,\n"
+            "  not this one. Do not duplicate the RFC's test depth here.\n"
+        )
+        if rfc_text:
+            body += f"\nRFC TARGET (what the SFS points at — the real test lives here)\n{rfc_text}\n"
+        return body
+
+    if req.kind == "sfs_with_rfc_context":
+        body = (
+            "SFS-VS-RFC RELATIONSHIP — SFS WITH RFC CONTEXT\n"
+            "  This SFS requirement references an RFC for context but adds its\n"
+            "  own normative content. Test the SFS-specific content as the\n"
+            "  primary focus; the RFC ref is background a QA engineer should\n"
+            "  read to understand the broader feature.\n"
+        )
+        if rfc_text:
+            body += f"\nRFC CONTEXT (background the SFS req references)\n{rfc_text}\n"
+        return body
+
+    if req.kind == "base_sfs":
+        return (
+            "SFS-VS-RFC RELATIONSHIP — PURE VENDOR REQUIREMENT\n"
+            "  No RFC reference. This is vendor-only behaviour (CLI shape,\n"
+            "  defaults, NETCONF, management, etc.). Test the SFS content\n"
+            "  directly; no protocol-standard contrast applies.\n"
+        )
+
+    if req.kind == "rfc":
+        return (
+            "SFS-VS-RFC RELATIONSHIP — RFC MANDATE\n"
+            "  This is an RFC clause. The row tests protocol behaviour the\n"
+            "  device must implement per the standard. Vendor-platform\n"
+            "  categories (CLI / NETCONF / upgrade) do NOT apply — the RFC\n"
+            "  defines protocol behaviour, not platform plumbing.\n"
+        )
+
+    # kind == "" (pre-classifier code path) or "cli": no guidance.
+    return ""
+
+
 def _build_prompt(req: Requirement, row: PlanRow,
                   cli_index: dict[str, object] | None = None,
-                  covered_reqs: list[Requirement] | None = None) -> str:
+                  covered_reqs: list[Requirement] | None = None,
+                  rfc_link_reqs: list[Requirement] | None = None) -> str:
     """Render the per-row enrichment prompt.
 
     For flow rows, `covered_reqs` is the list of requirements the row
     aggregates; the prompt includes their IDs + titles so the AI can
     write a single coherent step that exercises the whole set rather
     than the anchor requirement alone.
+
+    `rfc_link_reqs` is the list of RFC Requirement objects this req's
+    rfc_links resolve to — used by `_relationship_block` to inject the
+    RFC base text so the AI can write a delta/overlay row that
+    explicitly contrasts SFS vs RFC.
     """
     flow_context = ""
     if row.flow_id and covered_reqs:
@@ -254,13 +372,16 @@ def _build_prompt(req: Requirement, row: PlanRow,
     return PROMPT_TEMPLATE.format(
         req_id=req.req_id,
         source=req.source,
+        kind=req.kind or "(unclassified)",
         section=req.section_number or "(unnumbered)",
         title=req.title,
         tags=", ".join(req.tags),
         rfc_refs=", ".join(req.rfc_refs) or "(none)",
+        rfc_links=", ".join(req.rfc_links) or "(none)",
         must_statements="\n  - ".join([""] + req.must_statements[:3]) or " (none)",
         description=(req.description[:600] + "…") if len(req.description) > 600
                     else req.description,
+        relationship_block=_relationship_block(req, rfc_link_reqs),
         cli_evidence=_cli_evidence_text(req, cli_index),
         category=row.category,
         current_action="\n".join("    " + ln for ln in row.action_steps.splitlines()),
@@ -508,8 +629,14 @@ def enrich_plan(plan: Plan, *,
         if use_api:
             covered = [req_by_id[r] for r in row.covered_req_ids
                        if r in req_by_id]
+            # Resolve RFC linked reqs so the prompt can show the actual
+            # RFC base text the SFS req is modifying / extending /
+            # pointing at (Yossi 2026-05-21 follow-up).
+            rfc_link_reqs = [req_by_id[rl] for rl in req.rfc_links
+                             if rl in req_by_id]
             prompt = _build_prompt(req, row, cli_index=cli_index,
-                                   covered_reqs=covered or None)
+                                   covered_reqs=covered or None,
+                                   rfc_link_reqs=rfc_link_reqs or None)
             if backend == "sdk":
                 result = _call_via_sdk(prompt, api_key) if api_key else None
             else:  # cli

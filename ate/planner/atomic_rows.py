@@ -14,16 +14,11 @@ templates keep working). This module is the render-time projection: it
 parses each blob into atomic action lines and emits a banner row + N
 atomic action rows in the new shape.
 
-Three entry points:
-
-  - `rows_for_plan_row(row, flow_lookup)` — generic decomposer. Used for
-    every existing PlanRow (flow rows, CLI rows, fallback rows).
-  - `rows_for_synth_rfc(req)` — synthesized rows for RFC requirements
-    no flow claims. Produces a banner + one action row per MUST clause.
-  - `rows_for_cli_inherited(cmd)` — same as `rows_for_plan_row` for
-    CLI rows that came from `cli_inheritance.expand()`, but flags
-    `provenance="cli-inherit"` so xlsx_writer surfaces them on the
-    Synthesized — Review sheet.
+Single entry point: `rows_for_plan_row(row, flow_lookup, provenance)` —
+decomposes any PlanRow (flow row, CLI row, fallback row, RFC-mandate row
+emitted by generator._planrow_for_rfc_orphan) into banner + atomic
+action rows. The `provenance` argument flags RFC-orphan / CLI-inherit
+rows for xlsx-writer tinting.
 
 The decomposer is intentionally lossless wrt the underlying PlanRow's
 intent: every numbered Setup/Action/Verify step becomes its own row, and
@@ -35,7 +30,7 @@ from __future__ import annotations
 import re
 
 from ate.planner.flows import Flow
-from ate.planner.model import AtomicRow, PlanRow, Requirement
+from ate.planner.model import AtomicRow, PlanRow
 
 # Match "  N. text" or "  - text" inside a Setup/Action/Verify body.
 _NUMBERED_STEP_RE = re.compile(r"^\s*(?:\d+\.|-)\s+(.*\S)\s*$")
@@ -302,63 +297,3 @@ def rows_for_plan_row(row: PlanRow,
     return out
 
 
-# ── Synthesized RFC orphan rows ────────────────────────────────────────
-
-def rows_for_synth_rfc(req: Requirement) -> list[AtomicRow]:
-    """Auto-synthesize a banner + atomic rows for an RFC requirement that
-    no flow claims.
-
-    Banner: `RFC <short> §<num> — <title>`. Then one atomic row per MUST
-    clause: Action = the MUST sentence; Expectation = "behaviour conforms
-    to RFC <short> §<num>"; Monitor = "(define after first run — RFC-synth)".
-    """
-    short = req.req_id.split("-§")[0] if "-§" in req.req_id else "RFC"
-    section = req.section_number or req.req_id.split("§")[-1] if "§" in req.req_id else ""
-    topic = f"{short} §{section} — {req.title}" if section else f"{short} — {req.title}"
-
-    out: list[AtomicRow] = [
-        AtomicRow(topic=topic, is_banner=True, provenance="synth"),
-    ]
-
-    if not req.must_statements:
-        out.append(AtomicRow(
-            topic="",
-            action=(req.description[:200] or req.title).strip().rstrip("."),
-            req_ids=[req.req_id],
-            expectation=f"Behaviour conforms to {short}"
-                        + (f" §{section}" if section else ""),
-            monitor=["(define after first run — RFC-synth row)"],
-            equipment="DUT only (RFC-mandated; refine when use case clear)",
-            provenance="synth",
-        ))
-        return out
-
-    for must in req.must_statements[:5]:
-        # Trim "[STD] " kind of prefixes; strip surrounding quotes.
-        clause = re.sub(r"\s+", " ", must.strip())
-        if len(clause) > 240:
-            clause = clause[:237] + "…"
-        out.append(AtomicRow(
-            topic="",
-            action=clause,
-            req_ids=[req.req_id],
-            expectation=f"Behaviour conforms to {short}"
-                        + (f" §{section}" if section else ""),
-            monitor=["(define after first run — RFC-synth row)"],
-            equipment="DUT only (RFC-mandated; refine when use case clear)",
-            provenance="synth",
-        ))
-    return out
-
-
-def rows_for_cli_inherited(plan_row: PlanRow,
-                            flow_lookup: dict[str, Flow] | None = None,
-                            ) -> list[AtomicRow]:
-    """Same shape as `rows_for_plan_row` but stamps `provenance="cli-inherit"`
-    so the Synthesized — Review sheet surfaces the row.
-
-    The caller (xlsx_writer) decides which CLI rows are inherited by
-    checking `cli_inheritance.inheritance_source_for(name)`.
-    """
-    return rows_for_plan_row(plan_row, flow_lookup=flow_lookup,
-                              emit_banner=True, provenance="cli-inherit")

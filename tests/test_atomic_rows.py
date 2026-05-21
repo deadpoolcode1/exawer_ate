@@ -5,9 +5,8 @@ from ate.planner.atomic_rows import (
     _parse_blob,
     _split_expectation,
     rows_for_plan_row,
-    rows_for_synth_rfc,
 )
-from ate.planner.model import PlanRow, Requirement
+from ate.planner.model import PlanRow
 
 
 def test_parse_blob_handles_numbered_steps() -> None:
@@ -98,30 +97,6 @@ def test_plan_row_monitor_column_extracts_show_commands() -> None:
         monitors.extend(a.monitor)
     assert "show evpn evi" in monitors
     assert "show running-config" in monitors
-
-
-def test_synth_rfc_emits_banner_per_must_clause() -> None:
-    req = Requirement(
-        req_id="RFC7432bis-§7.2.1",
-        title="MAC/IP Advertisement Route",
-        section_number="7.2.1",
-        description="MAC/IP advertisement route encoding.",
-        must_statements=[
-            "The route MUST carry RD + ESI + Eth-Tag + MAC.",
-            "The MAC length MUST be 48.",
-        ],
-        source="rfc",
-    )
-    rows = rows_for_synth_rfc(req)
-    assert rows[0].is_banner
-    assert "RFC7432bis" in rows[0].topic
-    assert "MAC/IP" in rows[0].topic
-    # One row per MUST clause + banner = 3.
-    assert len(rows) == 3
-    for r in rows[1:]:
-        assert r.provenance == "synth"
-        assert "RFC7432bis" in r.expectation
-        assert r.monitor and "RFC-synth" in r.monitor[0]
 
 
 def test_provenance_flows_through_to_atomic_rows() -> None:

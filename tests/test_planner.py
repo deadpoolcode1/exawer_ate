@@ -289,6 +289,88 @@ def test_flow_row_count_is_bounded() -> None:
     )
 
 
+# ─── Yossi 2026-05-21 respin: RFC mandates are first-class ─────────────────
+
+def test_rfc_orphans_are_first_class_planrows() -> None:
+    """Every RFC requirement extracted by rfc_extractor must appear in
+    ≥ 1 PlanRow's covered_req_ids — either via a flow that claimed it
+    or via the synth-PlanRow path. No more silent drops or placeholder
+    rows on a separate sheet.
+    """
+    plan = generate_plan(EVPN_SPEC, use_ai=False,
+                         rfc_paths=[RFC7432BIS, RFC9785])
+    rfc_ids = {r.req_id for r in plan.requirements if r.source == "rfc"}
+    covered = {rid for row in plan.rows for rid in row.covered_req_ids}
+    missing = rfc_ids - covered
+    assert not missing, (
+        f"{len(missing)} RFC reqs lack any PlanRow coverage: "
+        f"{sorted(missing)[:5]}"
+    )
+
+
+def test_no_synthesized_review_sheet(tmp_path: Path) -> None:
+    """The 'Synthesized — Review' segregation sheet was deleted in the
+    Yossi 2026-05-21 respin; RFC mandates land on the main sheet."""
+    out = tmp_path / "plan_no_synth_sheet.xlsx"
+    generate_plan_to_xlsx(EVPN_SPEC, out, use_ai=False,
+                          rfc_paths=[RFC7432BIS, RFC9785])
+    wb = openpyxl.load_workbook(out)
+    assert "Synthesized — Review" not in wb.sheetnames, (
+        f"deprecated sheet still present: {wb.sheetnames}"
+    )
+
+
+def test_delta_pointer_markers_surface_in_comment_column(tmp_path: Path) -> None:
+    """SFS reqs classified as delta / overlay / pointer must surface a
+    relationship marker in the Comment column of the main sheet
+    (Yossi 2026-05-21 follow-up). EVPN SFS has 4 delta + 9 pointer reqs;
+    after flow fan-out the main sheet should contain dozens of marker
+    rows of each kind."""
+    out = tmp_path / "plan_kinds.xlsx"
+    generate_plan_to_xlsx(EVPN_SPEC, out, use_ai=False,
+                          rfc_paths=[RFC7432BIS, RFC9785])
+    wb = openpyxl.load_workbook(out)
+    ws = wb["Test Plan Topics"]
+    delta_rows = 0
+    pointer_rows = 0
+    for r in range(1, ws.max_row + 1):
+        c = ws.cell(row=r, column=9).value
+        if not isinstance(c, str):
+            continue
+        if c.startswith("delta from "):
+            delta_rows += 1
+        elif c.startswith("pointer to "):
+            pointer_rows += 1
+    assert delta_rows >= 5, (
+        f"only {delta_rows} delta rows surfaced; expected ≥5"
+    )
+    assert pointer_rows >= 5, (
+        f"only {pointer_rows} pointer rows surfaced; expected ≥5"
+    )
+
+
+def test_rfc_orphan_rows_carry_rfc_anchor_in_xlsx(tmp_path: Path) -> None:
+    """An RFC mandate that no flow claims must still surface in the
+    main 'Test Plan Topics' sheet, anchored to its RFC*-§N req-id."""
+    out = tmp_path / "plan_rfc_orphans.xlsx"
+    generate_plan_to_xlsx(EVPN_SPEC, out, use_ai=False,
+                          rfc_paths=[RFC7432BIS, RFC9785])
+    wb = openpyxl.load_workbook(out)
+    ws = wb["Test Plan Topics"]
+    # Walk the body looking for rows whose req-id column (col 3) holds
+    # an RFC*-§ token and whose comment column (col 9) is "RFC mandate".
+    rfc_mandate_rows = 0
+    for r in range(1, ws.max_row + 1):
+        req = ws.cell(row=r, column=3).value
+        comment = ws.cell(row=r, column=9).value
+        if (isinstance(req, str) and req.startswith("RFC")
+                and comment == "RFC mandate"):
+            rfc_mandate_rows += 1
+    assert rfc_mandate_rows >= 1, (
+        "expected ≥ 1 'RFC mandate' row on the main sheet"
+    )
+
+
 def test_coverage_sheet_links_reqs_to_flows(tmp_path: Path) -> None:
     """Coverage sheet must list every spec / RFC requirement and the
     flows that exercise it (or '(orphan)' if no flow claims it)."""
