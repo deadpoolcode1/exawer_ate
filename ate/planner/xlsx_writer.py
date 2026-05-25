@@ -140,6 +140,79 @@ def _write_catalog(ws, catalog: list, start_row: int) -> int:
 RFC_FILL = PatternFill("solid", fgColor="D4EDDA")      # RFC mandate row (normative)
 INHERIT_FILL = PatternFill("solid", fgColor="E2D9F3")  # CLI-inheritance row
 
+# ── Section bands — DHCP-snoopy "division to topics" (client 2026-05-25) ──
+# `references/DHCP-snoopy_TP_with_PW.xlsx` groups its topic banners under a
+# top tier of functional section headers (CLI configuration → clear → show
+# → Feature Functionality → Feature interaction → non-functional). We mirror
+# that here: every PlanRow is assigned a band, the body is stable-sorted by
+# band (within-band order preserved, so CLI commands stay in catalog order
+# and flows stay in FLOW-NNN order), and a dark section header is emitted at
+# each band transition. CLI-first ordering per client direction.
+SEC_CLI_CONFIG = "CLI Configuration"
+SEC_CLEAR = "Clear Commands"
+SEC_SHOW = "Show Commands"
+SEC_FUNC = "Feature Functionality"
+SEC_NONFUNC = "Feature Interaction, Scale & Lifecycle"
+SEC_RFC = "RFC Protocol Mandates"
+SEC_OTHER = "Additional Tests"
+
+_SECTION_ORDER = {
+    SEC_CLI_CONFIG: 0,
+    SEC_CLEAR: 1,
+    SEC_SHOW: 2,
+    SEC_FUNC: 3,
+    SEC_NONFUNC: 4,
+    SEC_RFC: 5,
+    SEC_OTHER: 6,
+}
+
+SECTION_FILL = PatternFill("solid", fgColor="1F3A5F")  # deep navy band
+SECTION_FONT = Font(color="FFFFFF", bold=True, size=11)
+
+
+def _section_for_row(r: PlanRow, flow_lookup: dict) -> str:
+    """Assign a PlanRow to one of the DHCP-snoopy-style section bands.
+
+    RFC-mandate rows (no flow, RFC* req id) → RFC band. Flow rows split by
+    the flow's `coverage_driven` flag: requirement-anchored flows are the
+    functional use cases; coverage-driven flows (scale / upgrade / NETCONF /
+    soak / access-variants) are the broad-technique non-functional band.
+    CLI command rows split by verb: `show*` / `clear*` get their own bands,
+    everything else is configuration.
+    """
+    if (not r.flow_id) and r.sfs_requirement_id.startswith("RFC"):
+        return SEC_RFC
+    if r.flow_id:
+        flow = flow_lookup.get(r.flow_id)
+        if flow is not None and flow.coverage_driven:
+            return SEC_NONFUNC
+        return SEC_FUNC
+    name = (r.sub_category or "").strip().lower()
+    if name.startswith("show"):
+        return SEC_SHOW
+    if name.startswith("clear"):
+        return SEC_CLEAR
+    if name:
+        return SEC_CLI_CONFIG
+    return SEC_OTHER
+
+
+def _write_section_header(ws, label: str, row: int) -> int:
+    """Render a top-tier section band (dark, full width) above its topic
+    banners — the visual divider that DHCP-snoopy uses between CLI
+    configuration / show / clear / Feature Functionality / … groups."""
+    cell = ws.cell(row=row, column=1, value=label.upper())
+    cell.font = SECTION_FONT
+    cell.fill = SECTION_FILL
+    cell.alignment = Alignment(wrap_text=True, vertical="center",
+                                horizontal="left")
+    for c in range(2, len(HEADER_ROW) + 1):
+        ws.cell(row=row, column=c).fill = SECTION_FILL
+    ws.merge_cells(start_row=row, start_column=1,
+                    end_row=row, end_column=len(HEADER_ROW))
+    ws.row_dimensions[row].height = 26
+    return row + 1
+
 
 # Kind-priority for picking the most informative marker when a flow row
 # aggregates multiple SFS reqs of different kinds. delta wins because a
@@ -539,29 +612,39 @@ def write_xlsx(plan: Plan, output_path: str | Path,
     # req kind (delta / overlay / pointer) — Yossi 2026-05-21 follow-up.
     req_by_id = {r.req_id: r for r in plan.requirements}
 
-    # Build the atomic-row stream. Order: CLI command rows (per
-    # command), then flow rows (per flow + category), then RFC-mandate
-    # rows (Yossi 2026-05-21: first-class, on the main sheet).
-    # `generator.py` already emitted RFC orphans as PlanRows so they
-    # flow through the enricher; the only thing we do here is stamp
-    # provenance for tinting + Comment-column marker.
-    atomic_stream: list[AtomicRow] = []
+    # Group rows into the DHCP-snoopy section bands. We stable-sort a
+    # local index copy (plan.rows is left untouched, so the Plan model and
+    # determinism tests are unaffected): within a band the original order
+    # is preserved — CLI commands keep catalog order, flows keep FLOW-NNN
+    # order, RFC mandates keep section order. A dark section header is
+    # written at each band transition; the existing light topic banners
+    # render underneath, matching references/DHCP-snoopy_TP_with_PW.xlsx.
+    indexed = sorted(
+        enumerate(plan.rows),
+        key=lambda t: (_SECTION_ORDER[_section_for_row(t[1], flow_lookup)],
+                       t[0]),
+    )
+
+    current_section: str | None = None
     last_topic: str | None = None
-    for r in plan.rows:
+    for _orig_idx, r in indexed:
+        section = _section_for_row(r, flow_lookup)
+        if section != current_section:
+            row = _write_section_header(ws, section, row)
+            current_section = section
+            last_topic = None  # force the first topic banner in each band
         provenance = _provenance_for_row(r, req_by_id, inherited_names)
         # Suppress banner if it would repeat the previous banner (e.g.
         # multiple PlanRows for the same CLI command).
         topic_now = (f"{r.flow_id} — {r.flow_name}" if r.flow_id
                       else (r.sub_category or r.category or ""))
-        atomic_stream.extend(rows_for_plan_row(
+        for ar in rows_for_plan_row(
             r, flow_lookup=flow_lookup,
             emit_banner=(topic_now != last_topic),
             provenance=provenance,
-        ))
+        ):
+            row = _write_atomic_row(ws, ar, row)
         last_topic = topic_now
-
-    for ar in atomic_stream:
-        row = _write_atomic_row(ws, ar, row)
 
     # ── Requirements traceability sheet ────────────────────────────────
     ws2 = wb.create_sheet("Requirements")
