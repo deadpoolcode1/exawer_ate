@@ -137,6 +137,8 @@ _GENERIC_SETUP_PREFIXES = (
     "dut booted",
     "dut in mode",
     "dut bare",
+    "dut able to reach",
+    "dut at the",
     "no prior",
     "prerequisite",
     "two-pe topology",
@@ -165,6 +167,19 @@ def _is_generic_setup(step: str) -> bool:
         if c in s:
             return True
     return False
+
+
+def _split_clauses(text: str) -> list[str]:
+    """Break a Pass line into its constituent expectations — one per cell.
+
+    Splits on `; ` and sentence boundaries so a packed
+    "X is accepted; Y reads back via `show …`" expectation becomes two
+    rows (client 2026-06-02, item: each cell represents one expectation).
+    """
+    if not text:
+        return []
+    parts = re.split(r"\s*;\s+|(?<=[.])\s+", text)
+    return [p.strip().rstrip(".") for p in parts if p.strip()]
 
 
 def _short_pass(pass_line: str, action: str) -> str:
@@ -243,14 +258,17 @@ def rows_for_plan_row(row: PlanRow,
             provenance=provenance,
         ))
 
-    # Verify-only steps without a backticked show command often duplicate
-    # the Expectation column (e.g. "Help (`?`) lists `cmd` with non-empty
-    # description"). Fold them into the last action's expectation rather
-    # than emitting separate rows — DHCP-snoopy keeps verifies inside
-    # the Expectation cell, not as their own rows.
+    # Verify-only steps without a backticked show command (e.g. "Help (`?`)
+    # lists `cmd` with a non-empty description") are distinct expectations.
     verify_extras = [v for v in verify if not _SHOW_CMD_RE.search(v)]
-    extra_expectation_text = "; ".join(_atomic_action_line(v)
-                                         for v in verify_extras)
+
+    # Each expectation gets its OWN cell/row rather than being concatenated
+    # into one long Expectation cell (client 2026-06-02, Eyal Ozeri, item:
+    # "the expectation cell is too long — break it to separate cells, each
+    # representing an expectation"). The last action carries the first Pass
+    # clause; the remaining Pass clauses, the Fail-on, and any verify-only
+    # expectations follow as their own continuation rows (col A/B empty).
+    pass_clauses = _split_clauses(pass_line)
 
     # Action steps: each becomes its own row. Monitor commands extracted
     # from the Verify section are attached to every action row (the QA
@@ -259,23 +277,32 @@ def rows_for_plan_row(row: PlanRow,
     if action:
         for i, a in enumerate(action):
             is_last = i == len(action) - 1
-            # Last action carries the full Pass / Fail-on expectation,
-            # plus any verify-extras folded in. Earlier actions carry
-            # the short one-sentence pass.
-            if is_last and fail_line:
-                exp = (f"Pass: {pass_line}" if pass_line
-                        else "Action successful")
-                exp += f". Fail-on: {fail_line}"
+            if is_last:
+                exp = (f"Pass: {pass_clauses[0]}" if pass_clauses
+                       else _short_pass(pass_line, a))
             else:
                 exp = _short_pass(pass_line, a)
-            if is_last and extra_expectation_text:
-                exp = exp + ". Verify: " + extra_expectation_text
             out.append(AtomicRow(
                 topic="",
                 action=_atomic_action_line(a),
                 req_ids=req_ids,
                 expectation=exp,
                 monitor=monitors,
+                equipment=row.equipment,
+                provenance=provenance,
+            ))
+        # Trailing expectation-only rows — one expectation per cell.
+        trailing: list[str] = [f"Pass: {c}" for c in pass_clauses[1:]]
+        if fail_line:
+            trailing.append(f"Fail-on: {fail_line.rstrip('.')}")
+        trailing.extend(_atomic_action_line(v) for v in verify_extras)
+        for exp in trailing:
+            out.append(AtomicRow(
+                topic="",
+                action="",
+                req_ids=req_ids,
+                expectation=exp,
+                monitor=[],
                 equipment=row.equipment,
                 provenance=provenance,
             ))

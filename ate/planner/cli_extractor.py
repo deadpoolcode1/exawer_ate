@@ -56,6 +56,20 @@ class CliCommand:
     syntax_lines: list[str] = field(default_factory=list)  # split, stripped
     mode: str = ""          # full Command Mode cell
     mode_path: list[str] = field(default_factory=list)     # tokenized hierarchy
+    # All alternative parent paths the Mode cell lists (the cell may name
+    # several, e.g. `… interface agg-eth` AND `… interface x-eth`). The old
+    # code kept only the first, so the second mode was silently dropped from
+    # the action text (client 2026-06-02, Eyal Ozeri: "when the command mode
+    # is more than one, the second is ignored"). `mode_path` stays the first
+    # alternative for back-compat; `mode_paths` carries them all.
+    mode_paths: list[list[str]] = field(default_factory=list)
+    # A *pure container* node: its only syntax is the bare command name (no
+    # value/argument) and it opens a sub-mode whose attributes are configured
+    # beneath it. Such a node "cannot be committed" on its own (client
+    # 2026-06-02, Eyal Ozeri: "ethernet-segment is a container. It cannot be
+    # committed"). Set by `_mark_containers` once the full command set is known.
+    is_container: bool = False
+    container_attrs: list[str] = field(default_factory=list)  # child command names
     description: str = ""   # prose from the Description cell
     parameters: list[CliParameter] = field(default_factory=list)
     examples: str = ""      # raw example block
@@ -147,19 +161,32 @@ def _row_text(row: list, col: int = 1) -> str:
     return row[col].text
 
 
-def _split_mode(mode_cell: str) -> list[str]:
-    """The mode cell may list several alternative parent paths separated by
-    newlines. We normalize each alternative into a token list.
+def _split_mode_all(mode_cell: str) -> list[list[str]]:
+    """Every alternative parent path the Mode cell lists, each tokenized.
 
-    Returns the *first* alternative — for the row prompt we just need
-    something concrete the QA engineer can paste into the CLI.
+    The cell separates alternatives by newlines (e.g. `… interface agg-eth`
+    on one line, `… interface x-eth` on the next). We keep them all so the
+    row generator can name each mode instead of silently dropping the
+    second (client 2026-06-02). Duplicate / `operational` lines are dropped.
     """
+    out: list[list[str]] = []
+    seen: set[tuple[str, ...]] = set()
     for line in mode_cell.splitlines():
         line = line.strip()
-        if line and line.lower() != "operational":
-            # tokenize on whitespace; collapse multiple spaces
-            return [tok for tok in line.split() if tok]
-    return []
+        if not line or line.lower() == "operational":
+            continue
+        toks = tuple(tok for tok in line.split() if tok)
+        if toks and toks not in seen:
+            seen.add(toks)
+            out.append(list(toks))
+    return out
+
+
+def _split_mode(mode_cell: str) -> list[str]:
+    """The first alternative parent path (back-compat). See `_split_mode_all`
+    for the full list, which the row generator uses to name every mode."""
+    alts = _split_mode_all(mode_cell)
+    return alts[0] if alts else []
 
 
 def _parse_parameters(rows: list[list], params_header_idx: int,
@@ -304,6 +331,7 @@ def _parse_command_table(name: str, table: Table, parent_section: str
         syntax_lines=syntax_lines,
         mode=mode,
         mode_path=_split_mode(mode),
+        mode_paths=_split_mode_all(mode),
         description=description,
         parameters=parameters,
         examples=examples,
@@ -313,6 +341,56 @@ def _parse_command_table(name: str, table: Table, parent_section: str
         related_features=_related_features(name, mode, syntax, notes),
         section=parent_section,
     )
+
+
+def _is_bare_container_syntax(cmd: CliCommand) -> bool:
+    """True when the command's only positive syntax is its bare name — i.e.
+    it takes no value and merely opens a sub-mode (e.g. `ethernet-segment`,
+    `af-l2vpn evpn`, `auto-discovery`). `evpn evpn-name …` and
+    `interface if-name` are excluded — those carry an argument."""
+    positive = [ln.strip() for ln in cmd.syntax_lines
+                if not ln.lower().startswith("no ")]
+    if not positive:
+        return False
+    return all(ln == cmd.name for ln in positive)
+
+
+def mark_containers(commands: list[CliCommand]) -> list[CliCommand]:
+    """Flag pure-container commands and record their child attribute names.
+
+    A command is a container when (a) its only syntax is the bare command
+    name (it takes no value of its own — so it "cannot be committed", client
+    2026-06-02) AND (b) at least one other command is configured directly
+    beneath it. "Beneath it" means the child's mode path ends with this
+    command's name tokens, with the tokens before that equal to one of this
+    command's own mode paths — so a multi-word container like `af-l2vpn evpn`
+    matches children whose mode path ends `… af-l2vpn evpn`, and a bare BGP
+    toggle (`route-reflector-client`) with no children is NOT a container.
+    Operates in place and returns the list.
+    """
+    for c in commands:
+        c.is_container = False
+        c.container_attrs = []
+        if not c.is_config or not _is_bare_container_syntax(c):
+            continue
+        ctoks = c.name.split()
+        n = len(ctoks)
+        parent_modes = c.mode_paths or ([c.mode_path] if c.mode_path else [])
+        children: list[str] = []
+        for d in commands:
+            if d is c or not d.is_config or len(d.mode_path) <= n:
+                continue
+            if d.mode_path[-n:] != ctoks:
+                continue
+            prefix = d.mode_path[:-n]
+            if parent_modes and prefix not in parent_modes:
+                continue
+            if d.name not in children:
+                children.append(d.name)
+        if children:
+            c.is_container = True
+            c.container_attrs = children
+    return commands
 
 
 def extract_commands(doc: Document | str | Path) -> list[CliCommand]:
@@ -356,6 +434,7 @@ def extract_commands(doc: Document | str | Path) -> list[CliCommand]:
         if cmd is not None:
             out.append(cmd)
 
+    mark_containers(out)
     return out
 
 

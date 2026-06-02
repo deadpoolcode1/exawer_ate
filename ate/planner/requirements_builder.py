@@ -37,7 +37,11 @@ import re
 
 from ate.ir import Document
 from ate.parsers import parse
-from ate.planner.cli_extractor import CliCommand, extract_commands
+from ate.planner.cli_extractor import (
+    CliCommand,
+    extract_commands,
+    mark_containers,
+)
 from ate.planner.cli_inheritance import expand as expand_inherited
 from ate.planner.extractor import extract_requirements
 from ate.planner.model import Requirement
@@ -172,6 +176,10 @@ def build_catalog(doc: Document | str | Path,
         extracted_cmds = extract_commands(cli_doc_path)
         inherited_cmds = expand_inherited(extracted_cmds)
     cli_commands = extracted_cmds + inherited_cmds
+    # Re-run container marking over the combined set so a container's
+    # child attributes include inherited sub-configs (e.g. `af-l2vpn evpn`
+    # → allow-as-in, capability, …) — those arrive only after expansion.
+    mark_containers(cli_commands)
     inherited_names = {c.name for c in inherited_cmds}
 
     # CLI commands also become synthetic requirements (`CLI:<name>`) so

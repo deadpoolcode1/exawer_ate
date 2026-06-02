@@ -163,36 +163,58 @@ INHERIT_FILL = PatternFill("solid", fgColor="E2D9F3")  # CLI-inheritance row
 # and flows stay in FLOW-NNN order), and a dark section header is emitted at
 # each band transition. CLI-first ordering per client direction.
 SEC_CLI_CONFIG = "CLI Configuration"
-SEC_CLEAR = "Clear Commands"
+SEC_CLEAR = "CLI Clear"
 SEC_SHOW = "Show Commands"
 SEC_FUNC = "Feature Functionality"
 SEC_NONFUNC = "Feature Interaction, Scale & Lifecycle"
 SEC_RFC = "RFC Protocol Mandates"
 SEC_OTHER = "Additional Tests"
 
-_SECTION_ORDER = {
-    SEC_CLI_CONFIG: 0,
-    SEC_CLEAR: 1,
-    SEC_SHOW: 2,
-    SEC_FUNC: 3,
-    SEC_NONFUNC: 4,
-    SEC_RFC: 5,
-    SEC_OTHER: 6,
-}
+# Section band order. CLI configuration rows now carry their *functional
+# group* directly in PlanRow.category (client 2026-06-02, Eyal Ozeri, item
+# 2: interface / LACP / l2-EVPN / l2-VPLS / BGP-AF grouped), and show rows
+# carry a new-vs-modified category (item: "differentiation between new show
+# commands and modified show commands"). The order below is matched by
+# prefix so the exact suffix of a category label doesn't matter.
+_SECTION_RANK_PREFIXES = [
+    "CLI Configuration — Interface",
+    "CLI Configuration — LACP",
+    "CLI Configuration — L2-Services EVPN",
+    "CLI Configuration — L2-Services VPLS",
+    "CLI Configuration — BGP EVPN",
+    "CLI Configuration — Other",
+    "CLI Configuration",            # legacy / fallback config band
+    "CLI Show — New",
+    "CLI Show — Modified",
+    "CLI Clear",
+    SEC_FUNC,
+    SEC_NONFUNC,
+    SEC_RFC,
+    SEC_OTHER,
+]
+
+
+def _section_rank(label: str) -> int:
+    for i, pref in enumerate(_SECTION_RANK_PREFIXES):
+        if label.startswith(pref):
+            return i
+    return len(_SECTION_RANK_PREFIXES)
+
 
 SECTION_FILL = PatternFill("solid", fgColor="1F3A5F")  # deep navy band
 SECTION_FONT = Font(color="FFFFFF", bold=True, size=11)
 
 
 def _section_for_row(r: PlanRow, flow_lookup: dict) -> str:
-    """Assign a PlanRow to one of the DHCP-snoopy-style section bands.
+    """Assign a PlanRow to a DHCP-snoopy-style section band.
 
     RFC-mandate rows (no flow, RFC* req id) → RFC band. Flow rows split by
     the flow's `coverage_driven` flag: requirement-anchored flows are the
     functional use cases; coverage-driven flows (scale / upgrade / NETCONF /
     soak / access-variants) are the broad-technique non-functional band.
-    CLI command rows split by verb: `show*` / `clear*` get their own bands,
-    everything else is configuration.
+    CLI rows carry their band label directly in `category` — the functional
+    config group, or the show-new / show-modified / clear band (client
+    2026-06-02).
     """
     if (not r.flow_id) and r.sfs_requirement_id.startswith("RFC"):
         return SEC_RFC
@@ -201,6 +223,10 @@ def _section_for_row(r: PlanRow, flow_lookup: dict) -> str:
         if flow is not None and flow.coverage_driven:
             return SEC_NONFUNC
         return SEC_FUNC
+    cat = (r.category or "").strip()
+    if cat.startswith("CLI "):
+        return cat
+    # Legacy fallback (CLI rows authored before the grouping change).
     name = (r.sub_category or "").strip().lower()
     if name.startswith("show"):
         return SEC_SHOW
@@ -644,7 +670,7 @@ def write_xlsx(plan: Plan, output_path: str | Path,
     # render underneath, matching references/DHCP-snoopy_TP_with_PW.xlsx.
     indexed = sorted(
         enumerate(plan.rows),
-        key=lambda t: (_SECTION_ORDER[_section_for_row(t[1], flow_lookup)],
+        key=lambda t: (_section_rank(_section_for_row(t[1], flow_lookup)),
                        t[0]),
     )
 

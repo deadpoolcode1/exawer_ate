@@ -82,12 +82,96 @@ def _expect(pass_: str, fail_on: str = "") -> str:
 
 
 def _mode_path_str(cmd: CliCommand) -> str:
-    """Render the configuration mode entry sequence as a CLI path,
-    e.g. `configuration interface agg-eth ethernet-segment`.
+    """Render the configuration mode entry sequence as a CLI path.
+
+    When the command is reachable from more than one parent mode (e.g.
+    `ethernet-segment` under both `agg-eth` and `x-eth`), every alternative
+    is shown — the differing level is factored as `{agg-eth|x-eth}` so a QA
+    engineer sees both modes instead of just the first (client 2026-06-02,
+    Eyal Ozeri: "when the command mode is more than one, the second is
+    ignored").
     """
-    if not cmd.mode_path:
+    paths = cmd.mode_paths or ([cmd.mode_path] if cmd.mode_path else [])
+    if not paths:
         return "configuration"
-    return " ".join(cmd.mode_path)
+    if len(paths) == 1:
+        return " ".join(paths[0])
+
+    # Longest common prefix across the alternatives.
+    minlen = min(len(p) for p in paths)
+    k = 0
+    while k < minlen and len({p[k] for p in paths}) == 1:
+        k += 1
+    common = paths[0][:k]
+    tails = [p[k:] for p in paths]
+
+    # Factor a single differing level into `{a|b}` when the tails align.
+    if len({len(t) for t in tails}) == 1:
+        length = len(tails[0])
+        diff = [i for i in range(length) if len({t[i] for t in tails}) > 1]
+        if len(diff) == 1:
+            di = diff[0]
+            merged = list(tails[0])
+            merged[di] = "{" + "|".join(
+                dict.fromkeys(t[di] for t in tails)) + "}"
+            return " ".join(common + merged)
+
+    # Otherwise list the alternatives explicitly.
+    joined = " / ".join(" ".join(t) for t in tails)
+    return (" ".join(common) + " " + joined).strip()
+
+
+# ── CLI section grouping (client 2026-06-02, Eyal Ozeri, item 2) ──────────
+# The CLI configuration commands are not a flat alphabetical list; QA reads
+# them grouped by command mode / function: the interface (Ethernet-Segment)
+# configs together, the new LACP knobs (agg-eth only) together, the
+# l2-services EVPN and VPLS knobs each together, and the BGP EVPN
+# address-family sub-configs together. Each config row carries its group as
+# the PlanRow.category so the xlsx writer can band them.
+GRP_INTERFACE = "CLI Configuration — Interface / Ethernet-Segment"
+GRP_LACP = "CLI Configuration — LACP (agg-eth only)"
+GRP_L2_EVPN = "CLI Configuration — L2-Services EVPN"
+GRP_L2_VPLS = "CLI Configuration — L2-Services VPLS"
+GRP_BGP_AF = "CLI Configuration — BGP EVPN Address-Family"
+GRP_OTHER = "CLI Configuration — Other"
+
+CAT_SHOW_NEW = "CLI Show — New (EVPN-specific)"
+CAT_SHOW_MOD = "CLI Show — Modified (EVPN additions)"
+CAT_CLEAR = "CLI Clear"
+
+
+def _cli_config_group(cmd: CliCommand) -> str:
+    """Bucket a config command into its functional CLI group."""
+    name = cmd.name.lower()
+    mode = cmd.mode_path
+    if name == "af-l2vpn evpn" or "af-l2vpn" in mode:
+        return GRP_BGP_AF
+    if name.startswith("lacp"):
+        return GRP_LACP
+    if "interface" in mode:
+        return GRP_INTERFACE
+    if "evpn" in mode and "vpls" not in mode:
+        return GRP_L2_EVPN
+    if "vpls" in mode:
+        return GRP_L2_VPLS
+    if mode == ["configuration", "l2-services"]:
+        # the `evpn <name>` instance command sits at the l2-services root
+        return GRP_L2_EVPN
+    return GRP_OTHER
+
+
+def _show_class(cmd: CliCommand) -> str:
+    """Classify a show command as EVPN-new vs. an existing show the EVPN
+    feature only *extends* (client 2026-06-02, Eyal Ozeri, Show item:
+    "differentiation between new show commands and modified show commands").
+    A `show interface …` / `show bgp neighbors …` predates EVPN and gains
+    EVPN fields; `show evpn …` / `show fib evpn-* …` / `show bgp l2vpn evpn …`
+    are new.
+    """
+    name = cmd.name.lower()
+    if name.startswith(("show interface", "show bgp neighbors")):
+        return CAT_SHOW_MOD
+    return CAT_SHOW_NEW
 
 
 # Argument tokens carry a value the operator substitutes. We render them
@@ -100,17 +184,28 @@ _PLACEHOLDER_SUFFIX_RE = re.compile(
 )
 
 
+# `identifier 0 type0-value` reads as if `type0-value` were a literal token;
+# it is the value for ESI type 0 (the `0` already names the type). Render it
+# as a clean `<value>` placeholder (client 2026-06-02, Eyal Ozeri, row 68:
+# "there's no `identifier 0 type0-value` command — type0 should be a value").
+_TYPED_VALUE_RE = re.compile(r"^type\d+-value$", re.IGNORECASE)
+
+
 def _wrap_placeholders(text: str, param_names: set[str]) -> str:
     """Wrap bare value tokens in angle brackets.
 
     A token is a placeholder if it matches a documented parameter name or
     looks like an argument (ends in -ip / -id / -name / -prefix / -value …).
-    Tokens already bracketed (`<x>`, `{a|b}`) are left alone.
+    Tokens already bracketed (`<x>`, `{a|b}`) are left alone. A `typeN-value`
+    token renders as the cleaner `<value>` (the type is already named by the
+    preceding literal).
     """
     out: list[str] = []
     for tok in text.split(" "):
         bare = tok
-        if (bare and bare[0] not in "<{[|" and bare[-1] not in ">}]"
+        if bare and _TYPED_VALUE_RE.match(bare):
+            out.append("<value>")
+        elif (bare and bare[0] not in "<{[|" and bare[-1] not in ">}]"
                 and (bare in param_names or _PLACEHOLDER_SUFFIX_RE.match(bare))):
             out.append(f"<{bare}>")
         else:
@@ -345,7 +440,7 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
 
     rows: list[PlanRow] = []
     req_anchor = f"CLI:{cmd.name}"
-    cat = "CLI configuration"
+    cat = _cli_config_group(cmd)
     mode = _mode_path_str(cmd)
     invocation = _example_invocation(cmd)
     related = (", ".join(cmd.related_features)
@@ -361,23 +456,53 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
         )
 
     # ── Row 1: Happy-path configure ──────────────────────────────────────
-    rows.append(_mk(
-        _scaffold(
-            f"DUT booted; no prior `{cmd.name}` configuration.",
-            f"At the `{mode}` configuration level, configure "
-            f"`{invocation}` and commit the candidate config.",
-            _verify_with_monitors(
-                [f"`show configuration` shows the `{cmd.name}` line under "
-                 f"the `{mode}` level."],
-                _feature_show_for(cmd)),
-        ),
-        _expect(
-            f"`{cmd.name}` is accepted and present in `show configuration`; "
-            f"{related} reads back via `{primary_show}`",
-            "Commit is rejected, or the configured line is absent from "
-            "`show configuration` after commit",
-        ),
-    ))
+    if cmd.is_container:
+        # A container opens a sub-mode and takes no value of its own — it
+        # "cannot be committed" standalone (client 2026-06-02, Eyal Ozeri).
+        # Its documented child attributes are configured beneath it, in
+        # sequence.
+        attrs = cmd.container_attrs or sub_config_names_for(cmd.name)
+        attr_str = (", ".join(f"`{a}`" for a in attrs) if attrs
+                    else "its documented attributes")
+        rows.append(_mk(
+            _scaffold(
+                f"DUT booted; no prior `{cmd.name}` configuration.",
+                f"Descend to the `{mode}` level and enter the `{cmd.name}` "
+                f"container. It is a container node — it takes no value of "
+                f"its own and is not committed on its own. Configure its "
+                f"documented attributes in order ({attr_str}); commit at the "
+                f"parent level.",
+                _verify_with_monitors(
+                    [f"`show configuration` shows the `{cmd.name}` container "
+                     f"with its attributes nested beneath the `{mode}` level."],
+                    _feature_show_for(cmd)),
+            ),
+            _expect(
+                f"`{cmd.name}` is entered as a container and its attributes "
+                f"({attr_str}) are accepted and nested beneath it; "
+                f"{related} reads back via `{primary_show}`",
+                f"`{cmd.name}` is treated as a leaf (accepts/commits a value "
+                f"of its own), or its attributes are not nested under it",
+            ),
+        ))
+    else:
+        rows.append(_mk(
+            _scaffold(
+                f"DUT booted; no prior `{cmd.name}` configuration.",
+                f"At the `{mode}` configuration level, configure "
+                f"`{invocation}` and commit the candidate config.",
+                _verify_with_monitors(
+                    [f"`show configuration` shows the `{cmd.name}` line under "
+                     f"the `{mode}` level."],
+                    _feature_show_for(cmd)),
+            ),
+            _expect(
+                f"`{cmd.name}` is accepted and present in `show configuration`; "
+                f"{related} reads back via `{primary_show}`",
+                "Commit is rejected, or the configured line is absent from "
+                "`show configuration` after commit",
+            ),
+        ))
 
     # ── Documented value-set row (multi-variant commands, e.g. ESI types)─
     variants = _syntax_variants(cmd)
@@ -755,7 +880,7 @@ def rows_for_show_command(cmd: CliCommand) -> list[PlanRow]:
         return []
 
     req_anchor = f"CLI:{cmd.name}"
-    cat = "CLI configuration"
+    cat = CAT_CLEAR if cmd.kind == "clear" else _show_class(cmd)
     name = cmd.name.lower()
 
     def _mk(action_steps: str, expectation: str) -> PlanRow:
@@ -833,6 +958,36 @@ def rows_for_show_command(cmd: CliCommand) -> list[PlanRow]:
     ))]
 
 
+def _pipe_modifier_row() -> PlanRow:
+    """A single output-modifier (`|`) test for the whole CLI section.
+
+    Client 2026-06-02 (Eyal Ozeri): the per-command pipe rows were removed
+    *completely*, which "wasn't the intention" — the modifier set should be
+    exercised once, not on every command. This is that one row.
+    """
+    return PlanRow(
+        category=CAT_SHOW_MOD, sub_category="| output modifiers",
+        equipment=EQUIPMENT, sfs_requirement_id="CLI:pipe-modifiers",
+        action_steps=_scaffold(
+            "DUT booted with EVPN state present; CLI session via console / SSH.",
+            ["Run a representative show with each output modifier: "
+             "`show evpn ethernet-segments | include <esi>`, "
+             "`show configuration | exclude <pattern>`, "
+             "`show evpn mac-address-table | count`, "
+             "`show configuration | begin <section>`."],
+            ["Each modifier filters the base output as documented and never "
+             "alters device state; the same modifiers work uniformly across "
+             "show commands."],
+        ),
+        expectation=_expect(
+            "The `|` output modifiers (include / exclude / count / begin) "
+            "filter show output correctly on a representative command",
+            "A modifier errors, is rejected, or changes the underlying output "
+            "content instead of filtering it",
+        ),
+    )
+
+
 # ── Ordering: by command mode, not alphabetically ───────────────────────
 def cli_command_rows(commands: list[CliCommand]) -> list[PlanRow]:
     """Concatenate all CLI rows, ordered by **command mode**.
@@ -847,9 +1002,18 @@ def cli_command_rows(commands: list[CliCommand]) -> list[PlanRow]:
     config = [c for c in commands if c.is_config]
     shows = [c for c in commands if c.kind in ("show", "clear")]
 
+    # Group order so the configuration stream is contiguous per functional
+    # group (client 2026-06-02, item 2): interface / LACP / l2-EVPN /
+    # l2-VPLS / BGP-AF. Within a group, preserve command-mode then doc order.
+    _GROUP_ORDER = {
+        GRP_INTERFACE: 0, GRP_LACP: 1, GRP_L2_EVPN: 2, GRP_L2_VPLS: 3,
+        GRP_BGP_AF: 4, GRP_OTHER: 5,
+    }
+
     def _config_key(item: tuple[int, CliCommand]) -> tuple:
         idx, c = item
-        return (tuple(c.mode_path), idx)
+        return (_GROUP_ORDER.get(_cli_config_group(c), 9),
+                tuple(c.mode_path), idx)
 
     def _show_key(item: tuple[int, CliCommand]) -> tuple:
         idx, c = item
@@ -862,4 +1026,8 @@ def cli_command_rows(commands: list[CliCommand]) -> list[PlanRow]:
         out.extend(rows_for_command(c))
     for _idx, c in sorted(enumerate(shows), key=_show_key):
         out.extend(rows_for_show_command(c))
+    # One output-modifier test for the whole CLI section (not per-command).
+    # It belongs to the show section, so emit it only when shows are present.
+    if shows:
+        out.append(_pipe_modifier_row())
     return out

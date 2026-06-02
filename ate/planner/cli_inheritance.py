@@ -44,13 +44,19 @@ class InheritanceEntry:
 # and common vendor (Cisco IOS-XR, FRR) practice. QA should validate each
 # row against the actual device behaviour and edit the table in place when
 # the real doc is available.
+# Mode path is kept token-aligned with the parent `af-l2vpn evpn` command's
+# own mode path (`configuration routing bgp vrf neighbor`) plus the
+# `af-l2vpn evpn` sub-mode, so that when cli_rows sorts config commands by
+# mode path the parent sorts *before* its sub-configs. Using `<asn>` /
+# `<vrf>` placeholders here put the children ahead of the parent (`<` sorts
+# before `v`), which surfaced the SAFI options before the `af-l2vpn evpn`
+# row (client 2026-06-02, Eyal Ozeri: "the safi options appear before the
+# af-l2vpn evpn").
 _BGP_NEIGHBOR_AF_MODE = (
-    "configuration routing bgp <asn> vrf <vrf> neighbor <neighbor-ip> "
-    "af-l2vpn evpn"
+    "configuration routing bgp vrf neighbor af-l2vpn evpn"
 )
 _BGP_NEIGHBOR_AF_MODE_PATH = [
-    "configuration", "routing", "bgp", "<asn>", "vrf", "<vrf>",
-    "neighbor", "<neighbor-ip>", "af-l2vpn", "evpn",
+    "configuration", "routing", "bgp", "vrf", "neighbor", "af-l2vpn", "evpn",
 ]
 
 
@@ -69,6 +75,7 @@ def _sub(name: str, syntax: str, description: str,
         syntax_lines=syntax_lines,
         mode=_BGP_NEIGHBOR_AF_MODE,
         mode_path=_BGP_NEIGHBOR_AF_MODE_PATH,
+        mode_paths=[_BGP_NEIGHBOR_AF_MODE_PATH],
         description=description,
         parameters=parameters or [],
         examples="",

@@ -73,9 +73,17 @@ def test_plan_row_decomposes_to_banner_plus_atomic() -> None:
     # Action steps end up as one row each.
     action_lines = [a.action for a in non_banner if "Configure evpn" in a.action]
     assert action_lines, "configure step not surfaced as its own action row"
-    # Last action carries the full Pass/Fail-on expectation.
-    last_action = [a for a in non_banner if "Send traffic" in a.action]
-    assert last_action and "Fail-on" in last_action[0].expectation
+    # Each expectation is its own cell now (client 2026-06-02): the Fail-on
+    # condition lands on its own continuation row, not crammed onto the last
+    # action's Expectation cell.
+    assert any("Fail-on" in a.expectation for a in non_banner), (
+        "Fail-on expectation must surface as its own expectation cell"
+    )
+    # No single expectation cell concatenates Pass + Fail-on together.
+    assert not any("Pass:" in a.expectation and "Fail-on" in a.expectation
+                   for a in non_banner), (
+        "Pass and Fail-on must be split into separate cells"
+    )
 
 
 def test_plan_row_monitor_column_extracts_show_commands() -> None:
