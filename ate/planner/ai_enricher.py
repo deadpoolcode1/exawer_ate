@@ -613,6 +613,22 @@ def enrich_plan(plan: Plan, *,
             enriched_rows.append(row)
             continue
 
+        # CLI Configuration rows are authored deterministically by
+        # cli_rows.py straight from the EVPN CLI doc (command name,
+        # mode, parameter ranges, prerequisites, exact `show` monitors).
+        # The client review (2026-06-01) asked the CLI section to be
+        # precise and Exaware-CLI-aligned — AI paraphrasing blurs that
+        # (it produced vague phrases like "feature operates per
+        # documented behaviour" and generic `show running-config`
+        # monitors). Keep CLI rows verbatim from the templates and never
+        # send them through the model, regardless of `use_api`. Counted
+        # as rule_based so the cache_hit + rule_based == len(rows)
+        # invariant still holds.
+        if req.source == "cli" or row.sfs_requirement_id.startswith("CLI:"):
+            stats["rule_based"] += 1
+            enriched_rows.append(row)
+            continue
+
         cache_key = _row_key(req, row, sub_index)
         if cache_key in cache:
             data = cache[cache_key]

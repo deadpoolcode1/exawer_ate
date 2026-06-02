@@ -67,12 +67,26 @@ THIN_BORDER = Border(
 )
 
 
-def _row_height_for(text: str) -> float:
+def _row_height_for(text: str, width: int = 70) -> float:
+    """Estimate the row height needed to show `text` in full at column
+    `width` (≈ chars per line). Cap raised to 320 pt (well under Excel's
+    409 max) so cells render their entire content instead of truncating
+    — client 2026-06-01, item 1.
+    """
     if not text:
         return 18
+    per_line = max(1, int(width) - 2)
     lines = text.count("\n") + 1
-    extra = sum(max(0, len(ln) // 70) for ln in text.split("\n"))
-    return min(18 + 14 * (lines + extra - 1), 120)
+    extra = sum(max(0, len(ln) // per_line) for ln in text.split("\n"))
+    return min(18 + 14 * (lines + extra - 1), 320)
+
+
+def _row_height_multi(cells: list[tuple[str, int]]) -> float:
+    """Tallest height across several (text, column-width) cells — so a row
+    is sized to its longest column, not just one. Fixes the truncation
+    where height tracked the Action cell while Expectation / Monitor
+    overflowed (client 2026-06-01, item 1)."""
+    return max((_row_height_for(t, w) for t, w in cells if t), default=18)
 
 
 def _write_catalog(ws, catalog: list, start_row: int) -> int:
@@ -350,7 +364,16 @@ def _write_atomic_row(ws, ar: AtomicRow, row: int) -> int:
     if tint is not None:
         for c in range(1, len(HEADER_ROW) + 1):
             ws.cell(row=row, column=c).fill = tint
-    ws.row_dimensions[row].height = _row_height_for(ar.action)
+    # Size the row to its tallest column (Action@60, Req@22, Expectation@60,
+    # Monitor@36, Equipment@28) so no cell truncates — col widths mirror the
+    # `widths` list in write_xlsx.
+    ws.row_dimensions[row].height = _row_height_multi([
+        (ar.action, 60),
+        (", ".join(ar.req_ids), 22),
+        (ar.expectation, 60),
+        (", ".join(ar.monitor), 36),
+        (ar.equipment, 28),
+    ])
     return row + 1
 
 

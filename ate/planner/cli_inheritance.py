@@ -293,6 +293,19 @@ def expand(extracted: list[CliCommand]) -> list[CliCommand]:
     return out
 
 
+def sub_config_names_for(parent_command: str) -> list[str]:
+    """Names of the sub-configs available under `parent_command`'s sub-mode.
+
+    Used by cli_rows to emit an "available options under the evpn SAFI"
+    enumeration row (client 2026-06-01, item 17) so QA can verify `?`
+    under `af-l2vpn evpn` lists exactly the inherited option set.
+    """
+    for entry in INHERITANCE_TABLE:
+        if entry.parent_command == parent_command:
+            return [s.name for s in entry.sub_configs]
+    return []
+
+
 def inheritance_source_for(name: str) -> str | None:
     """Return the human-readable source string for a sub-config name, or
     None if the name isn't in any inheritance entry. Used by
