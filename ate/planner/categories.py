@@ -656,6 +656,11 @@ _FLOW_SHOW_CMDS: dict[str, list[str]] = {
         "show platform process memory",
         "show evpn mac address-table count", "show alarms",
     ],
+    "FLOW-13": [  # EVI-to-EVI MPLS transport / tunnel interconnect (RFC 4364)
+        "show mpls forwarding-table", "show mpls lsp",
+        "show bgp l2vpn evpn", "show route table inet.3",
+        "show evpn evi",
+    ],
 }
 
 

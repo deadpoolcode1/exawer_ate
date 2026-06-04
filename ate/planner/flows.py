@@ -1144,6 +1144,322 @@ EVPN_FLOWS: list[Flow] = [
         rfc_refs=[],
         coverage_driven=True,
     ),
+
+    # ── EVI-to-EVI MPLS transport / tunnel interconnect ────────────────
+    # Aleksey Burger (SW review, 2026-06-04) flagged that the TP exercised
+    # EVPN service/route behaviour but never the *transport* underneath it:
+    # how one EVI reaches a remote EVI across the MPLS backbone. These six
+    # flows are derived from RFC 4364 (BGP/MPLS IP VPNs) §10 transport and
+    # inter-AS procedures, which the EVPN SFS cites but the engine never
+    # ingested (surfaced by the RFC cross-check, see rfc_crosscheck.py).
+    # They are coverage-driven: RFC 4364 is not in the ingested catalog, so
+    # no req-ID anchors them, but the transport behaviour must be tested.
+    # Each summary states the problem tested + the method, per Aleksey's
+    # "describe what the test case is" ask.
+    Flow(
+        id="FLOW-130",
+        name="EVI-to-EVI Direct Path (PHP) connection",
+        summary=(
+            "Problem: validate that EVI-to-EVI traffic forwards correctly "
+            "when the penultimate LSR pops the transport label (penultimate-"
+            "hop popping), so the egress PE receives the frame carrying only "
+            "the EVPN service label. Method: build a 3-node PE1–P–PE2 MPLS "
+            "path, advertise implicit-null from PE2, drive EVPN unicast/BUM "
+            "across it, and confirm the P node pops the transport label and "
+            "the egress PE forwards on the service label alone."
+        ),
+        setup=(
+            "Three-node MPLS path PE1–P–PE2; LDP or RSVP-TE LSPs up; BGP "
+            "EVPN session PE1↔PE2. One EVI (`evi-1`) up on both PEs with a "
+            "single-homed CE on each side. PE2 advertises implicit-null "
+            "(label 3) for its loopback so the P node performs PHP."
+        ),
+        action=(
+            "Confirm PE2 signals implicit-null for its loopback FEC. From "
+            "IXIA, send known-unicast then BUM EVPN traffic CE1→CE2 for "
+            "≥ 60 s. On the P node, inspect the label operation for PE2's "
+            "FEC; on PE2, capture the received frame's label stack."
+        ),
+        verify=(
+            "`show mpls forwarding-table` on the P node shows a POP (not "
+            "SWAP) operation for PE2's loopback FEC. The frame arriving at "
+            "PE2 carries exactly one label (the EVPN service/VPN label) — "
+            "the transport label has been removed upstream. `show evpn evi "
+            "evi-1` on PE2 learns the remote MAC; IXIA receives frames on "
+            "the far port at line rate."
+        ),
+        pass_=(
+            "Penultimate P node pops the transport label; egress PE forwards "
+            "on the single service label; bidirectional EVPN traffic passes "
+            "with ≤ 0 drops over the steady-state window."
+        ),
+        fail_on=(
+            "P node swaps instead of pops, egress PE receives a two-label "
+            "stack, frames black-holed, or service label mis-bound."
+        ),
+        equipment="DUT (PE) + P router + neighbor PE + IXIA",
+        categories=[
+            "Basic Functionality", "Packet validation",
+            "Feature interaction", "Tech-support",
+        ],
+        selector=FlowSelector(),
+        related_cli_cmds=["show mpls forwarding-table", "show evpn evi"],
+        rfc_refs=["RFC 4364 §10", "RFC 7432bis §5.1.3 (transport)"],
+        coverage_driven=True,
+    ),
+    Flow(
+        id="FLOW-131",
+        name="EVI-to-EVI connection over Single MPLS Tunnel",
+        summary=(
+            "Problem: validate the baseline case where a remote EVI is "
+            "reached over exactly one MPLS tunnel (single LSP) between the "
+            "two PEs — EVPN routes must resolve their next-hop over that "
+            "tunnel and forward end to end. Method: pin a single LSP PE1→PE2, "
+            "bring up the EVI, confirm MAC/IP (Type 2) and IMET (Type 3) "
+            "routes resolve over the tunnel, and drive traffic across it."
+        ),
+        setup=(
+            "Two-PE topology with exactly one MPLS tunnel (LDP or single "
+            "RSVP-TE LSP) PE1→PE2 and its reverse; BGP EVPN up; `evi-1` up "
+            "on both PEs with single-homed CEs."
+        ),
+        action=(
+            "Confirm a single LSP exists to PE2's loopback (`show mpls lsp`). "
+            "Bring the EVI up; from IXIA send bidirectional known-unicast and "
+            "BUM EVPN traffic for ≥ 60 s. Inspect how each EVPN route "
+            "resolves its forwarding next-hop."
+        ),
+        verify=(
+            "`show bgp l2vpn evpn` shows Type 2/Type 3 routes resolving over "
+            "the single tunnel; `show route table inet.3` shows one entry to "
+            "PE2's loopback; `show mpls forwarding-table` binds the EVPN "
+            "service label onto that LSP. IXIA receives all offered frames "
+            "on the far port."
+        ),
+        pass_=(
+            "EVPN routes resolve over the single tunnel; bidirectional "
+            "traffic forwarded with ≤ 0 drops; service label correctly "
+            "stacked over the transport label."
+        ),
+        fail_on=(
+            "Route fails to resolve next-hop, traffic black-holed, label "
+            "stack malformed, or EVI never reaches up over the tunnel."
+        ),
+        equipment="DUT + IXIA + neighbor PE over a single MPLS LSP",
+        categories=[
+            "Basic Functionality", "Packet validation",
+            "Performance", "Tech-support",
+        ],
+        selector=FlowSelector(),
+        related_cli_cmds=["show mpls lsp", "show bgp l2vpn evpn",
+                          "show route table inet.3"],
+        rfc_refs=["RFC 4364 §10"],
+        coverage_driven=True,
+    ),
+    Flow(
+        id="FLOW-132",
+        name="EVI-to-EVI connection over Backup MPLS Tunnel Failover",
+        summary=(
+            "Problem: validate that EVI-to-EVI traffic survives a primary "
+            "MPLS tunnel failure by failing over to a pre-signalled backup "
+            "tunnel with sub-second loss. Method: configure a primary and a "
+            "backup LSP (FRR / secondary path) PE1→PE2, run steady traffic, "
+            "fail the primary (link/LSP down), and measure failover time and "
+            "loss while the EVPN service stays up."
+        ),
+        setup=(
+            "Two-PE topology with a primary LSP and a pre-signalled backup "
+            "LSP (RSVP-TE FRR or a secondary path) to PE2's loopback; BGP "
+            "EVPN up; `evi-1` up on both PEs; IXIA traffic running on the "
+            "data path for ≥ 1 minute."
+        ),
+        action=(
+            "While IXIA traffic flows, fail the primary tunnel (down the "
+            "primary core link or the primary LSP). Watch the IXIA loss "
+            "histogram. Restore the primary and observe revert behaviour."
+        ),
+        verify=(
+            "On failure, traffic moves onto the backup LSP — `show mpls lsp` "
+            "shows the backup active; the EVPN service does not flap (`show "
+            "evpn evi evi-1` stays up, remote MAC retained). IXIA loss "
+            "histogram records the outage window. On primary restore, "
+            "traffic reverts (or holds, per policy) without a second outage."
+        ),
+        pass_=(
+            "Failover to the backup tunnel completes with data-path outage "
+            "≤ 50 ms (FRR) / ≤ 1 s (secondary path); EVPN service stays up; "
+            "no MAC re-learn storm; clean revert on restore."
+        ),
+        fail_on=(
+            "Traffic black-holed after primary failure, outage exceeds the "
+            "documented bound, EVPN service flaps, or revert causes a second "
+            "outage."
+        ),
+        equipment="DUT + IXIA + neighbor PE + redundant MPLS core paths",
+        categories=[
+            "Basic Functionality", "HA", "Robustness", "Tech-support",
+        ],
+        selector=FlowSelector(),
+        related_cli_cmds=["show mpls lsp", "show evpn evi"],
+        rfc_refs=["RFC 4364 §10"],
+        coverage_driven=True,
+    ),
+    Flow(
+        id="FLOW-133",
+        name="EVI-to-EVI connection over ECMP Tunnel-Set",
+        summary=(
+            "Problem: validate that EVI-to-EVI traffic load-balances across "
+            "an equal-cost set of MPLS tunnels without reordering within a "
+            "flow, and rebalances when a member is added or removed. Method: "
+            "build N equal-cost LSPs PE1→PE2 as a tunnel-set, send many "
+            "distinct IXIA flows, and verify per-flow hashing spreads load "
+            "across members while keeping each flow on one member."
+        ),
+        setup=(
+            "Two-PE topology with N (≥ 2) equal-cost MPLS tunnels PE1→PE2 "
+            "forming an ECMP tunnel-set; BGP EVPN up; `evi-1` up on both "
+            "PEs; IXIA configured to emit many distinct 5-tuple flows."
+        ),
+        action=(
+            "From IXIA, emit ≥ 256 distinct EVPN-encapsulated flows across "
+            "the EVI for ≥ 60 s. Sample per-tunnel byte counters. Then "
+            "remove one tunnel-set member and re-sample; re-add it and "
+            "re-sample."
+        ),
+        verify=(
+            "`show mpls forwarding-table` shows the EVPN service label load-"
+            "balanced across the tunnel-set members; per-member counters are "
+            "non-zero and roughly even (within ±20%). Each individual flow "
+            "stays pinned to one member (no intra-flow reordering observed "
+            "at IXIA). On member removal, its flows redistribute over the "
+            "survivors with only transient loss; on re-add, load rebalances."
+        ),
+        pass_=(
+            "Load spread across all members (±20%); no intra-flow "
+            "reordering; member add/remove rebalances with only transient "
+            "loss; no black-hole."
+        ),
+        fail_on=(
+            "All traffic pinned to one member, intra-flow reordering, "
+            "persistent loss after member change, or polarised hashing."
+        ),
+        equipment="Two routers + IXIA scale rig + ECMP MPLS core",
+        categories=[
+            "Basic Functionality", "Packet validation",
+            "Performance", "Feature interaction", "Tech-support",
+        ],
+        selector=FlowSelector(),
+        related_cli_cmds=["show mpls forwarding-table", "show evpn evi"],
+        rfc_refs=["RFC 4364 §10"],
+        coverage_driven=True,
+    ),
+    Flow(
+        id="FLOW-134",
+        name="EVI-to-EVI over Multi-AS Backbone — Case B (ASBR VPN-route exchange)",
+        summary=(
+            "Problem: validate EVI-to-EVI connectivity across two ASes using "
+            "RFC 4364 §10 inter-AS Option B, where ASBRs exchange EVPN/VPN "
+            "routes over MP-eBGP, rewrite next-hop to themselves, and "
+            "swap the VPN label hop-by-hop (no end-to-end inter-AS LSP). "
+            "Method: connect ASBR1↔ASBR2 with MP-eBGP for L2VPN-EVPN, bring "
+            "up an EVI spanning PE(AS1) and PE(AS2), and verify routes and "
+            "labels are rewritten at the ASBR and traffic crosses the AS "
+            "boundary."
+        ),
+        setup=(
+            "Two ASes: PE1–ASBR1 in AS1, PE2–ASBR2 in AS2; ASBR1↔ASBR2 "
+            "back-to-back MP-eBGP session carrying the L2VPN-EVPN AFI/SAFI "
+            "(Option B). Intra-AS LSPs up on each side; `evi-1` up on PE1 "
+            "and PE2 with single-homed CEs."
+        ),
+        action=(
+            "Verify the ASBR↔ASBR eBGP EVPN session is up. From IXIA, send "
+            "bidirectional EVPN unicast CE1→CE2 for ≥ 60 s. On each ASBR, "
+            "inspect the received vs. re-advertised EVPN routes and the "
+            "label rewrite."
+        ),
+        verify=(
+            "On ASBR1, `show bgp l2vpn evpn` shows PE2's routes received "
+            "from ASBR2 with ASBR2 as next-hop; ASBR1 re-advertises them to "
+            "PE1 with itself as next-hop and a locally-allocated VPN label. "
+            "`show mpls forwarding-table` on the ASBR shows a per-prefix "
+            "label SWAP at the AS boundary. End-to-end EVPN unicast "
+            "forwards; IXIA receives frames on the far port."
+        ),
+        pass_=(
+            "ASBRs exchange EVPN routes over MP-eBGP, rewrite next-hop and "
+            "swap the VPN label per Option B; end-to-end EVI traffic "
+            "forwards across the AS boundary with ≤ 0 drops."
+        ),
+        fail_on=(
+            "ASBR fails to re-advertise EVPN routes, next-hop/label not "
+            "rewritten, route rejected at the AS boundary, or traffic "
+            "black-holed inter-AS."
+        ),
+        equipment="DUT + 2nd PE + two ASBRs (MP-eBGP back-to-back) + IXIA",
+        categories=[
+            "Basic Functionality", "Packet validation",
+            "3rd Party Interoperability", "Tech-support",
+        ],
+        selector=FlowSelector(),
+        related_cli_cmds=["show bgp l2vpn evpn", "show mpls forwarding-table"],
+        rfc_refs=["RFC 4364 §10 (Option B)"],
+        coverage_driven=True,
+    ),
+    Flow(
+        id="FLOW-135",
+        name="EVI-to-EVI over Multi-AS Backbone — Case C (multihop eBGP + labeled-unicast)",
+        summary=(
+            "Problem: validate EVI-to-EVI connectivity across two ASes using "
+            "RFC 4364 §10 inter-AS Option C, where PE loopbacks are made "
+            "reachable across ASes via labeled BGP IPv4 unicast (RFC 8277 / "
+            "BGP-LU) at the ASBRs, and EVPN routes are exchanged directly "
+            "between PEs/RRs over multihop eBGP — yielding an end-to-end LSP. "
+            "Method: distribute PE loopbacks as labeled-unicast across the "
+            "ASBRs, run multihop MP-eBGP for EVPN between the ASes, bring up "
+            "a cross-AS EVI, and verify an end-to-end LSP carries the traffic."
+        ),
+        setup=(
+            "Two ASes with PE1 (AS1) and PE2 (AS2); ASBR1↔ASBR2 exchange "
+            "labeled IPv4 unicast (BGP-LU) for the PE loopbacks; a multihop "
+            "MP-eBGP session (PE/RR-to-PE/RR) carries L2VPN-EVPN (Option C). "
+            "`evi-1` up on PE1 and PE2 with single-homed CEs."
+        ),
+        action=(
+            "Verify PE2's loopback is reachable from PE1 over a labeled-"
+            "unicast LSP and the multihop EVPN session is up. From IXIA, "
+            "send bidirectional EVPN unicast CE1→CE2 for ≥ 60 s. Inspect the "
+            "end-to-end label stack at PE1."
+        ),
+        verify=(
+            "`show route table inet.3` on PE1 shows PE2's loopback resolved "
+            "via the BGP-LU LSP across the ASBRs; `show bgp l2vpn evpn` "
+            "shows PE2's EVPN routes received over multihop eBGP with PE2 "
+            "(not the ASBR) as next-hop. The frame leaving PE1 carries a "
+            "transport (BGP-LU) label plus the EVPN service label "
+            "(two-label stack). End-to-end EVPN unicast forwards; IXIA "
+            "receives frames on the far port."
+        ),
+        pass_=(
+            "PE loopbacks reachable via labeled-unicast across ASBRs; EVPN "
+            "routes exchanged PE-to-PE over multihop eBGP; end-to-end LSP "
+            "carries the EVI traffic across the AS boundary with ≤ 0 drops."
+        ),
+        fail_on=(
+            "PE loopback unreachable inter-AS, multihop EVPN session fails, "
+            "next-hop incorrectly rewritten at the ASBR, end-to-end LSP not "
+            "formed, or traffic black-holed."
+        ),
+        equipment="DUT + 2nd PE + two ASBRs (BGP-LU) + multihop eBGP + IXIA",
+        categories=[
+            "Basic Functionality", "Packet validation",
+            "3rd Party Interoperability", "Tech-support",
+        ],
+        selector=FlowSelector(),
+        related_cli_cmds=["show route table inet.3", "show bgp l2vpn evpn"],
+        rfc_refs=["RFC 4364 §10 (Option C)", "RFC 8277"],
+        coverage_driven=True,
+    ),
 ]
 
 

@@ -121,6 +121,19 @@ def _cmd_parse(args) -> int:
     return 0
 
 
+def _print_rfc_crosscheck(plan) -> None:
+    """Print the SFS-vs-ingested RFC gap warning (stderr) if a plan carries
+    a cross-check result. Aleksey Burger, 2026-06-04."""
+    from ate.planner.rfc_crosscheck import format_warning  # noqa: PLC0415
+    catalog = plan.__dict__.get("_catalog")
+    cc = getattr(catalog, "rfc_crosscheck", None) if catalog else None
+    if cc is None:
+        return
+    msg = format_warning(cc)
+    if msg:
+        print(msg, file=sys.stderr)
+
+
 def _cmd_plan(args) -> int:
     from ate.planner import generate_plan, generate_plan_to_xlsx
     src = Path(args.path)
@@ -149,6 +162,7 @@ def _cmd_plan(args) -> int:
         print(f"error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
 
+    _print_rfc_crosscheck(plan)
     print(f"feature:        {plan.feature_name}")
     print(f"source:         {plan.source_path}")
     print(f"requirements:   {plan.n_requirements}")
@@ -246,6 +260,21 @@ def _cmd_plan_feature(args) -> int:
     print(f"  RFCs:       {', '.join(p.name for p in rfcs) if rfcs else '(none)'}")
 
     if args.dry_run:
+        # Surface the SFS-vs-ingested RFC gap without running the planner —
+        # a lightweight parse of just the SFS is enough to reconcile.
+        try:
+            from ate.planner.rfc_crosscheck import (  # noqa: PLC0415
+                format_warning,
+                reconcile,
+            )
+            sfs_doc = parse(sfs)
+            cc = reconcile(sfs_doc.full_text, [str(p) for p in rfcs])
+            msg = format_warning(cc)
+            if msg:
+                print(msg, file=sys.stderr)
+        except ATEParseError as e:
+            print(f"warning: could not parse SFS for RFC cross-check: {e}",
+                  file=sys.stderr)
         return 0
 
     out_path = args.out or f"plans/{args.name}_test_plan_with_RFCs.xlsx"
@@ -277,6 +306,7 @@ def _cmd_plan_feature(args) -> int:
         print(f"error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
 
+    _print_rfc_crosscheck(plan)
     print(f"feature:        {plan.feature_name}")
     print(f"requirements:   {plan.n_requirements}")
     print(f"plan rows:      {plan.n_rows}")

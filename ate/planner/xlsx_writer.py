@@ -584,6 +584,84 @@ def _write_flows_sheet(wb, plan: Plan) -> None:
         row += 1
 
 
+def _write_rfc_crosscheck_sheet(wb, plan: Plan) -> None:
+    """Render the RFC Cross-Check sheet: which RFCs the SFS cites, and which
+    of them were actually ingested into the engine.
+
+    Aleksey Burger (2026-06-04) asked the engine to "cross check and alert if
+    there are reference RFCs specified in the SFS which weren't ingested".
+    Missing RFCs are highlighted in orange with the SFS context snippet so a
+    reviewer can judge which carry feature-relevant mandates worth ingesting.
+    """
+    catalog = plan.__dict__.get("_catalog")
+    cc = getattr(catalog, "rfc_crosscheck", None) if catalog else None
+    if cc is None:
+        return
+    ws = wb.create_sheet("RFC Cross-Check")
+    ws.column_dimensions["A"].width = 14
+    ws.column_dimensions["B"].width = 16
+    ws.column_dimensions["C"].width = 90
+
+    row = 1
+    ws.cell(row=row, column=1,
+            value="SFS-cited RFCs vs. ingested RFCs").font = (
+        Font(bold=True, size=12, color="1F3A5F")
+    )
+    row += 1
+    intro = ws.cell(
+        row=row, column=1,
+        value=("Every RFC the SFS text references, reconciled against the "
+               "RFCs actually provided as engine inputs. Rows highlighted in "
+               "orange are cited by the SFS but were NOT ingested — their "
+               "mandates are invisible to the generated plan. Add them under "
+               "references/<FEATURE>/, or confirm they carry no feature-"
+               "relevant requirements. (RFC 7432 is matched by the ingested "
+               "rfc7432bis revision; BCP-14 keyword RFCs 2119/8174 are "
+               "ignored.)"),
+    )
+    intro.alignment = WRAP_LEFT
+    intro.font = Font(italic=True, color="555555")
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+    ws.row_dimensions[row].height = _row_height_for(intro.value, width=110)
+    row += 2
+
+    for c, label in enumerate(("RFC", "Status", "SFS context (first mention)"), 1):
+        cell = ws.cell(row=row, column=c, value=label)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[row].height = 24
+    row += 1
+
+    missing = set(cc.missing)
+    ingested = cc.ingested
+    for num in sorted(cc.cited, key=int):
+        if num in missing:
+            status = "MISSING — not ingested"
+        elif num in ingested:
+            status = "ingested ✓"
+        else:
+            status = "ignored (BCP-14 keyword RFC)"
+        cells_row = [f"RFC{num}", status, cc.cited[num]]
+        for c, val in enumerate(cells_row, 1):
+            cell = ws.cell(row=row, column=c, value=val)
+            cell.alignment = WRAP_LEFT
+        if num in missing:
+            for c in range(1, 4):
+                ws.cell(row=row, column=c).fill = ORPHAN_FILL
+        ws.row_dimensions[row].height = _row_height_for(cc.cited[num], width=90)
+        row += 1
+
+    row += 1
+    summary = (
+        f"Cross-check summary: SFS cites {len(cc.cited)} RFC(s); "
+        f"{len(cc.covered)} ingested, {len(cc.missing)} missing."
+    )
+    cell = ws.cell(row=row, column=1, value=summary)
+    cell.font = Font(bold=True, color="1F3A5F")
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+
+
 def write_xlsx(plan: Plan, output_path: str | Path,
                cli_doc_path: str | Path | None = None) -> Path:
     output_path = Path(output_path)
@@ -713,6 +791,7 @@ def write_xlsx(plan: Plan, output_path: str | Path,
 
     _write_flows_sheet(wb, plan)
     _write_coverage_sheet(wb, plan)
+    _write_rfc_crosscheck_sheet(wb, plan)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)

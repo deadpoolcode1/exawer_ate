@@ -31,9 +31,9 @@ Pipeline shape:
 """
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from pathlib import Path
-import re
 
 from ate.ir import Document
 from ate.parsers import parse
@@ -46,6 +46,8 @@ from ate.planner.cli_inheritance import expand as expand_inherited
 from ate.planner.extractor import extract_requirements
 from ate.planner.model import Requirement
 from ate.planner.req_classifier import classify_all
+from ate.planner.rfc_crosscheck import RfcCrossCheck
+from ate.planner.rfc_crosscheck import reconcile as reconcile_rfcs
 
 
 @dataclass
@@ -67,6 +69,10 @@ class RequirementCatalog:
     synth_anchors: list[Requirement] = field(default_factory=list)
     provenance: dict[str, str] = field(default_factory=dict)
     inherited_cmd_names: set[str] = field(default_factory=set)
+    # RFCs the SFS cites vs. the RFCs actually ingested. Surfaces the gap
+    # Aleksey Burger flagged (2026-06-04): the SFS pointed at RFC 4364 et al.
+    # that were never provided as inputs. `None` when no SFS text is available.
+    rfc_crosscheck: RfcCrossCheck | None = None
 
 
 def _merge_requirements(spec_reqs: list[Requirement],
@@ -196,12 +202,19 @@ def build_catalog(doc: Document | str | Path,
     # treating each req as a flat sibling.
     classify_all(requirements)
 
+    # ── RFC cross-check (Aleksey Burger, 2026-06-04) ──────────────────
+    # Scan the SFS prose for every RFC it cites and reconcile against the
+    # RFCs actually passed in via `rfc_paths`. A non-empty `.missing` means
+    # the SFS points at RFCs the engine never ingested (e.g. RFC 4364).
+    crosscheck = reconcile_rfcs(doc.full_text, rfc_paths or [])
+
     return RequirementCatalog(
         requirements=requirements,
         cli_commands=cli_commands,
         synth_anchors=[],  # filled by mark_claimed()
         provenance=provenance,
         inherited_cmd_names=inherited_names,
+        rfc_crosscheck=crosscheck,
     )
 
 
