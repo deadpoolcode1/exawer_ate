@@ -20,7 +20,8 @@ def test_parse_blob_handles_numbered_steps() -> None:
         "Verify:\n"
         "  1. `show evpn evi` reports up"
     )
-    setup, action, verify = _parse_blob(blob)
+    problem, method, setup, action, verify = _parse_blob(blob)
+    assert problem == "" and method == ""
     assert setup == ["DUT booted", "CLI session attached"]
     assert action == ["Issue `evpn evi-1`", "Commit"]
     assert verify == ["`show evpn evi` reports up"]
@@ -33,10 +34,61 @@ def test_parse_blob_handles_inline_one_liners() -> None:
         "Action: Configure feature; commit.\n"
         "Verify: `show running-config` includes the feature."
     )
-    setup, action, verify = _parse_blob(blob)
+    _, _, setup, action, verify = _parse_blob(blob)
     assert setup and "DUT booted" in setup[0]
     assert action and "Configure" in action[0]
     assert verify and "show running-config" in verify[0]
+
+
+def test_parse_blob_peels_problem_method_framing() -> None:
+    """Aleksey 2026-06-04: the AI leads each row with Problem/Method lines."""
+    blob = (
+        "Problem: validate single-homed EVI bring-up resolves the MAC route.\n"
+        "Method: bring up evi-1 on both PEs, drive CE1->CE2 unicast, confirm\n"
+        "  the Type-2 route resolves over the tunnel.\n"
+        "Setup:  Two-PE topology; BGP EVPN up.\n"
+        "Action: Configure evpn evi-1; commit.\n"
+        "Verify: `show evpn evi` reports up."
+    )
+    problem, method, setup, action, verify = _parse_blob(blob)
+    assert problem == "validate single-homed EVI bring-up resolves the MAC route."
+    # Method wraps across two source lines and must be re-joined.
+    assert method.startswith("bring up evi-1")
+    assert "resolves over the tunnel" in method
+    # The framing lines must NOT leak into the Setup bucket.
+    assert all("Problem" not in s and "Method" not in s for s in setup)
+    assert setup and "Two-PE topology" in setup[0]
+    assert action and "Configure evpn" in action[0]
+    assert verify and "show evpn evi" in verify[0]
+
+
+def test_problem_method_render_as_lead_rows_under_banner() -> None:
+    """Problem/Method become the first atomic rows under the banner, col B."""
+    row = PlanRow(
+        flow_id="FLOW-010",
+        flow_name="Single-homed VLAN-Based EVPN bring-up",
+        category="Basic Functionality",
+        equipment="DUT + IXIA + neighbor PE",
+        action_steps=(
+            "Problem: validate the EVI comes up and learns the remote MAC.\n"
+            "Method: bring up evi-1, drive unicast, inspect the EVI table.\n"
+            "Setup:\n  1. Two-PE topology\n"
+            "Action:\n  1. Configure evpn evi-1\n"
+            "Verify:\n  1. `show evpn evi` reports up"
+        ),
+        expectation="Pass: EVI up within 10 s\nFail-on: EVI never reaches up",
+        covered_req_ids=["EVPNS-REQ#20"],
+        sfs_requirement_id="EVPNS-REQ#20",
+    )
+    atomic = rows_for_plan_row(row)
+    assert atomic[0].is_banner
+    # Rows 2 and 3 are the Problem / Method framing, in order, under the banner.
+    assert atomic[1].action.startswith("Problem:")
+    assert atomic[2].action.startswith("Method:")
+    assert atomic[1].topic == "" and atomic[2].topic == ""
+    # Framing rows document the case — no coverage claim / monitor noise.
+    assert atomic[1].req_ids == [] and atomic[1].monitor == []
+    assert atomic[1].expectation == ""
 
 
 def test_split_expectation_parses_pass_and_fail() -> None:

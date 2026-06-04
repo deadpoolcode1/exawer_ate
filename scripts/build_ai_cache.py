@@ -39,10 +39,12 @@ from ate.planner.ai_enricher import enrich_plan  # noqa: E402
 from ate.planner.generator import generate_plan  # noqa: E402
 from ate.planner.model import Plan  # noqa: E402
 
-EVPN_SPEC = ROOT / "references" / "EVPN System Specification 1.00.docx"
-RFC7432BIS = ROOT / "references" / "draft-ietf-bess-rfc7432bis-13.txt"
-RFC9785 = ROOT / "references" / "rfc9785.txt"
-CLI_DOC = ROOT / "references" / "EVPN CLI 1.00.docx"
+# Reference docs live under references/EVPN/ since the per-feature folder
+# reorg (CLAUDE.md "Inputs the pipeline expects").
+EVPN_SPEC = ROOT / "references" / "EVPN" / "EVPN System Specification 1.00.docx"
+RFC7432BIS = ROOT / "references" / "EVPN" / "draft-ietf-bess-rfc7432bis-13.txt"
+RFC9785 = ROOT / "references" / "EVPN" / "rfc9785.txt"
+CLI_DOC = ROOT / "references" / "EVPN" / "EVPN CLI 1.00.docx"
 
 
 def _curate_rows(plan: Plan) -> Plan:

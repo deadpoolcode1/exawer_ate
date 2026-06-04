@@ -37,6 +37,10 @@ _NUMBERED_STEP_RE = re.compile(r"^\s*(?:\d+\.|-)\s+(.*\S)\s*$")
 # Match a section header line like "Setup:" / "Action:" / "Verify:".
 _SECTION_RE = re.compile(r"^\s*(Setup|Action|Verify)\s*:\s*(.*)$",
                           re.IGNORECASE)
+# Match the per-test-case framing lines the AI now leads with (Aleksey
+# Burger SW review 2026-06-04: every test case must state the problem under
+# test + the method used). These precede Setup/Action/Verify in the blob.
+_LEAD_RE = re.compile(r"^\s*(Problem|Method)\s*:\s*(.*)$", re.IGNORECASE)
 # Extract show-command names from a Verify line (anything between backticks
 # that starts with show / clear / debug / tcpdump etc).
 _SHOW_CMD_RE = re.compile(
@@ -46,30 +50,48 @@ _SHOW_CMD_RE = re.compile(
 )
 
 
-def _parse_blob(action_steps: str) -> tuple[list[str], list[str], list[str]]:
-    """Split a Setup/Action/Verify multi-line cell into three step lists.
+def _parse_blob(
+    action_steps: str,
+) -> tuple[str, str, list[str], list[str], list[str]]:
+    """Split a Problem/Method/Setup/Action/Verify cell into its parts.
 
-    Tolerates the two shapes the generator produces today:
+    Tolerates the shapes the generator produces today:
       - "Setup:  one sentence\nAction: one sentence\nVerify: one sentence"
       - "Setup:\n  1. step\n  2. step\nAction:\n  1. step\nVerify:\n  1. step"
+      - the same prefixed with "Problem: …\nMethod: …" framing lines
+        (Aleksey 2026-06-04). Problem/Method are single sentences, not step
+        buckets, and may wrap across continuation lines.
     A section that contains no enumerated steps becomes a single-element list.
-    Returns (setup_steps, action_steps, verify_steps).
+    Returns (problem, method, setup_steps, action_steps, verify_steps).
     """
     if not action_steps:
-        return [], [], []
+        return "", "", [], [], []
 
+    problem = ""
+    method = ""
     setup: list[str] = []
     action: list[str] = []
     verify: list[str] = []
     bucket = setup
+    lead: str | None = None  # None | "problem" | "method"
     inline_after_label = ""
 
     for raw in action_steps.splitlines():
         line = raw.rstrip()
         if not line.strip():
             continue
+        m_lead = _LEAD_RE.match(line)
+        if m_lead:
+            lead = m_lead.group(1).lower()
+            text = m_lead.group(2).strip()
+            if lead == "problem":
+                problem = text
+            else:
+                method = text
+            continue
         m_sec = _SECTION_RE.match(line)
         if m_sec:
+            lead = None
             section = m_sec.group(1).lower()
             inline_after_label = m_sec.group(2).strip()
             bucket = {"setup": setup, "action": action,
@@ -79,17 +101,24 @@ def _parse_blob(action_steps: str) -> tuple[list[str], list[str], list[str]]:
             continue
         m_step = _NUMBERED_STEP_RE.match(line)
         if m_step:
+            lead = None
             bucket.append(m_step.group(1).strip())
             continue
-        # Stray continuation line — append to the last item if any, else
-        # push a new step.
+        # Stray continuation line — extend the active Problem/Method framing
+        # if we're inside one, else append to the last step / push a new one.
         text = line.strip()
+        if lead == "problem":
+            problem = (problem + " " + text).strip()
+            continue
+        if lead == "method":
+            method = (method + " " + text).strip()
+            continue
         if bucket and not text.startswith("("):
             bucket[-1] = bucket[-1].rstrip() + " " + text
         else:
             bucket.append(text)
 
-    return setup, action, verify
+    return problem, method, setup, action, verify
 
 
 def _split_expectation(expectation: str) -> tuple[str, str]:
@@ -223,7 +252,7 @@ def rows_for_plan_row(row: PlanRow,
     rows on the Synthesized — Review sheet.
     """
     flow_lookup = flow_lookup or {}
-    setup, action, verify = _parse_blob(row.action_steps)
+    problem, method, setup, action, verify = _parse_blob(row.action_steps)
     pass_line, fail_line = _split_expectation(row.expectation)
     monitors = _monitors_from_verify(verify)
     req_ids = list(row.covered_req_ids)
@@ -238,6 +267,23 @@ def rows_for_plan_row(row: PlanRow,
         if topic:
             out.append(AtomicRow(topic=topic, is_banner=True,
                                   provenance=provenance))
+
+    # Problem / Method framing rows (Aleksey Burger SW review 2026-06-04:
+    # "describe the problem to be tested and the method used"). They lead
+    # the atomic rows directly under the banner — col B carries the
+    # `Problem:` / `Method:` sentence, no req-id / expectation / monitor
+    # noise (they document the test case, they aren't an executable step).
+    for label, text in (("Problem", problem), ("Method", method)):
+        if text:
+            out.append(AtomicRow(
+                topic="",
+                action=f"{label}: {text}",
+                req_ids=[],
+                expectation="",
+                monitor=[],
+                equipment=row.equipment,
+                provenance=provenance,
+            ))
 
     # Setup steps: skip generic plumbing ("DUT booted", "DUT in mode X").
     # Emit only Setup steps that describe non-obvious state (IXIA primed,

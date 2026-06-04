@@ -64,6 +64,7 @@ Output ONE row tuned to the specific requirement and category below. The row mus
   3. The actual CLI commands, parameters, RFC sections, route types, ESI types, label allocation, etc. that this requirement is about.
   4. Explicit Test Equipment (which rig: DUT only, IXIA, neighbor PE, 3rd-party PE, scale rig).
   5. If the requirement names default values, ranges, or mutex choices — include them in the row.
+  6. A one-sentence **Problem** and a one-sentence **Method** leading the row, so it documents *what behaviour/failure-mode it puts under test* and *how it tests it*, not merely the steps (Exaware SW review: "describe the problem to be tested and the method used"). Problem names the specific behaviour or failure mode at stake; Method names the technique — topology, traffic, fault injection, inspection point. Model the style on: "Problem: validate that EVI-to-EVI traffic forwards correctly when the penultimate LSR pops the transport label, so the egress PE receives only the EVPN service label. Method: build a 3-node PE1–P–PE2 MPLS path, advertise implicit-null from PE2, drive EVPN traffic across it, and confirm the P node pops the transport label." Keep each to one sentence; do not restate the Setup/Action/Verify steps.
 
 GROUNDING RULES (zero-tolerance — the reviewer caught violations of these on the previous pass):
 
@@ -76,7 +77,7 @@ GROUNDING RULES (zero-tolerance — the reviewer caught violations of these on t
 Reply ONLY with valid JSON in this exact shape, no surrounding text:
 
 {{
-  "action_steps": "Setup:  <one or two concrete sentences>\\nAction: <specific commands or traffic events, name the parameters>\\nVerify: <named show commands, capture points, or counters>",
+  "action_steps": "Problem: <one sentence: the specific behaviour or failure mode under test>\\nMethod: <one sentence: the technique used to test it — topology, traffic, fault, inspection point>\\nSetup:  <one or two concrete sentences>\\nAction: <specific commands or traffic events, name the parameters>\\nVerify: <named show commands, capture points, or counters>",
   "expectation": "Pass:    <measurable success criterion tied to the MUST or doc default>\\nFail-on: <specific failure observable that means this row is a fail>",
   "equipment": "<one of: 'DUT only', 'DUT + IXIA traffic gen', 'DUT + IXIA + neighbor PE', 'DUT + 3rd-party PE (Cisco/Juniper) + IXIA', 'Two routers + IXIA scale rig', 'DUT + IXIA continuous traffic (≥ 24 h)', 'DUT + power-cycle harness', 'DUT + NETCONF client', 'DUT + ONIE image server', 'DUT + syslog collector', or a longer description if a row needs more>"
 }}
@@ -113,17 +114,22 @@ CURRENT RULE-BASED ROW (replace with feature-specific content; do not parrot it)
 def _row_key(req: Requirement, row: PlanRow, sub_index: int) -> str:
     """Stable cache key for a row.
 
-    Salt v5 marks the Yossi 2026-05-21 follow-up: prompt now carries
-    `kind` (delta/overlay/pointer/base_sfs/sfs_with_rfc_context/rfc/cli)
-    + `rfc_links` + an injected RFC-base-text block, so the AI writes
-    rows that contrast SFS-vs-RFC explicitly. v1-v4 entries on disk
-    become misses; bulk re-bake is expected.
+    Salt v6 marks the Aleksey Burger SW review 2026-06-04: the prompt now
+    demands a leading `Problem:` / `Method:` framing in `action_steps`
+    (every test case states the behaviour under test + the method used),
+    so the row text changes shape. v1-v5 entries on disk become misses;
+    bulk re-bake is expected.
+
+    (v5 was the Yossi 2026-05-21 follow-up: prompt carries `kind`
+    (delta/overlay/pointer/base_sfs/sfs_with_rfc_context/rfc/cli)
+    + `rfc_links` + an injected RFC-base-text block, so the AI contrasts
+    SFS-vs-RFC explicitly.)
 
     The cache key includes `req.kind` so a reclassification (heuristic
     bump, new cues) invalidates only the affected rows instead of
     forcing yet another full bake.
     """
-    salt = "v5"
+    salt = "v6"
     h = hashlib.sha256()
     h.update(salt.encode())
     h.update(req.req_id.encode())
