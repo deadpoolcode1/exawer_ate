@@ -675,46 +675,12 @@ def write_xlsx(plan: Plan, output_path: str | Path,
     for i, w in enumerate(widths, 1):
         ws.column_dimensions[get_column_letter(i)].width = w
 
+    # The 9-column header opens the sheet at row 1 and is the only frozen
+    # row. The Feature meta + concept catalog used to sit above it, so
+    # freeze_panes locked ~55 tall rows at the top — taller than a screen,
+    # which made the body impossible to scroll into view (client review
+    # 2026-06-14). Both now live on a separate "Overview" sheet.
     row = 1
-    ws.cell(row=row, column=1, value=f"Feature: {plan.feature_name}").font = META_FONT
-    row += 1
-    ws.cell(row=row, column=1, value=f"Source: {plan.source_path}")
-    row += 1
-    ws.cell(row=row, column=1, value="Machine vendors").font = META_FONT
-    ws.cell(row=row, column=2, value=plan.machine_vendor)
-    row += 1
-    ws.cell(row=row, column=1, value="Machine types").font = META_FONT
-    ws.cell(row=row, column=2, value=plan.machine_types)
-    row += 1
-    ws.cell(row=row, column=1, value="IP versions").font = META_FONT
-    ws.cell(row=row, column=2, value=plan.ip_versions)
-    row += 1
-    ws.cell(row=row, column=1, value="Interfaces").font = META_FONT
-    ws.cell(row=row, column=2, value=plan.interfaces)
-    row += 1
-    ws.cell(row=row, column=1, value=f"Requirements found: {plan.n_requirements}").font = META_FONT
-    row += 1
-    flows_with_reqs = plan.__dict__.get("_flows_with_reqs", [])
-    n_anchored = sum(1 for f, c in flows_with_reqs if c)
-    n_coverage = sum(1 for f, c in flows_with_reqs
-                     if not c and f.coverage_driven)
-    n_dormant = len(EVPN_FLOWS) - len(flows_with_reqs)
-    flow_summary = (
-        f"Flows: {n_anchored} requirement-anchored + "
-        f"{n_coverage} coverage-driven (test technique, applies broadly) "
-        f"= {n_anchored + n_coverage} active of {len(EVPN_FLOWS)} "
-        f"catalogued"
-    )
-    if n_dormant:
-        flow_summary += f"; {n_dormant} catalogued but inactive in this run"
-    ws.cell(row=row, column=1, value=flow_summary).font = META_FONT
-    row += 2
-
-    catalog = build_catalog(cli_doc_path)
-    if catalog:
-        row = _write_catalog(ws, catalog, row)
-        row += 1
-
     for c, label in enumerate(HEADER_ROW, 1):
         cell = ws.cell(row=row, column=c, value=label)
         cell.font = HEADER_FONT
@@ -772,6 +738,52 @@ def write_xlsx(plan: Plan, output_path: str | Path,
         ):
             row = _write_atomic_row(ws, ar, row)
         last_topic = topic_now
+
+    # ── Overview sheet: feature meta + concept catalog ─────────────────
+    # Relocated off the main "Test Plan Topics" sheet so the test-plan
+    # body scrolls freely under a single frozen header row (client review
+    # 2026-06-14).
+    ov = wb.create_sheet("Overview")
+    for col, w in (("A", 32), ("B", 28), ("C", 90)):
+        ov.column_dimensions[col].width = w
+    orow = 1
+    ov.cell(row=orow, column=1, value=f"Feature: {plan.feature_name}").font = META_FONT
+    orow += 1
+    ov.cell(row=orow, column=1, value=f"Source: {plan.source_path}")
+    orow += 1
+    ov.cell(row=orow, column=1, value="Machine vendors").font = META_FONT
+    ov.cell(row=orow, column=2, value=plan.machine_vendor)
+    orow += 1
+    ov.cell(row=orow, column=1, value="Machine types").font = META_FONT
+    ov.cell(row=orow, column=2, value=plan.machine_types)
+    orow += 1
+    ov.cell(row=orow, column=1, value="IP versions").font = META_FONT
+    ov.cell(row=orow, column=2, value=plan.ip_versions)
+    orow += 1
+    ov.cell(row=orow, column=1, value="Interfaces").font = META_FONT
+    ov.cell(row=orow, column=2, value=plan.interfaces)
+    orow += 1
+    ov.cell(row=orow, column=1, value=f"Requirements found: {plan.n_requirements}").font = META_FONT
+    orow += 1
+    flows_with_reqs = plan.__dict__.get("_flows_with_reqs", [])
+    n_anchored = sum(1 for f, c in flows_with_reqs if c)
+    n_coverage = sum(1 for f, c in flows_with_reqs
+                     if not c and f.coverage_driven)
+    n_dormant = len(EVPN_FLOWS) - len(flows_with_reqs)
+    flow_summary = (
+        f"Flows: {n_anchored} requirement-anchored + "
+        f"{n_coverage} coverage-driven (test technique, applies broadly) "
+        f"= {n_anchored + n_coverage} active of {len(EVPN_FLOWS)} "
+        f"catalogued"
+    )
+    if n_dormant:
+        flow_summary += f"; {n_dormant} catalogued but inactive in this run"
+    ov.cell(row=orow, column=1, value=flow_summary).font = META_FONT
+    orow += 2
+
+    overview_catalog = build_catalog(cli_doc_path)
+    if overview_catalog:
+        _write_catalog(ov, overview_catalog, orow)
 
     # ── Requirements traceability sheet ────────────────────────────────
     ws2 = wb.create_sheet("Requirements")
