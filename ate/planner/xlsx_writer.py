@@ -662,6 +662,93 @@ def _write_rfc_crosscheck_sheet(wb, plan: Plan) -> None:
     ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
 
 
+def _write_cli_crosscheck_sheet(wb, plan: Plan) -> None:
+    """Render the Command Cross-Check sheet: the audit trail proving the
+    deliverable carries no non-existing command.
+
+    Ron Auster / Yossi Fridman (2026-06-24) asked how the engine prevents a
+    non-existing command (Yossi flagged `show mpls lsp`) from reaching the
+    plan. Ilan (2026-06-25) directed that such commands be *removed*, not just
+    flagged. So the engine scrubs every command that traces to no source doc,
+    generic verb, or curated vocabulary before writing the plan. This sheet
+    lists what was removed (red) and the kept command vocabulary by provenance,
+    so a reviewer can see exactly what the plan does and does not assert. See
+    ate/planner/cli_crosscheck.py.
+    """
+    cc = plan.__dict__.get("_cli_crosscheck")
+    removed = plan.__dict__.get("_cli_removed") or {}
+    if cc is None:
+        return
+    ws = wb.create_sheet("Command Cross-Check")
+    ws.column_dimensions["A"].width = 48
+    ws.column_dimensions["B"].width = 30
+    ws.column_dimensions["C"].width = 58
+
+    removed_fill = PatternFill("solid", fgColor="F5C6CB")   # red — scrubbed
+
+    row = 1
+    ws.cell(row=row, column=1,
+            value="Command grounding audit").font = (
+        Font(bold=True, size=12, color="1F3A5F")
+    )
+    row += 1
+    intro = ws.cell(
+        row=row, column=1,
+        value=("Every CLI / show command is traced to its origin before the "
+               "plan is written. RED rows were REMOVED from the plan: they "
+               "trace to no source doc, generic verb, or curated vocabulary "
+               "(e.g. AI naming-variants, and the MPLS-transport commands not "
+               "in the EVPN SFS). The remaining rows are the command "
+               "vocabulary the plan does assert: 'doc-grounded' appear in the "
+               "CLI doc / SFS / RFC; 'generic' are universal operator verbs; "
+               "'curated' are hand-maintained EVPN monitors."),
+    )
+    intro.alignment = WRAP_LEFT
+    intro.font = Font(italic=True, color="555555")
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+    ws.row_dimensions[row].height = _row_height_for(intro.value, width=120)
+    row += 2
+
+    for c, label in enumerate(("Command", "Disposition", "Seen under"), 1):
+        cell = ws.cell(row=row, column=c, value=label)
+        cell.font = HEADER_FONT
+        cell.fill = HEADER_FILL
+        cell.alignment = Alignment(wrap_text=True, vertical="center")
+    ws.row_dimensions[row].height = 24
+    row += 1
+
+    # Removed first (the point of the sheet), then the kept vocabulary.
+    sections = [
+        (removed, "REMOVED — ungrounded", removed_fill),
+        (cc.curated, "kept — curated EVPN monitor", None),
+        (cc.doc_grounded, "kept — doc-grounded ✓", None),
+        (cc.generic, "kept — generic operator verb", None),
+    ]
+    for bucket, status, fill in sections:
+        for head in sorted(bucket):
+            ec = bucket[head]
+            seen = ", ".join(ec.locations) if ec.locations else ""
+            cells_row = [f"`{ec.raw}`", status, seen]
+            for c, val in enumerate(cells_row, 1):
+                cell = ws.cell(row=row, column=c, value=val)
+                cell.alignment = WRAP_LEFT
+                if fill is not None:
+                    cell.fill = fill
+            ws.row_dimensions[row].height = _row_height_for(seen, width=58)
+            row += 1
+
+    row += 1
+    summary = (
+        f"Audit summary: {len(removed)} ungrounded command(s) removed; plan "
+        f"asserts {cc.total} command(s) — {len(cc.doc_grounded)} doc-grounded, "
+        f"{len(cc.generic)} generic, {len(cc.curated)} curated. "
+        f"Surviving ungrounded: {len(cc.unknown)} (must be 0)."
+    )
+    cell = ws.cell(row=row, column=1, value=summary)
+    cell.font = Font(bold=True, color="1F3A5F")
+    ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=3)
+
+
 def write_xlsx(plan: Plan, output_path: str | Path,
                cli_doc_path: str | Path | None = None) -> Path:
     output_path = Path(output_path)
@@ -804,6 +891,7 @@ def write_xlsx(plan: Plan, output_path: str | Path,
     _write_flows_sheet(wb, plan)
     _write_coverage_sheet(wb, plan)
     _write_rfc_crosscheck_sheet(wb, plan)
+    _write_cli_crosscheck_sheet(wb, plan)
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     wb.save(output_path)

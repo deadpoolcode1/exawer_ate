@@ -309,6 +309,22 @@ def generate_plan(doc: Document | str | Path,
         plan.__dict__["_orphans"] = orphans
         plan.__dict__["_flows_with_reqs"] = flows_with_reqs
         plan.__dict__["_catalog"] = catalog
+
+    # Command grounding (Ron/Yossi 2026-06-24; scope confirmed by Ilan
+    # 2026-06-25): on the *final* plan — post-enrichment, the worst case for an
+    # invented command — strip every command that traces to no source doc so
+    # the deliverable carries no non-existing command, then re-check (the
+    # remaining buckets should show zero unknown). See cli_crosscheck.py.
+    from ate.planner.cli_crosscheck import (  # noqa: PLC0415
+        reconcile_commands,
+        scrub_ungrounded,
+    )
+    plan.__dict__["_cli_removed"] = scrub_ungrounded(
+        plan, catalog.cli_commands, catalog.requirements,
+    )
+    plan.__dict__["_cli_crosscheck"] = reconcile_commands(
+        plan, catalog.cli_commands, catalog.requirements,
+    )
     return plan
 
 

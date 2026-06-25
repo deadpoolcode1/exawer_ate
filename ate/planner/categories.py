@@ -657,7 +657,9 @@ _FLOW_SHOW_CMDS: dict[str, list[str]] = {
         "show evpn mac address-table count", "show alarms",
     ],
     "FLOW-13": [  # EVI-to-EVI MPLS transport / tunnel interconnect (RFC 4364)
-        "show mpls forwarding-table", "show mpls lsp",
+        # `show mpls lsp` / `show mpls forwarding-table` removed 2026-06-25
+        # (Yossi: not in the EVPN SFS). The scrubber strips any residual
+        # mention from enriched prose; see cli_crosscheck.scrub_ungrounded.
         "show bgp l2vpn evpn", "show route table inet.3",
         "show evpn evi",
     ],

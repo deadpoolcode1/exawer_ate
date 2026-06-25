@@ -134,6 +134,25 @@ def _print_rfc_crosscheck(plan) -> None:
         print(msg, file=sys.stderr)
 
 
+def _print_cli_crosscheck(plan) -> None:
+    """Report scrubbed ungrounded commands (stderr), and hard-alert if any
+    survived. Ron/Yossi, 2026-06-24; scope confirmed by Ilan 2026-06-25."""
+    from ate.planner.cli_crosscheck import (  # noqa: PLC0415
+        format_removal_summary,
+        format_warning,
+    )
+    removed = plan.__dict__.get("_cli_removed")
+    if removed:
+        msg = format_removal_summary(removed)
+        if msg:
+            print(msg, file=sys.stderr)
+    cc = plan.__dict__.get("_cli_crosscheck")
+    if cc is not None:
+        warn = format_warning(cc)
+        if warn:
+            print(warn, file=sys.stderr)
+
+
 def _cmd_plan(args) -> int:
     from ate.planner import generate_plan, generate_plan_to_xlsx
     src = Path(args.path)
@@ -163,6 +182,7 @@ def _cmd_plan(args) -> int:
         return 1
 
     _print_rfc_crosscheck(plan)
+    _print_cli_crosscheck(plan)
     print(f"feature:        {plan.feature_name}")
     print(f"source:         {plan.source_path}")
     print(f"requirements:   {plan.n_requirements}")
@@ -307,6 +327,7 @@ def _cmd_plan_feature(args) -> int:
         return 1
 
     _print_rfc_crosscheck(plan)
+    _print_cli_crosscheck(plan)
     print(f"feature:        {plan.feature_name}")
     print(f"requirements:   {plan.n_requirements}")
     print(f"plan rows:      {plan.n_rows}")
