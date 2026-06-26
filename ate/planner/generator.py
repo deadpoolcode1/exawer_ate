@@ -208,6 +208,10 @@ def generate_plan(doc: Document | str | Path,
     #      ID since no spec requirement anchors them.
     flow_rows: list[PlanRow] = []
     flows_with_reqs: list[tuple[Flow, list[Requirement]]] = []
+    # Eyal Ozeri 2026-06-21: "Tech-support test is not needed in every flow."
+    # Emit a single representative tech-support / diagnostic-bundle test (the
+    # first flow that carries the category) instead of one per flow.
+    tech_support_done = False
     for flow in EVPN_FLOWS:
         covered = reqs_for_flow(flow, reqs)
         if not covered and not flow.coverage_driven:
@@ -220,6 +224,10 @@ def generate_plan(doc: Document | str | Path,
         for cat in flow.categories:
             if all_rfc and cat in RFC_EXCLUDED_CATEGORIES:
                 continue
+            if cat == "Tech-support":
+                if tech_support_done:
+                    continue
+                tech_support_done = True
             flow_rows.append(_row_for_flow_category(flow, cat, covered))
 
     # Fallback: if no flow matched (e.g. doc with no requirement anchors,

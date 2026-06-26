@@ -235,6 +235,11 @@ def _topic_for_plan_row(row: PlanRow, flow_lookup: dict[str, Flow]) -> str:
         name = flow.name if flow else row.flow_name
         return f"{row.flow_id} — {name}" if name else row.flow_id
     if row.sub_category:
+        # CLI banner: append the command's purpose so col A states what the
+        # command represents, not just its name (client 2026-06-26). Mirrors
+        # the `FLOW-NNN — Name` banner idiom above.
+        if row.purpose:
+            return f"{row.sub_category} — {row.purpose}"
         return row.sub_category
     return row.category or ""
 

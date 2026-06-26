@@ -66,6 +66,11 @@ class PlanRow(BaseModel):
     flow_name: str = ""    # human label, mirrors the flow's name
     category: str          # top-level category (e.g. "CLI configuration")
     sub_category: str = "" # secondary header (CLI command name, etc.)
+    purpose: str = ""      # one-line "what this command represents" phrase,
+                           # distilled from the CLI doc description; surfaces
+                           # on the CLI banner as "<cmd> — <purpose>" so a
+                           # reviewer reads what the command does, not just
+                           # its name (client 2026-06-26).
     equipment: str = ""    # Test Equipment / topology
     action_steps: str = "" # Setup / Action / Verify (multi-line)
     covered_req_ids: list[str] = Field(default_factory=list)

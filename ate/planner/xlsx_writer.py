@@ -176,6 +176,33 @@ SEC_OTHER = "Additional Tests"
 # carry a new-vs-modified category (item: "differentiation between new show
 # commands and modified show commands"). The order below is matched by
 # prefix so the exact suffix of a category label doesn't matter.
+# Non-functional component sections, in the order of the reference template
+# `references/Feature Name Test Plan Template.xlsx` ("Test Plan Topics" col A).
+# Eyal Ozeri 2026-06-21: the single "Feature Interaction, Scale & Lifecycle"
+# catch-all is too scattered — break it into these components "like in the
+# given TP example". A coverage-driven flow's rows are routed to the section
+# that matches each row's PlanRow.category (the categories already carry these
+# exact strings); requirement-anchored flows stay grouped under Feature
+# Functionality (client decision 2026-06-26: split the non-functional band
+# only). "Basic Functionality" rows from coverage-driven flows fold back into
+# Feature Functionality so all baseline tests sit together.
+_COMPONENT_SECTIONS = [
+    "On The Fly changes",
+    "Packet validation",
+    "Malformed/unsupported packets",
+    "Feature interaction",
+    "3rd Party Interoperability",
+    "Scale",
+    "Performance",
+    "Robustness",
+    "PM",
+    "Alarms/Logs/Syslog",
+    "Upgrade",
+    "HA",
+    "Long run",
+    "Management",
+]
+
 _SECTION_RANK_PREFIXES = [
     "CLI Configuration — Interface",
     "CLI Configuration — LACP",
@@ -188,10 +215,25 @@ _SECTION_RANK_PREFIXES = [
     "CLI Show — Modified",
     "CLI Clear",
     SEC_FUNC,
-    SEC_NONFUNC,
+    *_COMPONENT_SECTIONS,
+    SEC_NONFUNC,                    # fallback for any unmapped category
     SEC_RFC,
     SEC_OTHER,
 ]
+
+
+def _component_section_for_category(category: str) -> str:
+    """Map a coverage-driven flow row's category to its non-functional
+    component section. Baseline rows fold into Feature Functionality; anything
+    unrecognised falls back to the legacy catch-all so nothing is dropped."""
+    cat = (category or "").strip()
+    if cat == "Basic Functionality":
+        return SEC_FUNC
+    if cat == "Tech-support":
+        return "Management"  # single diagnostic-bundle test sits under Mgmt
+    if cat in _COMPONENT_SECTIONS:
+        return cat
+    return SEC_NONFUNC
 
 
 def _section_rank(label: str) -> int:
@@ -221,7 +263,7 @@ def _section_for_row(r: PlanRow, flow_lookup: dict) -> str:
     if r.flow_id:
         flow = flow_lookup.get(r.flow_id)
         if flow is not None and flow.coverage_driven:
-            return SEC_NONFUNC
+            return _component_section_for_category(r.category)
         return SEC_FUNC
     cat = (r.category or "").strip()
     if cat.startswith("CLI "):
@@ -235,6 +277,20 @@ def _section_for_row(r: PlanRow, flow_lookup: dict) -> str:
     if name:
         return SEC_CLI_CONFIG
     return SEC_OTHER
+
+
+def _write_empty_section_note(ws, row: int) -> int:
+    """Placeholder line under a template section the generator found no tests
+    for (Eyal Ozeri 2026-06-21: leave such sections empty rather than
+    fabricate content). Keeps the section visible so the reviewer sees it was
+    considered."""
+    cell = ws.cell(row=row, column=2,
+                    value="(left empty — the source documents carry no "
+                          "information for this section)")
+    cell.alignment = WRAP_LEFT
+    cell.font = Font(italic=True, color="808080")
+    ws.row_dimensions[row].height = 16
+    return row + 1
 
 
 def _write_section_header(ws, label: str, row: int) -> int:
@@ -799,32 +855,53 @@ def write_xlsx(plan: Plan, output_path: str | Path,
     # order, RFC mandates keep section order. A dark section header is
     # written at each band transition; the existing light topic banners
     # render underneath, matching references/DHCP-snoopy_TP_with_PW.xlsx.
-    indexed = sorted(
-        enumerate(plan.rows),
-        key=lambda t: (_section_rank(_section_for_row(t[1], flow_lookup)),
-                       t[0]),
-    )
+    groups: dict[str, list] = {}
+    for r in plan.rows:
+        groups.setdefault(_section_for_row(r, flow_lookup), []).append(r)
 
-    current_section: str | None = None
-    last_topic: str | None = None
-    for _orig_idx, r in indexed:
-        section = _section_for_row(r, flow_lookup)
-        if section != current_section:
-            row = _write_section_header(ws, section, row)
-            current_section = section
-            last_topic = None  # force the first topic banner in each band
-        provenance = _provenance_for_row(r, req_by_id, inherited_names)
-        # Suppress banner if it would repeat the previous banner (e.g.
-        # multiple PlanRows for the same CLI command).
-        topic_now = (f"{r.flow_id} — {r.flow_name}" if r.flow_id
-                      else (r.sub_category or r.category or ""))
-        for ar in rows_for_plan_row(
-            r, flow_lookup=flow_lookup,
-            emit_banner=(topic_now != last_topic),
-            provenance=provenance,
-        ):
-            row = _write_atomic_row(ws, ar, row)
-        last_topic = topic_now
+    # Always render the reference-template's functional + non-functional
+    # component sections, even when empty (Eyal Ozeri 2026-06-21: "If the tool
+    # doesn't have any info for any of the tests' sections … it should be left
+    # empty"). The reviewer then sees every expected section was considered,
+    # matching references/Feature Name Test Plan Template.xlsx.
+    always_show = [SEC_FUNC, *_COMPONENT_SECTIONS]
+    sections = sorted(set(groups) | set(always_show),
+                       key=lambda s: (_section_rank(s), s))
+
+    for section in sections:
+        row = _write_section_header(ws, section, row)
+        section_rows = groups.get(section, [])
+        if not section_rows:
+            row = _write_empty_section_note(ws, row)
+            continue
+        last_topic: str | None = None
+        # Req-ID de-duplication (Eyal Ozeri 2026-06-21: "I don't see why we
+        # need the SFS req id duplicated in each row, if they are the same
+        # throughout the flow"). Shown on the first row it applies to, blanked
+        # on rows that share it, re-shown when the set changes. Reset per
+        # section/topic so each flow (and each CLI command) states IDs once.
+        last_req_key: str | None = None
+        for r in section_rows:
+            provenance = _provenance_for_row(r, req_by_id, inherited_names)
+            # Suppress banner if it would repeat the previous banner (e.g.
+            # multiple PlanRows for the same CLI command).
+            topic_now = (f"{r.flow_id} — {r.flow_name}" if r.flow_id
+                          else (r.sub_category or r.category or ""))
+            if topic_now != last_topic:
+                last_req_key = None  # new flow/command → show its IDs once
+            for ar in rows_for_plan_row(
+                r, flow_lookup=flow_lookup,
+                emit_banner=(topic_now != last_topic),
+                provenance=provenance,
+            ):
+                if not ar.is_banner and ar.req_ids:
+                    key = ", ".join(ar.req_ids)
+                    if key == last_req_key:
+                        ar.req_ids = []  # identical to row above → blank
+                    else:
+                        last_req_key = key
+                row = _write_atomic_row(ws, ar, row)
+            last_topic = topic_now
 
     # ── Overview sheet: feature meta + concept catalog ─────────────────
     # Relocated off the main "Test Plan Topics" sheet so the test-plan

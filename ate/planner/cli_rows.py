@@ -56,6 +56,43 @@ from ate.planner.model import PlanRow
 EQUIPMENT = equipment_for_cli_row()
 
 
+# The EVPN CLI doc phrases every Description cell as "To <do X>, use the <cmd>
+# command. To restore …, use the no form …". We lift "<do X>" so the banner
+# states what the command represents, not just its name (client 2026-06-26:
+# "no commands are generic … the doc doesn't understand what each represents").
+_PURPOSE_TO_RE = re.compile(r"^\s*To\s+(.+?),\s+use\b", re.IGNORECASE | re.DOTALL)
+# Inverse phrasing: "Use the <cmd> command to <do X>." (e.g. mac-address-static).
+_PURPOSE_USE_RE = re.compile(
+    r"^\s*Use\s+(?:the\s+)?.+?\s+command\s+to\s+(.+)", re.IGNORECASE | re.DOTALL)
+# Sentence boundary: a period followed by whitespace OR a capital letter (the
+# doc frequently omits the space, e.g. "… interface.If no parameter …").
+_SENTENCE_SPLIT_RE = re.compile(r"\.(?=\s|[A-Z])")
+
+
+def _purpose_phrase(description: str) -> str:
+    """Distil a command's doc description into a one-line purpose phrase.
+
+    Returns "" when there is no usable description, so commands without one
+    keep a bare-name banner (graceful: the doc simply had nothing to say).
+    """
+    text = " ".join((description or "").replace("\xa0", " ").split())
+    if not text:
+        return ""
+    m = _PURPOSE_TO_RE.match(text)
+    if m:
+        phrase = m.group(1).strip()
+    else:
+        m = _PURPOSE_USE_RE.match(text)
+        body = m.group(1).strip() if m else text
+        phrase = _SENTENCE_SPLIT_RE.split(body, maxsplit=1)[0].strip()
+    phrase = phrase.rstrip(".").strip()
+    if phrase:
+        phrase = phrase[0].upper() + phrase[1:]
+    if len(phrase) > 140:
+        phrase = phrase[:139].rstrip() + "…"
+    return phrase
+
+
 def _numbered(items: list[str]) -> str:
     """Render `items` as numbered steps "1. … 2. … 3. …"."""
     return "\n".join(f"  {i}. {s}" for i, s in enumerate(items, 1))
@@ -448,10 +485,12 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
     monitors = _monitor_list(cmd)
     primary_show = (_feature_show_for(cmd) or ["show configuration"])[0]
 
+    purpose = _purpose_phrase(cmd.description)
+
     def _mk(action_steps: str, expectation: str) -> PlanRow:
         return PlanRow(
             category=cat, sub_category=cmd.name, equipment=EQUIPMENT,
-            sfs_requirement_id=req_anchor,
+            sfs_requirement_id=req_anchor, purpose=purpose,
             action_steps=action_steps, expectation=expectation,
         )
 
@@ -882,11 +921,12 @@ def rows_for_show_command(cmd: CliCommand) -> list[PlanRow]:
     req_anchor = f"CLI:{cmd.name}"
     cat = CAT_CLEAR if cmd.kind == "clear" else _show_class(cmd)
     name = cmd.name.lower()
+    purpose = _purpose_phrase(cmd.description)
 
     def _mk(action_steps: str, expectation: str) -> PlanRow:
         return PlanRow(
             category=cat, sub_category=cmd.name, equipment=EQUIPMENT,
-            sfs_requirement_id=req_anchor,
+            sfs_requirement_id=req_anchor, purpose=purpose,
             action_steps=action_steps, expectation=expectation,
         )
 
