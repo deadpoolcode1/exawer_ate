@@ -630,7 +630,11 @@ def enrich_plan(plan: Plan, *,
         # send them through the model, regardless of `use_api`. Counted
         # as rule_based so the cache_hit + rule_based == len(rows)
         # invariant still holds.
-        if req.source == "cli" or row.sfs_requirement_id.startswith("CLI:"):
+        # CLI rows (above) and hand-curated rows (curated.py, source
+        # "rfc-curated") are authored deterministically and must never be
+        # paraphrased by the model — keep them verbatim, counted as rule_based.
+        if (req.source in ("cli", "rfc-curated")
+                or row.sfs_requirement_id.startswith("CLI:")):
             stats["rule_based"] += 1
             enriched_rows.append(row)
             continue

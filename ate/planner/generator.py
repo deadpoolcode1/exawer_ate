@@ -272,11 +272,20 @@ def generate_plan(doc: Document | str | Path,
         _planrow_for_rfc_orphan(req) for req in catalog.synth_anchors
     ]
 
+    # Hand-curated constructs the auto-extractors miss — e.g. the Default
+    # Gateway Extended Community (Yossi 2026-06-21), defined in 7432bis §7.8
+    # but typed by RFC 4360 §3.3 and dropped by rfc_extractor because §7.8
+    # has no MUST keyword. Deterministic (not AI-enriched). See curated.py.
+    from ate.planner.curated import (  # noqa: PLC0415
+        curated_requirements_and_rows,
+    )
+    curated_reqs, curated_rows = curated_requirements_and_rows()
+
     # ── Compose ────────────────────────────────────────────────────────
     # CLI rows render first (most concrete material; QA reads CLI block
     # first), then flow rows in the EVPN_FLOWS order, then RFC-orphan
     # rows so the deliverable ends with every RFC mandate the TP covers.
-    rows = cli_rows + flow_rows + synth_rfc_rows
+    rows = cli_rows + flow_rows + synth_rfc_rows + curated_rows
 
     # Coverage assertion: every RFC MUST extracted by rfc_extractor must
     # appear in ≥ 1 PlanRow's covered_req_ids — either via a flow that
@@ -294,7 +303,7 @@ def generate_plan(doc: Document | str | Path,
     plan = Plan(
         feature_name=feature_name,
         source_path=str(doc.source_path),
-        requirements=cli_cmd_anchors + reqs,
+        requirements=cli_cmd_anchors + reqs + curated_reqs,
         rows=rows,
     )
 
