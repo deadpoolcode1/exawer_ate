@@ -242,6 +242,15 @@
     "req_id": "CLI:show evpn broadcast-domains",
     "sub_category": "show evpn broadcast-domains"
   },
+  "0609ccd678a7a822": {
+    "action_steps": "Problem: Validate that BUM traffic received with an ESI Label matching a locally-attached ES is correctly dropped to prevent loops, while BUM with different ESI Labels forwards normally.\nMethod: Send BUM frames from PE1 to PE2 tagged with the shared ES's ESI Label and observe PE2 drops on egress to the shared-ES access link, then send BUM with a distinct ESI Label and confirm forwarding.\nSetup:  The shared-ES LAG between CE and PE1/PE2 is already operational; `advertise-mac enable` and `unknown-mac-flooding enable` are configured on both PEs.\nAction: From PE1, transmit BUM traffic toward PE2 carrying the ESI Label advertised for the shared ES (obtain from `show bgp l2vpn evpn` ESI Label Extended Community field); then transmit a second BUM stream with a different ESI Label value; monitor PE2's egress interface on the shared-ES LAG (e.g., `agg-eth 0`) via IXIA capture or tcpdump.\nVerify: `show evpn ethernet-segment` confirms the local ESI Label value; capture on PE2's LAG interface (`agg-eth 0`) shows zero egress frames for the shared-ES BUM stream (split-horizon enforced); the different-ESI BUM stream IS forwarded; `show bgp l2vpn evpn` confirms ESI Label Extended Community is present in received routes per RFC7432bis ch.8.3.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    BUM with shared-ES ESI Label is dropped on PE2's LAG egress (0 frames out); BUM with different ESI Label forwards (>0 frames out); ESI Label Extended Community present in BGP routes.\nFail-on: Shared-ES BUM appears on PE2's LAG egress (loop created), OR different-ESI BUM is dropped, OR ESI Label Extended Community missing from routes.",
+    "req_id": "EVPNS-REQ#180",
+    "sub_category": ""
+  },
   "060d1cc3748821b8": {
     "action_steps": "Setup:  Configure DUT and neighbor PE with matching ES identifier (type 0: 01.02.03.04.05.06.07.08.09) on agg-eth interfaces to shared CE; set 'service-carving highest-random-weight', 'es-waiting-time 3' (default); test both 'load-balancing-mode single-active' (default, verify DF election) and 'load-balancing-mode all-active'.\nAction: Start IXIA bidirectional traffic (1 Gbps, 64-byte frames); shutdown the DF/active PE's agg-eth interface in each mode; monitor BGP Type 4 ES route withdrawal (RFC7432bis §14 mass-withdrawal mechanism).\nVerify: Execute 'show evpn ethernet-segment' (DF role change in single-active, both active in all-active), 'show evpn routes type 4' (mass-withdrawal route present), 'show l2-services forwarding-db' (next-hops updated to surviving PE); measure IXIA packet loss duration.",
     "backend": "cli",
@@ -330,6 +339,15 @@
     "equipment": "DUT + neighbor PE + IXIA traffic gen + power-cycle harness",
     "expectation": "Pass:    DF re-election completes on neighbor PE within es-waiting-time (3 s default); after DUT reboot, DF Election Extended Community (DF Alg field) advertised correctly as highest-random-weight; service-carving configuration intact; traffic loss ≤ (es-waiting-time + BGP convergence) ~5 s total.\nFail-on: service-carving reverts to default after power-cycle; DF Election Extended Community missing or DF Alg field incorrect in recovered type-4 route; no DF elected (traffic blackhole >10 s); split-brain (both PEs forwarding in single-active mode); configuration lost.",
     "req_id": "EVPNS-REQ#120",
+    "sub_category": ""
+  },
+  "076d5815f496e0a8": {
+    "action_steps": "Problem: Single-homing PE must process multihoming routes (Type 4 Ethernet Segment, ESI-tagged Type 2) from all-active peers, enforcing SFS §2.7.9 MUST (overrides RFC7432bis ch.8.7 SHOULD).\nMethod: Configure DUT single-homed, 3rd-party all-active multihomed with ESI; verify capability exchange (L2 Attributes per RFC7432bis §7.11.2, Non-Revertive per RFC9785 §4.3), capture and decode multihoming route NLRIs, and verify forwarding.\nSetup: BGP session from prior test remains up; reconfigure 3rd-party PE with ethernet-segment on agg-eth 0, identifier 0 type0-value, and load-balancing-mode all-active.\nAction: (1) Capture OPEN messages; confirm DUT and 3rd-party negotiate L2VPN-EVPN AFI/SAFI, L2 Attributes Extended Community capability (RFC7432bis §7.11.2), and Non-Revertive capability (RFC9785 §4.3). (2) 3rd-party advertises Type 4 (Ethernet Segment) routes and Type 2 (MAC/IP) routes with non-zero ESI. (3) Capture BGP UPDATEs on PE-PE link; decode NLRI fields (Route Type, ESI value, Ethernet Tag ID) and extended communities byte-for-byte. (4) Verify DUT accepts and installs all multihoming routes. (5) Send bidirectional EVPN traffic via IXIA; measure loss.\nVerify: (1) `show bgp neighbor <3rd-party-ip>` confirms negotiated capabilities include L2 Attributes and Non-Revertive. (2) Captured Type 4 NLRI: Route Type = 4, ESI field matches configured identifier 0 type0-value, IP Address Length correct. (3) Captured Type 2 NLRI: ESI field != 0 (matches Type 4 ESI). (4) `show bgp l2vpn evpn route-type 4` and `route-type 2` list installed routes with correct ESI. (5) No BGP multihoming errors logged; traffic achieves 0% loss.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + 3rd-party PE (Cisco/Juniper) + IXIA",
+    "expectation": "Pass: DUT accepts all Type 4 and ESI-tagged Type 2 routes from multihoming peer despite being single-homed; NLRI fields decode correctly per RFC7432bis ch.8.7; capabilities (L2 Attributes, Non-Revertive) negotiated; routes installed into RIB; bidirectional traffic forwards with zero loss, per SFS §2.7.9 MUST (overrides ch.8.7 SHOULD).\nFail-on: DUT rejects Type 4 or ESI-tagged Type 2 routes, NLRI field mismatch in captured packets, capability negotiation incomplete, BGP multihoming procedure errors logged, or traffic drops when routed through multihoming topology.",
+    "req_id": "EVPNS-REQ#190",
     "sub_category": ""
   },
   "07c0e8346516c659": {
@@ -645,6 +663,15 @@
     "equipment": "DUT + IXIA + neighbor PE",
     "expectation": "Pass:    RT Extended Community in BGP UPDATE encodes 65001:100 per RFC7432bis §7.10.1: Global Admin field = AS number (65001), Local Admin = 0x00000064 (VLAN 100 in lowest 12 bits, upper 20 bits zero).\nFail-on: RT absent from UPDATE, Global Admin ≠ 65001, Local Admin ≠ 0x00000064, or any bit in positions [31:12] of Local Admin non-zero.",
     "req_id": "RFC7432bis-§7.10.1",
+    "sub_category": ""
+  },
+  "0ebd4cad07a18d30": {
+    "action_steps": "Problem: verify that a statically configured MAC address is advertised via BGP EVPN Type 2 route to remote PEs and installed in their MAC tables.\nMethod: configure a static MAC binding to an AC on PE1, capture the BGP UPDATE on the PE↔PE link, decode the Type 2 NLRI, and inspect PE2's MAC table for the entry.\nSetup: EVPN instance and ACs operational from prior test.\nAction: On PE1 navigate to `configuration / l2-services / evpn <evpn-name>`, issue `mac-address-static <mac-address> interface <interface>` (e.g., `mac-address-static 00:11:22:33:44:55 interface agg-eth 0`), commit. Capture BGP packets on PE↔PE link during and after commit.\nVerify: `show bgp l2vpn evpn` on PE1 shows Type 2 route for the static MAC; wireshark decode of captured UPDATE shows the MAC address in Type 2 NLRI; `show evpn mac address-table` on PE2 displays the MAC with correct interface binding.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: PE1 advertises BGP EVPN Type 2 route with the configured static MAC in NLRI; PE2 installs the MAC in its table; interface binding matches PE1 configuration.\nFail-on: No Type 2 route advertised for the static MAC, or BGP UPDATE does not contain the MAC in NLRI, or PE2 MAC table does not show the entry.",
+    "req_id": "EVPNS-REQ#80",
     "sub_category": ""
   },
   "0f027c59260fe53c": {
@@ -1223,6 +1250,15 @@
     "req_id": "EVPNS-REQ#120",
     "sub_category": ""
   },
+  "1baaf25b15ea2d21": {
+    "action_steps": "Problem: Validate that MAC Mobility is operationally supported with fast convergence and sticky MAC detection when a host moves between ethernet-segments.\nMethod: Move a host between PEs' ethernet-segments, measure FIB convergence time, verify MAC Mobility extended community sequence incrementation, and test sticky-MAC detection behavior.\nSetup: PE1 agg-eth 0 and PE2 agg-eth 0 configured as ethernet-segments; base EVI operational per FLOW-040.\nAction: Move H1 from PE1 agg-eth 0 to PE2 agg-eth 0; H1 transmits frames; capture PE2's BGP UPDATE containing Type 2 route; timestamp FIB update on remote PE; move H1 back to PE1 rapidly to observe sticky-MAC detection per RFC7432bis ch.15.\nVerify: `show evpn mac address-table` on remote PE updates to PE2 next-hop promptly; `show bgp l2vpn evpn` shows Type 2 route with MAC Mobility extended community and incremented sequence number (N+1 if previous was N); rapid move triggers sticky-MAC detection behavior; old route withdrawn.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: MAC table updates promptly to PE2; MAC Mobility EC present with sequence N+1; PE1's old route withdrawn; rapid bounce triggers sticky-MAC detection.\nFail-on: MAC table stale with PE1 next-hop, missing MAC Mobility EC, sequence number not incremented, old route persists, or sticky-MAC detection fails.",
+    "req_id": "EVPNS-REQ#160",
+    "sub_category": ""
+  },
   "1c8c0176b15f6b5e": {
     "action_steps": "Setup:  Configure `agg-eth 0` under configuration / interface.\nAction: Under `configuration / interface / agg-eth 0`, issue `lacp-key 500`, commit, save running-config; then issue `no lacp-key`, commit, save running-config again.\nVerify: First `show running-config interface agg-eth 0` displays `lacp-key 500`; second capture shows either no lacp-key line (default applies) or explicit value matching the interface number (0).",
     "backend": "cli",
@@ -1556,6 +1592,15 @@
     "req_id": "EVPNS-REQ#110",
     "sub_category": ""
   },
+  "22ff7478ef66fe3c": {
+    "action_steps": "Problem: Standard BGP policy commands (allow-as-in, route-reflector-client, maximum-prefix, private-as, weight, inbound-soft-reconfiguration, capability, group) must function correctly when configured in the af-l2vpn evpn address-family context, not just in the base BGP context.\nMethod: Configure multiple BGP common commands in the af-l2vpn evpn address-family and verify both CLI acceptance and functional enforcement through maximum-prefix limit testing.\nSetup: EVPN service and PE1↔PE2 BGP session established per FLOW-010; af-l2vpn evpn address-family active.\nAction: On PE1, enter configuration mode and navigate to the BGP neighbor configuration for PE2 under af-l2vpn evpn address-family; configure maximum-prefix with limit 50, route-reflector-client, weight 200, allow-as-in, and inbound-soft-reconfiguration; commit. From PE2, advertise 60 EVPN Type-2 MAC/IP routes to exceed the configured 50-route limit.\nVerify: show running-config for the BGP neighbor section confirms all configured commands appear under the af-l2vpn evpn stanza; show bgp l2vpn evpn summary initially shows neighbor Established, then transitions to Idle or Active state when the 51st route arrives; system log contains a maximum-prefix violation message.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + neighbor PE",
+    "expectation": "Pass: All BGP common commands configure without CLI error, persist in running-config under the af-l2vpn evpn address-family, and the maximum-prefix limit correctly tears down the BGP session when the 51st route is received; log entry confirms prefix-limit enforcement.\nFail-on: CLI rejects any of the commands as invalid in af-l2vpn evpn context, OR commands configure but do not appear in running-config, OR BGP session remains Established after receiving more than 50 routes (limit not enforced).",
+    "req_id": "EVPNS-REQ#20",
+    "sub_category": ""
+  },
   "23428f8dce50eda1": {
     "action_steps": "Setup:  Configure EVPN instance on DUT (ingress PE) and two neighbor PEs (PE2, PE3) multihomed to same CE with ESI 01:11:11:11:11:11:11:11:11:11; PE2 elected DF, PE3 non-DF for VLAN 100; enable `unknown-mac-flooding enable` on all PEs; verify PE3 advertises ESI label in BGP EVPN Route Type 1 (via `show bgp l2vpn evpn` on DUT).\nAction: From IXIA attached to remote site on DUT, send broadcast ARP request (dest MAC FF:FF:FF:FF:FF:FF) into VLAN 100; capture MPLS-encapsulated packets egressing DUT toward PE3 (non-DF).\nVerify: Decode captured MPLS packet; confirm label stack contains ESI label advertised by PE3 (position: after VPN label, before Ethernet payload per RFC7432bis §8.3.1.1); check `show l2-services evpn statistics` on DUT for BUM replication counter increment.",
     "backend": "cli",
@@ -1745,6 +1790,15 @@
     "req_id": "RFC7432bis-§8.5",
     "sub_category": ""
   },
+  "25accddc90c48abf": {
+    "action_steps": "Problem: Verify that the device forwards known-unicast traffic correctly per RFC7432bis ch.13 when MAC addresses are learned via EVPN.\nMethod: Send unicast frames to learned MAC addresses and confirm point-to-point forwarding without flooding.\nSetup: `advertise-mac enable` confirmed (default); remote MACs learned via Type 2 routes.\nAction: From PE1's access port, send a unicast frame destined to a MAC address learned from PE2, then send a unicast frame destined to a MAC address learned from PE3.\nVerify: Each unicast frame is forwarded only to the PE that advertised the destination MAC (capture confirms no flooding); `show mac address-table` and `show bgp l2vpn evpn` confirm Type 2 route presence and forwarding state.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: Each known-unicast frame is forwarded point-to-point to the correct egress PE based on learned Type 2 routes; no flooding to other PEs.\nFail-on: Unicast frame flooded to multiple PEs, or dropped, or forwarded to wrong PE.",
+    "req_id": "EVPNS-REQ#210",
+    "sub_category": ""
+  },
   "25b69b57660ce190": {
     "action_steps": "Setup:  Configure EVPN instance `evpn-svc1` with service-type vlan-based. Attach interface GigabitEthernet0/0/1 to evpn-svc1.\nAction: In mode `configuration / l2-services / evpn evpn-svc1`, issue `mac-address-static 00:11:22:33:44:55 interface GigabitEthernet0/0/1`. Commit the configuration.\nVerify: `show running-config l2-services evpn evpn-svc1` contains the static MAC entry; `show evpn mac-address-table evpn-svc1` shows MAC 00:11:22:33:44:55 with Type=Static, Interface=GigabitEthernet0/0/1.",
     "backend": "cli",
@@ -1788,6 +1842,15 @@
     "equipment": "DUT + IXIA + neighbor PE",
     "expectation": "Pass:    Type 4 route contains ES-Import RT EC derived from ESI's first 6 octets per RFC7432bis-§7.6; Type 1 route advertised only from DF; DF election converges.\nFail-on: ES-Import RT missing, malformed, or does not match ESI's high-order 6 octets; Type 4 route incomplete; DF election fails to converge.",
     "req_id": "EVPNS-REQ#250",
+    "sub_category": ""
+  },
+  "26aaa20869926373": {
+    "action_steps": "Problem: Port-based EVPN configured on a LAG must accept all traffic regardless of VLAN tags, forwarding frames from the LAG within a single service instance without VLAN-based filtering.\nMethod: Bind LAG `agg-lag 1` to a port-based EVI, send mixed-tag traffic (untagged + multiple VLANs) through the LAG, verify all frames forward to the remote PE with the same service label.\nSetup: Base PE-to-PE MPLS/BGP topology and port-based EVI already established; for this test, LAG `agg-lag 1` will be bound as the access interface.\nAction:\n1. On PE1: bind LAG `agg-lag 1` to the port-based EVI as the access interface; commit.\n2. IXIA connected to `agg-lag 1` sends 1000 frames: 334 untagged, 333 VLAN 10 tagged (802.1Q), 333 VLAN 20 tagged.\n3. Capture egress frames at PE2's access port and monitor BGP EVPN advertisements.\nVerify:\n1. `show evpn evi` confirms `agg-lag 1` is bound as the access interface.\n2. All 1000 ingress frames forwarded to PE2's egress access port (no VLAN-based drops).\n3. `show bgp l2vpn evpn` shows a single MPLS service label value used for MAC routes learned from all three traffic types.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: All 1000 frames (untagged + both VLANs) forwarded to remote PE; single service label used for all MAC routes; no VLAN filtering.\nFail-on: Any frames dropped due to VLAN type; multiple service labels per VLAN; VLAN-based steering at the access interface.",
+    "req_id": "EVPNS-REQ#60",
     "sub_category": ""
   },
   "2714f4136e6bb2f1": {
@@ -1961,6 +2024,15 @@
     "req_id": "EVPNS-REQ#270",
     "sub_category": ""
   },
+  "2a53adef4b7d540d": {
+    "action_steps": "Problem: validate that route resolution for non-reserved ESI segments correctly requires both MAC/IP Advertisement and Ethernet A-D per ES routes before installing forwarding state, and remains stable under prolonged PE-to-CE failures.\nMethod: 24-hour test with hourly PE-to-CE link flaps, monitoring route installation timing and memory growth.\nSetup: Multi-homed EVPN topology with non-reserved ESI established; memory baseline recorded; IXIA steady traffic.\nAction: Hourly: flap `agg-eth 0` (shutdown/no shutdown, 30 seconds down); verify route resolution via `show evpn ethernet-segment`, `show evpn mac`, `show bgp l2vpn evpn` (non-reserved ESI MAC entries must appear only after both MAC/IP Advertisement and Ethernet A-D per ES routes received); sample `show platform process memory` and `show alarms`.\nVerify: Route resolution correct per RFC7432bis §9.2.2 throughout 24 h (non-reserved ESI: both routes required); memory growth ≤ 5%; traffic recovers ≤ 3 seconds (`es-waiting-time` default); no stale MAC entries; zero unexpected alarms.",
+    "backend": "cli",
+    "category": "Long run",
+    "equipment": "DUT + IXIA continuous traffic (≥ 24 h)",
+    "expectation": "Pass:    Non-reserved ESI MAC forwarding installed only when both route types present (RFC7432bis §9.2.2) throughout 24 h; memory growth ≤ 5%; traffic recovers ≤ 3 seconds; no stale entries; zero unexpected alarms.\nFail-on: Non-reserved ESI MAC installed from MAC/IP Advertisement alone before Ethernet A-D per ES route received (violates MUST), or memory growth > 5%, or traffic loss > 3 seconds, or stale entries, or any unexpected alarm.",
+    "req_id": "RFC7432bis-§9.2.2",
+    "sub_category": ""
+  },
   "2a56dfb0efe9738d": {
     "action_steps": "Setup:  DUT and neighbor PE both connected to IXIA port emulating multi-homed CE; configure identical ESI (e.g., 00:11:22:33:44:55:66:77:88:99) on `agg-eth` interfaces on both PEs; configure EVPN instance with 10 VLAN-based services (VLANs 100–109) active on the ES.\nAction: On DUT, enter `configuration / interface / agg-eth <id> / ethernet-segment` and issue `service-carving highest-random-weight`. On neighbor PE, use `service-carving default`. Commit both. Bring up BGP EVPN peering and verify ES is multi-homed (Type-4 routes exchanged).\nVerify: `show running-config interface agg-eth <id> ethernet-segment` confirms `service-carving highest-random-weight` persists. `show evpn ethernet-segment detail` displays per-VLAN DF election results. Compare DF assignment across VLANs 100–109 on DUT vs neighbor PE.",
     "backend": "cli",
@@ -2051,6 +2123,15 @@
     "req_id": "EVPNS-REQ#50",
     "sub_category": ""
   },
+  "2ddc771775b1c310": {
+    "action_steps": "Problem: Incorrect ES-Import RT EC value (not matching ESI's first 6 octets) in Type 1/4 routes would break multi-homing route filtering per RFC7432bis §7.6.\nMethod: Capture PE-PE BGP UPDATEs, decode Type 1 and Type 4 NLRI Extended Communities, and verify ES-Import RT EC value equals the configured ESI's high-order 6 octets.\nSetup: ES configured on both PEs under `ethernet-segment` from prior test; BGP `af-l2vpn evpn` established between PEs.\nAction: Capture BGP UPDATEs on PE-PE link (tcpdump or IXIA); decode MP_REACH_NLRI for AFI/SAFI 25/70 Route Type 1 (per-ES A-D) and Route Type 4 (ES route per RFC7432bis §7.4, §8.1.1); extract Extended Communities Path Attribute from each; identify ES-Import RT EC (Type 0x02 Sub-Type 0x02 per RFC7432bis §7.6); extract the 6-octet value field; compare against first 6 octets of the ESI configured under `ethernet-segment`.\nVerify: ES-Import RT EC present in both Type 1 and Type 4 routes; EC 6-octet value matches first 6 octets of ESI byte-for-byte; routes installed in both PEs (`show bgp l2vpn evpn route-type 1`, `show bgp l2vpn evpn route-type 4`); DF election converges.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: Type 1 and Type 4 routes carry ES-Import RT EC; EC value equals ESI high-order 6 octets; routes accepted by both PEs; DF converges.\nFail-on: ES-Import RT EC missing from Type 1 or Type 4, OR EC value mismatches ESI first 6 octets, OR routes rejected, OR DF stuck.",
+    "req_id": "EVPNS-REQ#250",
+    "sub_category": ""
+  },
   "2df9e37788f70ad2": {
     "action_steps": "Setup:  Configure EVPN instance with service-type vlan-aware-bundle spanning multiple VLANs (e.g., VLANs 10, 20, 30). Configure ethernet-segment on agg-eth 0 on both DUT and neighbor PE; configure auto-discovery with import-rt and export-rt. Confirm DF election completes; record which VLANs DUT is DF for (should reflect modulo using numerically lowest VLAN 10 per RFC7432bis ch.8.5). Start continuous BUM traffic from IXIA to multihomed CE.\nAction: Power-cycle DUT via PDU harness while DF election and BUM traffic forwarding are active.\nVerify: Post-reboot: (1) show running-config confirms evpn service-type vlan-aware-bundle and ethernet-segment configs intact; (2) show evpn commands confirm DF election reconverged with DUT as DF for same VLANs as pre-power-cycle; (3) IXIA verifies BUM traffic forwarding resumes matching pre-power-cycle pattern (no duplicates or blackholes); (4) DF role consistency confirms continued use of numerically lowest VLAN tag in modulo.",
     "backend": "cli",
@@ -2076,6 +2157,15 @@
     "equipment": "DUT + IXIA + neighbor PE",
     "expectation": "Pass:    All four MACs (00:00:00:00:00:01–04) in MAC table as local dynamic entries; data-plane learning per IEEE 802.1D active by default (RFC7432bis §9.1 MUST requirement).\nFail-on: Any source MAC missing from table, entries show origin≠local or type≠dynamic, or explicit local-learning enable command required beyond standard EVPN instance configuration.",
     "req_id": "RFC7432bis-§9.1",
+    "sub_category": ""
+  },
+  "2eac9250dae54e77": {
+    "action_steps": "Problem: Validate that DF election algorithm reconfiguration completes without service disruption in an all-active multi-homed ES, and that Type 4 routes correctly advertise the configured RFC8584 algorithm (SFS extends RFC7432bis-§8.5 Default-only to mandatory support for highest-preference, highest-random-weight per RFC8584).\nMethod: With all-active ES and IXIA traffic established, change `service-carving` from `default` to `highest-preference preference 60000`, verify Type 4 Ethernet Segment Route DF Election Extended Community updates, confirm zero traffic loss, then revert.\nSetup:  All-active ES on agg-eth 0 with Type 1 and Type 4 routes advertised (from prior test), IXIA bidirectional traffic flowing, both PEs using `service-carving default`.\nAction: 1. On PE1: `configure`, `interface agg-eth 0`, `ethernet-segment`, `service-carving highest-preference preference 60000`, `commit`. 2. Capture Type 4 route updates via BGP session monitoring or `tcpdump`. 3. After ≥30s stable, revert: `service-carving default`, `commit`.\nVerify: 1. IXIA reports ≤10 packets loss during each change; capture per-second loss histogram. 2. `show evpn ethernet-segment` confirms highest-preference algorithm within 1s. 3. Type 4 route DF Election Extended Community 'DF Alg' field = Highest Preference after first change, Default after revert (via packet capture). 4. `show configuration interface agg-eth 0` matches committed value; Type 1 and Type 4 routes remain active. 5. After revert, configuration and traffic match original baseline.",
+    "backend": "cli",
+    "category": "On The Fly changes",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    DF algorithm change applies hitlessly (≤10 packets loss), Type 4 route DF Election Extended Community correctly advertises configured algorithm per RFC8584 (extends RFC7432bis-§8.5 Default-only), all-active mode continues, revert clean.\nFail-on: Traffic loss >10 packets, DF Election Extended Community not updated in Type 4 route, device falls back to Default when both PEs advertise matching highest-preference, Type 1/4 routes withdrawn, or configuration drift after revert.",
+    "req_id": "EVPNS-REQ#120",
     "sub_category": ""
   },
   "2f8d5e11e3b7d060": {
@@ -2267,6 +2357,15 @@
     "req_id": "EVPNS-REQ#20",
     "sub_category": ""
   },
+  "3469d397cbcac979": {
+    "action_steps": "Problem: Verify DF election state (DF Election Extended Community per RFC8584-§3 and §4) survives BGP reset without falling back to RFC7432bis-§8.5 Default-only base.\nMethod: Reset BGP process on one PE in an all-active ES during active IXIA traffic, verify type 4 routes re-advertise with correct DF Election Extended Community and DF election reconverges.\nSetup: All-active ES established from earlier in FLOW-020 with `service-carving` configured to a non-default algorithm; IXIA generating bidirectional traffic.\nAction: Identify BGP process via `show platform process | include bgp`. Reset the process. Monitor IXIA loss and capture `show evpn ethernet-segment`, `show bgp l2vpn evpn route-type 4`, and `show bgp l2vpn evpn route-type 1` during recovery.\nVerify: BGP restarts ≤ 5 s. Type 4 routes re-advertised with DF Election Extended Community (per RFC8584-§3 and §4) matching configured `service-carving` algorithm, not falling back to RFC7432bis-§8.5 Default-only base. Type 1 routes include ES-Import RT. `show evpn ethernet-segment` shows DF election converged (DF assigned per EVI) ≤ 30 s. IXIA loss ≤ 1 s.",
+    "backend": "cli",
+    "category": "Robustness",
+    "equipment": "DUT + IXIA + neighbor PE + LACP partner",
+    "expectation": "Pass: BGP restarts ≤ 5 s; type 4 routes include DF Election Extended Community matching configured `service-carving`; type 1 routes include ES-Import RT; DF election converges ≤ 30 s; data-path outage ≤ 1 s.\nFail-on: BGP fails to restart, type 4 routes missing DF Election Extended Community (inappropriate fallback to RFC7432bis-§8.5 base), DF algorithm mismatches `service-carving`, DF election stalled, or outage > 1 s.",
+    "req_id": "EVPNS-REQ#120",
+    "sub_category": ""
+  },
   "347993836d45b4cb": {
     "action_steps": "Setup:  Configure ethernet-segment on six agg-eth interfaces (agg-eth 0 through agg-eth 5), each with a distinct ESI type (0, 1, 2, 3, 4, 5) covering RFC7432bis §7.1 valid range; enable auto-discovery under EVPN/VPLS instance; establish iBGP EVPN session to neighbor PE; IXIA generating continuous bidirectional L2 traffic (1000 flows, 100 Mbps aggregate) distributed across all six segments.\nAction: Sustain steady-state operation for ≥ 24 consecutive hours with continuous traffic injection.\nVerify: `show bgp l2vpn evpn` for six Ethernet A-D routes (one per ESI type); `show running-config interface agg-eth` for configuration stability; `show platform process memory` sampled hourly; `show interface agg-eth <0..5>` for Tx/Rx counters at T=0h, T=12h, T=24h.",
     "backend": "cli",
@@ -2427,6 +2526,15 @@
     "equipment": "DUT + IXIA + neighbor PE",
     "expectation": "Pass:    MACT contains both entries with complete documented structure—VLAN-ID (100), MAC address, ESI, next-hop type (local attachment circuit ifIndex for MAC learned from CE; remote PE IP for MAC learned via BGP EVPN). All frames forwarded correctly without drops.\nFail-on: MACT missing entries, incorrect or missing field values (VLAN-ID, MAC address, ESI, next-hop type/value mismatch), frames dropped/flooded/misforwarded to wrong next hop.",
     "req_id": "EVPNS-REQ#350",
+    "sub_category": ""
+  },
+  "39c703c8ac3f0392": {
+    "action_steps": "Problem: Verify the DUT accepts Ethernet A-D per EVPN Instance routes both with and without L2-Attr Extended Community, preventing route rejection when peering with mixed RFC7432 and RFC7432bis implementations.\nMethod: Configure two neighbor PEs to advertise Type 1 routes — one without L2-Attr (simulating RFC7432 neighbor), one with L2-Attr (simulating RFC7432bis neighbor) — capture both UPDATEs, decode the extended community attributes, and confirm the DUT imports both.\nSetup: EVPN instance and `import-rt` configured per flow base configuration.\nAction: (1) Configure neighbor PE1 to advertise Ethernet A-D per EVPN Instance route (Type 1) for the EVPN instance without L2-Attr extended community. (2) Configure neighbor PE2 to advertise Type 1 route for the same instance including L2-Attr extended community. (3) Capture both BGP UPDATEs using tcpdump on the DUT's peering interfaces (port 179).\nVerify: (1) Decode both UPDATEs: PE1's carries Type 1 NLRI (RD + ESI + Ethernet Tag ID) with no L2-Attr in Path Attributes; PE2's adds L2-Attr extended community. (2) `show bgp l2vpn evpn` confirms both routes imported with matching RD, ESI, Ethernet Tag values. (3) No BGP Notification messages or route rejections logged.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + two neighbor PEs",
+    "expectation": "Pass: Both routes imported successfully; PE1's UPDATE contains no L2-Attr, PE2's contains L2-Attr; `show bgp l2vpn evpn` displays both with correct NLRI fields; no BGP errors.\nFail-on: Either route rejected, L2-Attr incorrectly present in PE1's UPDATE or absent from PE2's, BGP Notification sent, or `show` output incorrect.",
+    "req_id": "EVPNS-REQ#240",
     "sub_category": ""
   },
   "3a0771ddd79b20c5": {
@@ -3320,6 +3428,15 @@
     "req_id": "RFC7432bis-§15.2",
     "sub_category": ""
   },
+  "50b47fe2742eabaa": {
+    "action_steps": "Problem: duplicate MAC addresses on different hosts cause infinite MAC Mobility sequence number increments when the MAC continuously moves between PEs in the same VLAN.\nMethod: configure move-interval and move-count thresholds, simulate duplicate MAC by alternating IXIA traffic with the same source MAC between PE1 and PE2 access ports, verify operator alert and BGP route suppression.\nSetup: EVPN instances established from prior test; configure `host mac-address-duplicate-detection enable move-interval 180 move-count 5 freeze-time 180` on PE1 and PE2.\nAction: IXIA sends frames with source MAC 00:11:22:33:44:55 from PE1 agg-eth 0 (PE1 learns locally); stop PE1 traffic; IXIA sends frames with same source MAC from PE2 agg-eth 0 (PE2 learns locally, move detected); repeat alternation 3 more times to reach 5 total moves within 180 seconds. Capture BGP UPDATEs on PE1↔PE2 link; monitor `show evpn mac address-table` and `show bgp l2vpn evpn` after each move; monitor syslog for alerts.\nVerify: after 5th move within 180 seconds, syslog shows duplicate-MAC operator alert on the detecting PE; `show evpn mac address-table` shows MAC 00:11:22:33:44:55 frozen or marked duplicate on both PEs; `show bgp l2vpn evpn` confirms no new or updated MAC/IP Advertisement routes for that MAC after detection; captured BGP UPDATEs show route advertisements stop after detection; MAC Mobility extended community sequence number stops incrementing; reconfigure with different move-interval and move-count values to verify both M and N are configurable.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE + syslog collector",
+    "expectation": "Pass: PE raises operator alert (syslog) when 5 moves occur within 180 seconds; MAC frozen in local tables; no further BGP MAC/IP Advertisement routes sent or updated for 00:11:22:33:44:55; MAC Mobility sequence number stops incrementing; move-interval and move-count parameters accept different configured values.\nFail-on: no alert after threshold exceeded, or BGP MAC/IP Advertisement routes continue to be sent/updated for the duplicate MAC, or MAC Mobility sequence number keeps incrementing, or move-interval/move-count parameters are not configurable.",
+    "req_id": "RFC7432bis-§15.1",
+    "sub_category": ""
+  },
   "50cee9e146f29f45": {
     "action_steps": "Setup:  Configure agg-eth 0 with member port x-eth 0/0/1; connect to IXIA port configured for LACP emulation. Bring up LACP with default settings and capture the System ID advertised by DUT (should match agg-eth 0 MAC address).\nAction: Enter `configuration / interface / agg-eth 0`; configure `lacp-system-mac 00:11:22:33:44:55`; commit. Verify DUT now advertises 00:11:22:33:44:55 as LACP System ID in LACP PDUs. Issue `no lacp-system-mac`; commit.\nVerify: After first commit, `show running-config interface agg-eth 0` contains `lacp-system-mac 00:11:22:33:44:55`; IXIA receives LACP PDUs with System ID 00:11:22:33:44:55. After `no lacp-system-mac`, running-config no longer shows the command; IXIA receives LACP PDUs with System ID matching agg-eth 0 MAC address (LAG MAC default restored).",
     "backend": "cli",
@@ -3337,6 +3454,15 @@
     "expectation": "Pass:    Both ORF Prefix-List and Route Refresh appear in the Capabilities section of show output; BGP session state is Established.\nFail-on: Either capability is absent from negotiated capabilities, or BGP session is not Established (remains in OpenSent/OpenConfirm/Active/Idle state).",
     "req_id": "CLI:capability",
     "sub_category": "capability"
+  },
+  "50f1304c77dbf304": {
+    "action_steps": "Problem: Validate that primary and backup DF roles are correctly signaled via BGP Type 1 per-EVI A-D routes in single-active mode, enabling remote PEs to perform aliasing.\nMethod: Configure single-active ES with deterministic DF election, capture BGP UPDATE messages during election and forced DF failover, decode the primary/backup signaling extended community per RFC7432bis §8.6, and verify aliasing works.\nSetup: Multi-homed single-active ES topology is established; configure load-balancing-mode single-active and deterministic service-carving on both PEs.\nAction: 1) Configure service-carving highest-preference preference 100 on PE1 and service-carving highest-preference preference 50 on PE2. 2) Capture BGP UPDATE messages on the inter-PE and PE-to-RR sessions. 3) Trigger DF failover by bringing down interface agg-eth 0 on PE1. 4) Drive IXIA traffic from a remote PE toward the multi-homed CE throughout the test.\nVerify: 1) Decode Type 1 per-EVI A-D routes in the captures; confirm PE1 advertises primary DF and PE2 advertises backup DF initially (per RFC7432bis §8.6). 2) After PE1 interface down, verify PE2's Type 1 route updates to primary DF status. 3) Check `show evpn ethernet-segment` and `show bgp l2vpn evpn` for DF role and aliasing next-hops. 4) Confirm IXIA traffic switches to PE2 without loss exceeding es-waiting-time (default 3 s); only one PE forwards at a time.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    Type 1 routes carry correct primary/backup extended community per RFC7432bis §8.6; DF failover completes within 3 s; aliasing works (remote PE can use either PE's next-hop); no dual-active forwarding.\nFail-on: Missing or incorrect primary/backup signaling in Type 1 routes; both PEs forward simultaneously; traffic loss exceeds 3 s; aliasing broken (remote PE cannot reach CE via backup PE).",
+    "req_id": "EVPNS-REQ#130",
+    "sub_category": ""
   },
   "50ff5bcc65b92f4e": {
     "action_steps": "Setup:  Configure ES on DUT interface agg-eth 0 with `identifier 0 <type0-value>` and `load-balancing-mode single-active`. Configure matching ES on neighbor PE interface agg-eth 0. Configure EVI and BD on both PEs. Establish BGP EVPN peering between DUT and neighbor PE.\nAction: Attach CE to DUT agg-eth 0 and learn MAC M1. On neighbor PE (remote PE), verify import of Ethernet A-D per ES route via `show bgp l2vpn evpn` and capture the BGP UPDATE containing the route. Decode the ESI Label extended community in the captured UPDATE and confirm Multihoming redundancy mode field = 1. Send bidirectional traffic from IXIA through CE to MAC M1.\nVerify: On remote PE, issue `show evpn ethernet-segment` and confirm the ES displays single-active mode. Verify MAC M1 is reachable only via DUT (Primary DF). Confirm remote PE does not forward traffic to M1 when DUT's Ethernet A-D per EVI route carries L2-Attr extended community with P bit set. Check that remote PE honors single-active forwarding behavior per RFC7432bis ch.14.1.1.",
@@ -3896,6 +4022,15 @@
     "req_id": "EVPNS-REQ#360",
     "sub_category": ""
   },
+  "5f0fe118d20b36ff": {
+    "action_steps": "Problem: validate that primary/backup DF election state, aliasing, and single-active load-balancing survive a BGP process restart on a multi-homed PE without persistent traffic loss or DF role corruption.\nMethod: record DF state, kill the BGP process while IXIA drives traffic, then verify DF re-election completes within es-waiting-time, Type-4 ES routes (carrying primary/backup info per RFC7432bis §8.6) are re-advertised, and traffic resumes with ≤ 1 s loss.\nSetup: Single-active ES already configured with DF election complete and IXIA background traffic flowing.\nAction: Capture DF role via `show evpn ethernet-segment detail`; kill BGP process (identify via `show platform process | include bgp` then issue platform reset CLI); monitor IXIA loss histogram.\nVerify: BGP restarts ≤ 5 s; DF re-election completes within es-waiting-time + 2 s (via `show evpn ethernet-segment detail`); Type-4 ES routes re-advertised (via `show bgp l2vpn evpn`); IXIA outage ≤ 1 s; DF role preserved.",
+    "backend": "cli",
+    "category": "Robustness",
+    "equipment": "DUT + IXIA + neighbor PE + LACP partner",
+    "expectation": "Pass: BGP restarts ≤ 5 s; DF re-election within es-waiting-time + 2 s; Type-4 routes re-advertised; data-path outage ≤ 1 s; DF state preserved.\nFail-on: BGP restart > 5 s; DF election hangs; Type-4 routes missing; data-path loss > 1 s; DF role changes incorrectly; no auto-recovery.",
+    "req_id": "EVPNS-REQ#130",
+    "sub_category": ""
+  },
   "5f1da3f85815c013": {
     "action_steps": "Setup:  Exaware DUT and Cisco/Juniper PE both configured with `host mac-address-duplicate-detection enable move-interval 180 move-count 5 freeze-time 300`; EVPN instance active with shared RT; IXIA attached to both PEs presenting MAC 00:00:5E:00:53:01.\nAction: IXIA triggers 6 MAC moves (exceeding N=5) within M=180 seconds by alternating ARP/traffic source between DUT-facing and PE-facing ports; each move causes local MAC learning and BGP MAC/IP Advertisement route update.\nVerify: `show l2-services evpn mac-duplication-status` on DUT lists 00:00:5E:00:53:01 as duplicate/frozen; `show log | match duplicate-mac` confirms operator alert logged; `show bgp evpn routes mac 00:00:5E:00:53:01` returns no route (withdrawn); 3rd-party PE CLI (e.g., Cisco `show l2vpn evpn mac dup`) also shows duplication detected; traffic for other MAC addresses continues forwarding.",
     "backend": "cli",
@@ -4155,6 +4290,15 @@
     "equipment": "DUT + two neighbor PEs (PE1, PE2 multi-homed to same ES; PE3 standalone) + IXIA continuous BUM traffic (≥ 24 h)",
     "expectation": "Pass:    ESI label remains in platform label space throughout 24 h; `agg-eth 0` shows zero ingress BUM packets (forwarding entry correctly drops packets with ESI label); BUM traffic continuously delivered to DF PE (with ESI label) and non-ES PE3 (without ESI label); memory usage flat (≤ 5% drift); all replication and receive counters monotonically increase.\nFail-on: ESI label absent from platform label space; any ingress packets on `agg-eth 0` (split-horizon violation); BUM traffic loss or starvation at any remote PE; memory growth > 5%; any counter freeze, decrement, or reset.",
     "req_id": "RFC7432bis-§8.3.1.1",
+    "sub_category": ""
+  },
+  "65cde79c23008db8": {
+    "action_steps": "Problem: Validate that the PE detects MAC duplication when the same MAC address moves between PEs more than move-count times within move-interval seconds, alerts the operator, and stops advertising BGP MAC/IP routes for that MAC per RFC7432bis §15.1 MUST clauses.\nMethod: Configure mac-address-duplicate-detection with specific move-interval and move-count thresholds, trigger rapid MAC moves by alternating a host MAC between two PEs using IXIA traffic, and verify alarm generation, syslog output, and BGP route withdrawal.\nSetup: EVPN service with two PEs established. Configure `host mac-address-duplicate-detection enable move-interval 180 move-count 5 freeze-time 300` on both PEs. Syslog collector configured and reachable.\nAction: Use IXIA to send traffic from MAC M1 via PE1. Move M1 to PE2 by sending traffic from M1 via PE2. Repeat the move between PEs 5 additional times within 180 seconds (total 6 moves, exceeding move-count=5). After the 6th move, run `show alarms` on both PEs, inspect syslog at collector, and run `show bgp l2vpn evpn` for MAC M1 routes.\nVerify: `show alarms` displays MAC duplication alarm for M1 with severity ≥ MAJOR. Syslog entry contains timestamp, severity, facility, MAC M1, and duplication reason. `show bgp l2vpn evpn` shows no MAC/IP Advertisement routes for M1 are being sent or processed. Alarm persists until operator intervention.",
+    "backend": "cli",
+    "category": "Alarms/Logs/Syslog",
+    "equipment": "DUT + IXIA + neighbor PE + syslog collector",
+    "expectation": "Pass:    MAC duplication alarm appears after the 6th move (exceeding move-count=5 within move-interval=180s); syslog entry contains all required fields (timestamp, severity, facility, MAC M1, reason); BGP MAC/IP Advertisement routes for M1 are withdrawn and suppressed until operator clears the condition; alarm persists until operator action.\nFail-on: No alarm after exceeding move-count threshold within move-interval, missing or incomplete syslog entry, BGP continues advertising MAC/IP routes for the duplicate MAC, or alarm clears automatically without operator intervention.",
+    "req_id": "RFC7432bis-§15.1",
     "sub_category": ""
   },
   "65e94f87109bc582": {
@@ -4661,6 +4805,15 @@
     "req_id": "EVPNS-REQ#300",
     "sub_category": ""
   },
+  "70eb3dd108ebb4b2": {
+    "action_steps": "Problem: BGP common commands (route-reflector-client, maximum-prefix, weight, allow-as-in, capability, inbound-soft-reconfiguration, private-as, group) may not be supported in the L2VPN EVPN address-family context.\nMethod: Configure these commands under af-l2vpn evpn neighbor context, trigger route reflection, prefix-limit, path selection, and AS-loop scenarios, and verify expected behaviors.\nSetup: EVPN vlan-based service operational with RD, local and remote MAC learning active, BGP peering to neighbor PE established.\nAction: Under BGP neighbor af-l2vpn evpn configuration, apply route-reflector-client, maximum-prefix (threshold 10), weight (value 200), allow-as-in, inbound-soft-reconfiguration, capability, private-as, and group commands; commit; from neighbor PE advertise EVPN type-2 MAC/IP routes, then additional routes exceeding the prefix limit, then routes containing DUT AS in AS-PATH; drive bidirectional L2 traffic.\nVerify: `show running-config routing bgp` confirms commands present in af-l2vpn evpn context; `show bgp l2vpn evpn` shows routes reflected (if route-reflector-client), prefix count increments, weight influences best-path; BGP session tears down when maximum-prefix exceeded; routes with local AS accepted only if allow-as-in enabled; `show bgp l2vpn evpn neighbors` confirms capabilities negotiated and soft-reconfiguration active; L2 traffic forwards; `show evpn mac address-table` shows learned MACs.",
+    "backend": "cli",
+    "category": "PM",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: All eight BGP commands accepted in af-l2vpn evpn context; route-reflector-client reflects routes; maximum-prefix enforces limit and tears down session on violation; weight influences path selection; allow-as-in permits AS-loop routes; capability negotiated; inbound-soft-reconfiguration active; private-as and group accepted.\nFail-on: Any command rejected in af-l2vpn evpn; route-reflector-client configured but routes not reflected; maximum-prefix exceeded but session remains up; weight has no effect on path selection; allow-as-in enabled but AS-loop routes rejected.",
+    "req_id": "EVPNS-REQ#20",
+    "sub_category": ""
+  },
   "7129f75e7b4b6abc": {
     "action_steps": "Setup:  Configure EVPN instance (evpn evpn-name with auto-discovery, import-rt/export-rt). Configure agg-eth 0 with ethernet-segment (ESI ≠ 0, 10-octet value). Establish multi-homing with neighbor PE sharing same ESI. Start bidirectional traffic from IXIA through multi-homed segment.\nAction: Execute shutdown on agg-eth 0, wait 5 seconds, then no shutdown to trigger mass-withdrawal and re-advertisement of Ethernet A-D per EVI routes.\nVerify: Capture BGP updates showing Route Type 1 withdrawal with matching 10-octet ESI, then re-advertisement. Validate advertised RD matches DUT configuration, Next Hop equals DUT PE address (IPv4 or IPv6). Measure traffic loss via IXIA counters.",
     "backend": "cli",
@@ -4785,6 +4938,15 @@
     "equipment": "DUT + ONIE image server + IXIA traffic gen + neighbor PE",
     "expectation": "Pass:    EVPN vlan-bundle config with VLANs 100, 200 preserved in running-config; post-upgrade VLAN 100/200 traffic forwarded (≥ 99% delivery to neighbor PE); VLAN 300 frames dropped at DUT ingress (0 frames reach neighbor PE, DUT drop counter matches IXIA VLAN 300 tx count ± 1%).\nFail-on: Config lost or requires manual re-entry; VLAN 300 frames forwarded post-upgrade (any VLAN 300 frames received at neighbor PE); EVPN instance fails to reach operational state; running-config replay produces errors; drop behavior regressed (VLAN 300 not dropped).",
     "req_id": "EVPNS-REQ#40",
+    "sub_category": ""
+  },
+  "7408ec551f15d4b1": {
+    "action_steps": "Problem: Validate that aliasing (RFC7432bis ch.8.4) allows a remote PE to learn multiple paths to the same Ethernet Segment from different PEs and correctly fail over when the primary path is withdrawn.\nMethod: With a multi-homed CE already configured, verify the remote PE learns aliased routes from both PEs, selects a best path, and switches to the backup path upon primary PE failure.\nSetup: Multi-homed CE with ethernet-segment configured on PE1 and PE2 (from prior row).\nAction: 1) On PE3, run show bgp l2vpn evpn and confirm multiple paths exist for the multi-homed MAC with different next-hops (PE1 and PE2). 2) Send known-unicast traffic from PE3 to the multi-homed MAC; verify it uses one PE. 3) Capture BGP UPDATEs on PE3. 4) Shut down ethernet-segment on the active PE or disable the PE. 5) Observe traffic failover and measure convergence.\nVerify: show bgp l2vpn evpn on PE3 displays ≥2 paths (same ESI, different next-hop) before shutdown; show evpn ethernet-segment confirms ES is multi-homed; traffic flows via one path; after shutdown, traffic switches to backup within es-waiting-time (default 3 seconds); captured updates show route withdrawal and convergence; no packet duplication.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: PE3 learns aliased routes (≥2 paths to same ESI via different PEs) per RFC7432bis ch.8.4; best path is selected and carries traffic; upon primary failure, backup path takes over within ≤ 3 seconds; no duplicate frames.\nFail-on: PE3 learns only one path when both PEs advertise; no automatic failover to backup; convergence time > 3 seconds; duplicate frames or prolonged black-hole during switchover.",
+    "req_id": "EVPNS-REQ#140",
     "sub_category": ""
   },
   "7487e5c05eaabf05": {
@@ -5075,6 +5237,15 @@
     "req_id": "EVPNS-REQ#160",
     "sub_category": ""
   },
+  "7a6d51a02aac8dbb": {
+    "action_steps": "Problem: EVPN split-horizon filtering (RFC7432bis §8.3) must remain stable when receiving malformed ESI Label Extended Communities or corrupted ESI labels on a multihomed ES.\nMethod: Inject malformed BGP UPDATEs with corrupted ESI Label Extended Community attributes and BUM frames with invalid ESI labels via IXIA, then verify the DUT rejects them without disrupting split-horizon enforcement.\nSetup:  Multihomed ES topology and EVPN instance established (FLOW-060 base). IXIA configured as neighbor PE for fault injection.\nAction: 1) Inject BGP UPDATE from IXIA containing ESI Label Extended Community with out-of-range label value (> 1048575, exceeding 20-bit MPLS label limit). 2) Inject BGP UPDATE with ESI Label Extended Community having malformed length encoding. 3) Inject BUM Ethernet frame with invalid ESI label in the MPLS stack. 4) Inject BGP UPDATE with ESI Label Extended Community containing reserved bits set.\nVerify: 1) `show bgp evpn summary`: session to IXIA PE remains Established. 2) Error counters incremented: check `show bgp neighbor <ixia-pe-ip>` for UPDATE errors. 3) Split-horizon still functional: MAC addresses learned from the shared ES local interface do not appear in UPDATEs sent back to the IXIA PE. 4) `show log` or syslog captures rejection of each malformed variant.",
+    "backend": "cli",
+    "category": "Malformed/unsupported packets",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    Each malformed variant rejected; BGP session stable; split-horizon filtering functional; error counters +4; syslog entries present.\nFail-on: BGP session drop, malformed packet accepted, split-horizon failure (MAC re-advertised to peer), or DUT crash.",
+    "req_id": "EVPNS-REQ#180",
+    "sub_category": ""
+  },
   "7aad86da4ef56961": {
     "action_steps": "Setup:  Configure all-active ES (ethernet-segment / identifier 0 <9-octet-value> / load-balancing-mode all-active) on DUT and neighbor PE; establish EVI with ingress-replication; DUT is Non-DF, neighbor PE is DF for EVI-1; remote PE not attached to ES; IXIA attached to ES sends BUM traffic into EVI-1.\nAction: Reset DUT control-plane (platform restart evpn-process or equivalent) while IXIA transmits BUM at 1000 pps; wait for ES re-convergence (≤ es-waiting-time default 3 s + BGP route re-advertisement).\nVerify: show evpn ethernet-segment <ES-id> confirms ESI label re-advertised in Ethernet A-D per ES route; capture BUM packet from DUT to DF neighbor PE contains DF's ESI label in MPLS stack; capture BUM to remote non-ES PE has no ESI label; DF's MPLS forwarding drops ESI-labeled BUM (IXIA RX counter = 0 looped frames).",
     "backend": "cli",
@@ -5110,6 +5281,15 @@
     "expectation": "Pass:    es-waiting-time accepts non-default configuration and `no` form cleanly restores 3-second default.\nFail-on: Configuration rejected, value missing from running-config, or `no` form fails to remove explicit config and restore default.",
     "req_id": "CLI:es-waiting-time",
     "sub_category": "es-waiting-time"
+  },
+  "7b10f65983f3b888": {
+    "action_steps": "Problem: Validate that aliasing (RFC7432bis §8.4) enables continued CE connectivity when one PE's EVPN control-plane process restarts.\nMethod: Kill EVPN process on one multi-homed PE and verify CE traffic continues via the other PE with ≤ 1 s interruption.\nSetup:  Flow's multi-homed ethernet-segment active; IXIA traffic running.\nAction: 1. Verify ethernet-segment on DUT: `show evpn ethernet-segment` shows ESI and load-balancing-mode. 2. Identify EVPN process on DUT: `show platform process`. 3. Kill the EVPN process via platform debug command. 4. Wait for supervisor-initiated restart.\nVerify: 1. Process restarts on DUT ≤ 5 s; `show platform process` shows new PID. 2. CE traffic continues via neighbor PE during DUT restart; IXIA loss histogram shows ≤ 1 s interruption. 3. DUT recovers ≤ 30 s; `show evpn ethernet-segment` shows ESI restored. 4. `show bgp l2vpn evpn` shows MAC/IP routes with ESI on both DUT and neighbor PE (aliasing active).",
+    "backend": "cli",
+    "category": "HA",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    Process restarts ≤ 5 s; CE traffic maintains connectivity; DUT recovers ≤ 30 s; interruption ≤ 1 s; aliasing restored on both PEs.\nFail-on: No restart, restart > 5 s, CE loses connectivity, interruption > 1 s, or ESI missing from routes on either PE.",
+    "req_id": "EVPNS-REQ#140",
+    "sub_category": ""
   },
   "7b1455d62a390cee": {
     "action_steps": "Setup:  Configure two PEs with shared ethernet-segment on agg-eth interface using ESI Type 1 = 01:AA:BB:CC:DD:EE:FF:00:00:01. Enable BGP EVPN peering between PEs (`configuration/routing/bgp/vrf/neighbor → af-l2vpn evpn`). Attach the agg-eth to an EVPN instance.\nAction: Issue `show router bgp routes evpn ethernet-segment detail` on each PE to inspect advertised Type 4 routes. Optionally capture BGP UPDATE packets with Wireshark/tcpdump filtering on AFI=25/SAFI=70.\nVerify: Decode the ES-Import Route Target extended community in the Type 4 route; confirm the 6-octet value = AA:BB:CC:DD:EE:FF (high-order 6 octets of ESI, excluding Type byte and trailing 3 octets).",
@@ -5543,6 +5723,15 @@
     "req_id": "EVPNS-REQ#180",
     "sub_category": ""
   },
+  "869f95d92ef2ba03": {
+    "action_steps": "Problem: Validate that statistics for Route Type 2 MAC/IP advertisements, L2-Attr Extended Community presence detection, learning table entries, and MAC forwarding table are accurately tracked, clearable, and persist correctly across reload.\nMethod: Monitor BGP route counters and MAC learning/forwarding statistics during active Type 2 flow with L2-Attr EC variations; clear counters; verify reset and persistence.\nSetup: Route Type 2 MAC/IP advertisement flow active between DUT and neighbor PE (established in prior test); learning tables and MAC forwarding table populated.\nAction: 1. Baseline: capture `show bgp l2vpn evpn` output (Type 2 route count, L2-Attr Extended Community presence), learning table MAC entry count, MAC forwarding table statistics. 2. Reconfigure neighbor PE to advertise at least one Ethernet A-D per EVPN Instance route without L2-Attr Extended Community. 3. After 60 sec, re-capture statistics; verify Type 2 route counters and L2-Attr EC detection flags reflect the change. 4. Execute clear commands for BGP L2VPN EVPN and MAC table statistics. 5. Confirm counters reset; wait 60 sec with traffic active; verify counters re-increment from baseline. 6. Reload DUT; after bootup, verify counter persistence matches specification.\nVerify: `show bgp l2vpn evpn` reports accurate Type 2 route counts and L2-Attr EC detection status; learning table and MAC forwarding table counters increment monotonically during traffic; clear operations reset counters; persistence after reload per spec.",
+    "backend": "cli",
+    "category": "PM",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: Type 2 route statistics accurately track advertisements; L2-Attr Extended Community presence/absence correctly detected and reported; learning table and MAC forwarding counters increment with traffic; clear commands reset counters to zero or documented baseline; counter persistence across reload matches specification.\nFail-on: Route counter mismatch, L2-Attr EC detection failure, frozen learning or forwarding counters, clear command no-op, or persistence broken.",
+    "req_id": "EVPNS-REQ#240",
+    "sub_category": ""
+  },
   "86c93a29a52d21b1": {
     "action_steps": "Setup:  Configure EVPN instance with ingress replication (not P2MP); PE1 and PE2 exchange IMET routes (type 3) carrying P-tunnel attribute with downstream ingress-replication label; `unknown-mac-flooding enable` on both PEs; local CEs attached.\nAction: Send unknown unicast, broadcast, and multicast traffic from CE1; observe ingress-replication label-switched forwarding to PE2; collect tech-support from DUT (PE1) using vendor-specific command (e.g., `show tech-support evpn` or equivalent).\nVerify: Parse tech-support archive for: `show bgp evpn routes type 3` (IMET with P-tunnel attribute + label), `show l2-services evpn <evi>` (ingress-replication mode), `show mpls forwarding-table` (label → BUM treatment), running-config (`unknown-mac-flooding enable`), syslog entries for BUM replication, and MAC table showing no learned entry for the unknown unicast destination.",
     "backend": "cli",
@@ -5560,6 +5749,15 @@
     "expectation": "Pass:    Default load-balancing mode is `single-active` when `load-balancing-mode` is not explicitly configured. The `no load-balancing-mode` command is accepted and operational mode remains `single-active`.\nFail-on: Default mode is not `single-active`, or `no load-balancing-mode` commit fails with an error, or operational mode changes unexpectedly after the `no` command.",
     "req_id": "CLI:load-balancing-mode",
     "sub_category": "load-balancing-mode"
+  },
+  "889f58b8601917a8": {
+    "action_steps": "Problem: Verify that PEs with mismatched DF election algorithms detect the incompatibility via Type 4 DF Election Extended Community and fall back to Default algorithm per EVPNS-REQ#120.\nMethod: Configure PE1 with highest-preference and PE2 with highest-random-weight on an active all-active ES, exchange Type 4 routes with differing DF Alg values, and confirm both PEs autonomously fall back to Default while maintaining traffic forwarding.\nSetup:  All-active ES with Type 1/4 routes exchanged and DF election completed per FLOW-020 baseline.\nAction: 1. Capture baseline: `show evpn ethernet-segment` on both PEs (record current DF algorithm). 2. On PE1, in `interface agg-eth 0 / ethernet-segment` context: `service-carving highest-preference preference 100`; commit. 3. On PE2, in `interface agg-eth 0 / ethernet-segment` context: `service-carving highest-random-weight`; commit. 4. Start IXIA continuous traffic (1000 pps mixed unicast/BUM) through the ES. 5. Wait 15 seconds for Type 4 route re-advertisement and fallback convergence. 6. Capture `show evpn ethernet-segment` and `show bgp l2vpn evpn route-type 4 detail` on both PEs.\nVerify: `show evpn ethernet-segment` on both PE1 and PE2 reports \"DF Algorithm: Default\" (fallback triggered). `show bgp l2vpn evpn route-type 4 detail` on each PE shows received Type 4 route with different DF Alg value in DF Election Extended Community attribute. DF election completed: one PE is DF, one is non-DF, consistent across both PEs' views. IXIA reports traffic loss < 0.1% during fallback transition.",
+    "backend": "cli",
+    "category": "Feature interaction",
+    "equipment": "DUT + IXIA + neighbor PE + LACP partner",
+    "expectation": "Pass:    Both PEs detect DF algorithm mismatch via Type 4 DF Election Extended Community, fall back to Default algorithm within 10 seconds, re-elect DF deterministically, and forward traffic with < 0.1% loss (satisfies EVPNS-REQ#120 fallback MUST).\nFail-on: Either PE does not fall back to Default (remains on highest-preference or highest-random-weight), or PEs elect different DFs causing split-brain state, or traffic loss exceeds 0.1%.",
+    "req_id": "EVPNS-REQ#120",
+    "sub_category": ""
   },
   "88df5c826acaf662": {
     "action_steps": "Setup:  Two PEs with EVPN instance configured, BGP af-l2vpn evpn peering established. Provision interface x-eth 0/0/1 on both PEs (for Type 0), interface agg-eth 0 (LAG) on both PEs (for Type 1 LACP), and interface x-eth 0/0/2 on PE1 only (for Type 4). Connect all to IXIA as CE with LACP capability.\nAction: Configure ESI Type 0 on x-eth 0/0/1 on both PEs with identical manual 9-octet value; configure ESI Type 1 on agg-eth 0 on both PEs (LACP-derived, IXIA forms LACP with LAG); configure ESI Type 4 on x-eth 0/0/2 on PE1 (single-home, default ESI derivation). Bring up all interfaces. Capture BGP UPDATEs between PEs using tcpdump and data-plane frames on IXIA.\nVerify: `show evpn ethernet-segment` on both PEs confirms Type 0 ESI value matches on both PEs, Type 1 ESI value matches on both PEs, Type 4 ESI present on PE1 only; `show bgp l2vpn evpn` shows ES route for each segment; decode BGP captures to verify ESI Type field (octet 0 = 0x00, 0x01, or 0x04) and value encoding in NLRI.",
@@ -6164,6 +6362,15 @@
     "req_id": "RFC7432bis-§12.2",
     "sub_category": ""
   },
+  "94778ecb6c4609ad": {
+    "action_steps": "Problem: Validate that Type 0 (manual 9-octet), Type 1 (LACP-derived), and Type 4 (single-home default) ESI types encode correctly in BGP ES routes and produce consistent ESI values.\nMethod: Configure each ESI type on appropriate interfaces (multi-homed LAG for Types 0 and 1, single-homed port for Type 4), capture BGP ES route UPDATEs, decode ESI type byte and value from NLRI.\nSetup: Multi-homed `agg-eth 0` and single-homed `x-eth 0/0/1` already configured per flow start.\nAction:\n1. Configure Type 0 ESI with `identifier 0 <type0-value>` on both PEs' `agg-eth 0`, capture BGP ES route, decode ESI type byte 0x00 from NLRI\n2. Reconfigure to Type 1 with `identifier 1`, capture BGP UPDATE, decode ESI type byte 0x01 and LACP-derived ESI value\n3. Configure single-homed `x-eth 0/0/1` with Type 4 (no identifier command), capture BGP ES route, decode ESI type byte 0x04\n4. Compare decoded ESI values: Types 0 and 1 must match between both PEs\nVerify: `show evpn ethernet-segment` displays matching ESI for Types 0 and 1 on both PEs, Type 4 ESI on owning PE; `show bgp l2vpn evpn` shows ES route for each type; captured NLRI contains correct type byte (0x00/0x01/0x04) and valid ESI encoding",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: Types 0 and 1 produce identical ESI on both PEs, Type 4 produces ESI on owning PE only; all ES routes advertised with correct type byte and properly encoded ESI value in NLRI\nFail-on: ESI mismatch between PEs for Types 0 or 1, missing ES route for any type, or incorrect type byte or malformed ESI encoding in captured NLRI",
+    "req_id": "EVPNS-REQ#110",
+    "sub_category": ""
+  },
   "94ca4788c8b35c96": {
     "action_steps": "Setup:  Create a vlan-based EVPN instance using `evpn <evpn-name> service-type vlan-based` in `configuration / l2-services` mode and enter the EVPN instance sub-mode.\nAction: Execute `host mac-address-duplication-detection` and commit. Verify with `show running-config` filtered to the EVPN instance. Save configuration to startup-config, reboot the DUT, and verify the setting persists after reload. Finally, execute `no host mac-address-duplication-detection`, commit, and verify removal from running config.\nVerify: After initial commit, `show running-config` displays `host mac-address-duplication-detection` within the EVPN instance stanza. After reboot, the same line remains present. After `no` form and commit, the line is absent from running config.",
     "backend": "cli",
@@ -6731,6 +6938,15 @@
     "req_id": "RFC7432bis-§8.5",
     "sub_category": ""
   },
+  "a119240b008baf7f": {
+    "action_steps": "Problem: validate that standard BGP neighbor-level commands (route-reflector-client, maximum-prefix, weight, allow-as-in, inbound-soft-reconfiguration) are accepted and functional when configured under the L2VPN EVPN address-family context.\nMethod: configure five BGP common commands in the `af-l2vpn evpn` neighbor context while EVPN traffic flows, verify acceptance via running-config and BGP neighbor state, then cleanly remove them.\nSetup: FLOW-010 base topology active (PE1–PE2 VLAN-based EVPN); IXIA traffic flowing at 1 Gbps bidirectional.\nAction:\n1. On PE1: enter the `af-l2vpn evpn` address-family context for the BGP neighbor to PE2\n2. Configure `route-reflector-client`, `maximum-prefix 1000`, `weight 100`, `allow-as-in 1`, and `inbound-soft-reconfiguration`; commit\n3. After 30 s, remove all five commands; commit\nVerify:\n1. All commands accepted without syntax error or warning\n2. `show running-config routing bgp` displays the five commands after step 2; absent after step 3\n3. `show bgp l2vpn evpn neighbor` output reflects route-reflector-client status, maximum-prefix 1000, weight 100\n4. IXIA reports zero packet loss during both configuration changes",
+    "backend": "cli",
+    "category": "On The Fly changes",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: All five BGP common commands accepted, visible in running-config and neighbor state, cleanly removable; zero traffic loss during commits\nFail-on: Any command rejected with syntax or semantic error, command missing from running-config, BGP session reset, or packet loss > 0",
+    "req_id": "EVPNS-REQ#20",
+    "sub_category": ""
+  },
   "a188bab2bf11165d": {
     "action_steps": "Setup:  Configure DUT with EVI 100, VNI 10000, bridge-domain BD-100, BGP AS 65000, EVPN peer 192.0.2.2 (neighbor PE), address-family l2vpn evpn activated. Verify BGP session UP. Configure neighbor PE with matching EVI/VNI.\nAction: IXIA sends Ethernet frame (SMAC 00:11:22:33:44:55, VLAN 100) into DUT interface attached to BD-100. DUT learns MAC, generates Type 2 (MAC/IP Advertisement) route per RFC7432bis §7.2, and advertises to neighbor PE.\nVerify: DUT: show bgp l2vpn evpn route-type 2 | include 00:11:22:33:44:55 (confirm route exists with VNI 10000 label). Neighbor PE: show bgp l2vpn evpn received-routes neighbor <DUT-IP> (confirm Type 2 NLRI with Route Distinguisher, 10-byte ESI, Ethernet Tag=0, MAC, VNI label).",
     "backend": "cli",
@@ -6911,6 +7127,15 @@
     "req_id": "RFC9785-§3",
     "sub_category": ""
   },
+  "a55fa30f4a58d307": {
+    "action_steps": "Problem: Validate that when multiple vlan-aware-bundle instances share a physical port, each instance correctly filters ingress BUM frames, dropping those with VLAN-IDs outside its configured range while allowing its member VLANs.\nMethod: Configure two vlan-aware-bundle instances on the same port (evpn1 for VLANs 100-103, evpn2 for VLANs 200-203), send broadcast frames with VLAN tags 100, 200, and 300, and verify via MAC table inspection and remote PE packet captures that each instance processes only its own VLANs while dropping non-members and orphan VLANs.\nSetup: vlan-aware-bundle evpn1 (VLANs 100-103) is already established; add a second vlan-aware-bundle evpn2 (VLANs 200-203) on the same physical port x-eth 0/0/1.\nAction: Configure `evpn evpn2 service-type vlan-aware-bundle` on PE1, bind VLANs 200-203 to evpn2, assign to x-eth 0/0/1, configure route-targets, and commit. From IXIA connected to x-eth 0/0/1, send broadcast frames (destination MAC FF:FF:FF:FF:FF:FF) with VLAN 100 (10 Mbps), VLAN 200 (10 Mbps), and VLAN 300 (10 Mbps) for 30 seconds.\nVerify: `show evpn mac evpn1` confirms MAC learning only for VLAN 100; `show evpn mac evpn2` confirms MAC learning only for VLAN 200; `show interface x-eth 0/0/1 counters` shows ingress drops for VLAN 300 frames; packet captures on remote PEs confirm evpn1's peer receives only VLAN 100, evpn2's peer receives only VLAN 200, neither receives VLAN 300.",
+    "backend": "cli",
+    "category": "Feature interaction",
+    "equipment": "DUT + IXIA + two neighbor PEs (one per EVPN instance to verify isolation)",
+    "expectation": "Pass: evpn1 processes only VLAN 100 frames; evpn2 processes only VLAN 200 frames; VLAN 300 frames are dropped at ingress; ingress drop counters increment by the number of VLAN 300 frames sent; remote PEs receive only their respective instance's VLANs; no cross-contamination in MAC tables.\nFail-on: Either instance processes a non-member VLAN, VLAN 300 frames reach any remote PE, MAC addresses from VLAN 100 appear in evpn2's MAC table or vice versa, or VLAN 300 MAC addresses appear in either instance's table.",
+    "req_id": "EVPNS-REQ#50",
+    "sub_category": ""
+  },
   "a5b9329b1949ac2d": {
     "action_steps": "Setup:  Configure agg-eth 1 interface; configure lacp-key to a non-default value (e.g., 100, different from interface number 1); commit and verify the configured key is active.\nAction: Issue `no lacp-key` under agg-eth 1 interface configuration mode; commit.\nVerify: `show running-config` shows no explicit lacp-key statement for agg-eth 1; LACP operational state (`show lacp`) shows administrative key equals 1 (the interface number, per documented default).",
     "backend": "cli",
@@ -6947,6 +7172,15 @@
     "req_id": "RFC7432bis-§7.4",
     "sub_category": ""
   },
+  "a63ee22922c73e83": {
+    "action_steps": "Problem: Validate that the vlan-bundle service-type drops ingress frames with VLAN-IDs not in the configured bundle to prevent VLAN leakage and enforce isolation.\nMethod: Send tagged traffic on both bundle VLANs and non-bundle VLANs, inspecting MAC learning and drop counters to confirm selective acceptance.\nSetup: The vlan-bundle EVI from the prior test binds VLANs 200-203 to the service on `x-eth 0/0/1`.\nAction: From IXIA connected to `x-eth 0/0/1`, send 100 Mbps broadcast with VLAN 201 (in bundle) for 10 seconds, then 100 Mbps broadcast with VLAN 999 (not in bundle) for 10 seconds. Capture `show evpn evi <evi-name> mac-table`, `show interface x-eth 0/0/1 statistics`, and remote PE receive counters before and after each stream.\nVerify: VLAN 201 traffic: MAC learned in `show evpn evi <evi-name> mac-table`, egress counters increased on remote PE. VLAN 999 traffic: no MAC learned, ingress drop counter increased on `x-eth 0/0/1`, zero frames received at remote PE.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    VLAN 201 frames forwarded through the EVI (MAC learned, remote PE receives frames and shows egress counter increase). VLAN 999 frames dropped at ingress (drop counter on `x-eth 0/0/1` increments, no MAC entry created, zero egress frames).\nFail-on: VLAN 999 frames are forwarded (MAC learned in the EVI or remote PE receives any frames), or VLAN 201 frames are incorrectly dropped (no MAC learning or zero egress).",
+    "req_id": "EVPNS-REQ#40",
+    "sub_category": ""
+  },
   "a64af137343b5927": {
     "action_steps": "Setup:  Configure agg-eth 0 interface; verify no explicit lacp-key configuration present via show running-config; default LACP administrative key equals interface number (0).\nAction: Enter configuration mode for agg-eth 0, configure lacp-key with value 100, commit. Then issue no lacp-key, commit again.\nVerify: show running-config after first commit displays lacp-key 100 under agg-eth 0; after second commit (no lacp-key), explicit config is removed and key reverts to default.",
     "backend": "cli",
@@ -6972,6 +7206,33 @@
     "equipment": "DUT + IXIA traffic gen",
     "expectation": "Pass:    Exactly six ES routes (ESI type 0x00–0x05) present in 'show bgp l2vpn evpn route-type 4' output with best-path installed; three routes (type 0x06, 0x07, 0xFF) absent from RIB and syslog shows NOTIFICATION or warning 'ESI type out of range [0-5]'.\nFail-on: Any ES route with ESI type byte ≥0x06 installed in EVPN RIB, or any route with type byte 0x00–0x05 rejected/missing from RIB.",
     "req_id": "RFC7432bis-§7.4",
+    "sub_category": ""
+  },
+  "a6ff6ff47914b930": {
+    "action_steps": "Problem: Validate that DF election state with non-default algorithm (HRW) survives control-plane process failure and reconverges correctly in all-active multi-homing.\nMethod: Configure all-active ES with `service-carving highest-random-weight`, kill the EVPN control-plane process on one PE, verify it re-advertises ES Route (4) with DF Election Extended Community and ES-Import RT, Ethernet A-D Route (1), and DF assignments reconverge.\nSetup: All-active ES with `service-carving highest-random-weight` established on both PEs per prior row; IXIA traffic active.\nAction:\n  1. Record baseline DF state: `show evpn ethernet-segment` on both PEs\n  2. Kill EVPN control-plane process on PE1: identify PID via `show platform process`, kill via platform debug command\n  3. Monitor process restart, BGP route re-advertisement, and DF reconvergence\nVerify:\n  1. Process restarts ≤ 5 s with new PID (`show platform process`)\n  2. ES Route (4) re-advertised with DF Election Extended Community showing HRW (RFC8584 §3) and ES-Import RT (RFC7432bis-§7.6)\n  3. Ethernet A-D per ES Route (1) re-advertised (EVPNS-REQ#260)\n  4. DF assignments reconverge ≤ 30 s; `show evpn ethernet-segment` shows stable DF/NDF roles for all VLANs\n  5. IXIA traffic resumes with interruption ≤ 1 s",
+    "backend": "cli",
+    "category": "HA",
+    "equipment": "DUT + IXIA + neighbor PE + LACP partner",
+    "expectation": "Pass:    Process restarts ≤ 5 s; ES Route (4) includes DF Election EC (HRW) and ES-Import RT; Ethernet A-D Route (1) re-advertised; DF state reconverges ≤ 30 s; traffic loss ≤ 1 s.\nFail-on: No restart, restart > 5 s, ES Route (4) missing DF Election EC or reverts to Default (RFC7432bis-§8.5 base) instead of HRW, missing ES-Import RT or Ethernet A-D Route (1), DF state not reconverged > 30 s, or traffic loss > 1 s.",
+    "req_id": "EVPNS-REQ#120",
+    "sub_category": ""
+  },
+  "a72867f361ece2c0": {
+    "action_steps": "Problem: BUM frames arriving with VLAN-IDs outside the configured vlan-aware-bundle must be dropped to prevent mis-delivery.\nMethod: Configure a vlan-aware-bundle with a limited VLAN set, send BUM traffic on both member and non-member VLANs, and verify that only member-VLAN frames are flooded.\n\nSetup: The EVPN topology from the first test is established; reconfigure the service type to vlan-aware-bundle with VLANs 100-103.\n\nAction:\n1. On PE1: configure `evpn <evpn-name> service-type vlan-aware-bundle` and bind VLANs 100-103 to the bundle (per the documented VLAN range syntax); commit.\n2. From IXIA on access-side (e.g., x-eth 0/0/1), send broadcast frames on VLAN 100 (allowed), VLAN 103 (allowed), VLAN 50 (disallowed), and VLAN 200 (disallowed).\n3. Capture traffic on the EVPN core link and monitor interface statistics on PE1 and remote PE.\n\nVerify:\n1. `show evpn evi <evpn-name>` confirms VLANs 100-103 are bound to the bundle.\n2. `show interface x-eth 0/0/1 statistics` shows ingress frames for all VLANs, but egress/forwarding only for VLANs 100 and 103; discard counters increment for VLANs 50 and 200.\n3. IXIA capture on the remote PE's access interface receives broadcast frames only for VLANs 100 and 103; VLANs 50 and 200 are absent.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    BUM frames with VLAN-IDs 100-103 (in-bundle) are flooded to the EVPN domain and appear on the remote PE; frames with VLAN-IDs 50 and 200 (out-of-bundle) are dropped at ingress with zero egress count.\nFail-on: BUM frames from disallowed VLANs (50, 200) are forwarded/flooded to the core or remote PE, or frames from allowed VLANs (100, 103) are incorrectly dropped.",
+    "req_id": "EVPNS-REQ#50",
+    "sub_category": ""
+  },
+  "a7351e6899dad75d": {
+    "action_steps": "Problem: Does the router correctly encode the configured DF election algorithm in Type 4 route advertisements' DF Election Extended Community, and does it enforce fallback to Default when peering PEs advertise conflicting algorithms?\nMethod: Configure mismatched service-carving algorithms on PE1 (highest-random-weight) and PE2 (highest-preference), capture BGP UPDATEs on PE↔PE link, decode Type 4 route Extended Communities to verify DF Alg encoding per RFC8584-§3 and RFC8584-§4, then confirm DF election falls back to Default per RFC7432bis-§8.5.\nSetup:  ES on agg-eth 1 with all-active mode and ESI already configured (FLOW-020 base); service-carving not yet set.\nAction: (1) PE1: `configure` → `interface agg-eth 1` → `ethernet-segment` → `service-carving highest-random-weight` → `commit`. (2) PE2: `configure` → `interface agg-eth 1` → `ethernet-segment` → `service-carving highest-preference preference 50000` → `commit`. (3) Capture BGP UPDATE messages on PE↔PE link (tcpdump / IXIA BGP monitor). (4) Decode Type 4 (Ethernet Segment) routes from each PE: verify DF Election Extended Community is present and carries DF Alg value matching the configured algorithm (highest-random-weight from PE1, highest-preference from PE2) per RFC8584-§3, RFC8584-§4. (5) Decode Type 1 (A-D per ES) routes: verify ESI, Ethernet Tag ID = MAX (0xFFFFFFFF) for all-active per RFC7432bis-§7.4. (6) Verify ES-Import RT extended community in Type 4 routes per RFC7432bis-§7.6. (7) `show evpn ethernet-segment` on both PEs to check DF election state.\nVerify: Type 4 routes from PE1 and PE2 each contain DF Election Extended Community with distinct DF Alg values matching their service-carving configuration; Type 1 routes present with Ethernet Tag MAX; ES-Import RT present in Type 4; `show evpn ethernet-segment` confirms DF election has fallen back to Default algorithm (numerically lowest VLAN modulo N PEs per RFC7432bis-§8.5) despite individual PE preferences, due to algorithm mismatch.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + IXIA + neighbor PE + LACP partner",
+    "expectation": "Pass:    Type 4 routes carry DF Election Extended Community with correct DF Alg values (one for highest-random-weight, one for highest-preference); Type 1 routes present with Ethernet Tag MAX; ES-Import RT present in Type 4; DF election uses Default algorithm due to mismatch; one DF per VLAN per ES; known-unicast load-shared, BUM forwarded only by DF.\nFail-on: DF Election Extended Community missing or DF Alg values incorrect; ES-Import RT missing from Type 4; Type 1 Ethernet Tag not MAX; DF election does NOT fall back to Default (e.g., one PE's preference algorithm takes effect); multiple DFs or zero DFs elected; non-DF forwards BUM; split-brain.",
+    "req_id": "EVPNS-REQ#120",
     "sub_category": ""
   },
   "a737207b58a0a80a": {
@@ -7063,6 +7324,15 @@
     "expectation": "Pass:    Custom LACP System MAC (00:11:22:33:44:55) reflected in running-config, DUT operational state, and neighbor's view; default LAG MAC restored after `no lacp-system-mac`.\nFail-on: Custom System MAC not used in LACP PDUs (neighbor sees different System ID), or default not restored after removal.",
     "req_id": "CLI:lacp-system-mac",
     "sub_category": "lacp-system-mac"
+  },
+  "a976f2dc87f8aee4": {
+    "action_steps": "Problem: Validate that the DUT correctly processes Ethernet A-D per EVI routes with missing or malformed L2-Attr Extended Community, applying RFC7432 §14.1.1 when absent and rejecting malformed attributes without crashing.\nMethod: Inject Ethernet A-D per EVI routes via IXIA with missing L2-Attr Extended Community, truncated length field, invalid flag bits, and oversized attribute, then verify correct processing, error logging, and stability.\nSetup: EVPN instance and BGP af-l2vpn evpn session already established; IXIA primed to inject Ethernet A-D per EVI route variants.\nAction: 1. IXIA injects Ethernet A-D per EVI route without L2-Attr Extended Community. 2. Inject Ethernet A-D per EVI route with L2-Attr Extended Community having length field = 8 but actual data = 4 octets (truncated). 3. Inject Ethernet A-D per EVI route with L2-Attr Extended Community containing reserved flag bits set to 1. 4. Inject Ethernet A-D per EVI route with L2-Attr Extended Community length > 7 octets (oversized).\nVerify: 1. Route without L2-Attr Extended Community is accepted; `show bgp l2vpn evpn` confirms route installation applying RFC7432 §14.1.1 redundancy mode processing. 2. Routes with malformed L2-Attr Extended Community (truncated, invalid flags, oversized) are rejected at BGP UPDATE processing. 3. `show bgp neighbor <IXIA-peer>` displays error counter incremented by 1 for each of the three malformed variants. 4. `show log | include malformed` displays syslog entries for each rejection with structured reason. 5. DUT remains stable; no process restarts visible in `show system processes`.",
+    "backend": "cli",
+    "category": "Malformed/unsupported packets",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass: Route without L2-Attr Extended Community accepted and processed per RFC7432 §14.1.1; three malformed variants rejected; error counters show +3 total (one per malformed variant); syslog entries present for each rejection; no DUT crash or BGP session reset.\nFail-on: DUT crash, malformed route accepted and installed, error counter does not increment for any malformed variant, syslog entry missing for any rejection, or BGP session reset.",
+    "req_id": "EVPNS-REQ#240",
+    "sub_category": ""
   },
   "a9b296f7fbe6e584": {
     "action_steps": "Setup:  DUT running current image with `evpn evpn1 service-type vlan-based` configured, local CE interface in evpn1 with mac-aging-time 300, IXIA generating L2 traffic (5+ unique source MACs) to populate data-plane MAC table; capture MAC count and running-config. ONIE upgrade image staged.\nAction: Execute `onie-install <image-url>` to upgrade to next release. After reboot to new image, verify `show version` confirms new release. Regenerate L2 traffic from IXIA (10 new unique source MACs) to CE-facing interface. Issue `show evpn mac` and verify data-plane learning.\nVerify: `show running-config l2-services evpn evpn1` shows preserved config including mac-aging-time 300. `show evpn mac evpn evpn1` displays new data-plane learned MACs (10 entries, flags indicating data-plane learned, not control-plane or LACP). No MACs learned from LACP source addresses (00:80:c2:00:00:02).",
@@ -7469,6 +7739,15 @@
     "req_id": "EVPNS-REQ#200",
     "sub_category": ""
   },
+  "afa66b91e9aed1f5": {
+    "action_steps": "Problem: Validate that L2-Attr Extended Community presence in Ethernet A-D per EVI routes correctly governs RFC version selection (RFC7432 vs RFC7432bis ch.14.1.1) for subsequent MAC/IP route processing.\nMethod: Configure EVPN instance 100 with two remote PEs (PE2 advertising Ethernet A-D per EVI with L2-Attr, PE3 without), drive MAC learning traffic from CEs, verify DUT applies RFC7432 ch.14.1.1 backward-compatible rules to Route Type 2 exchange.\nSetup: EVPN instance 100 with import-rt and BGP peering to PE2/PE3 already established; CE-A on DUT agg-eth 0, CE-B behind PE2.\nAction: 1. Verify DUT receives Ethernet A-D per EVI routes: PE2 with L2-Attr Extended Community, PE3 without, via `show bgp l2vpn evpn route-type 1 evi 100`. 2. Send traffic from CE-A (MAC 00:00:00:00:00:0A, IP 10.0.0.1) to trigger local MAC learning. 3. Verify DUT advertises Route Type 2 MAC/IP: `show bgp l2vpn evpn route-type 2 mac 00:00:00:00:00:0A`. 4. Receive Route Type 2 from PE2 for CE-B (MAC 00:00:00:00:00:0B, IP 10.0.0.2), verify import. 5. Send unicast frames CE-A → CE-B, capture VXLAN-encapsulated egress toward PE2. 6. Verify bidirectional traffic forwarding for 60 seconds.\nVerify: `show bgp l2vpn evpn route-type 1` shows PE2's route with L2-Attr Extended Community, PE3's without; `show bgp l2vpn evpn route-type 2` shows both CE-A (local) and CE-B (remote) MAC/IP routes; `show l2-services fdb evi 100` lists CE-A with local agg-eth 0 next-hop, CE-B with remote PE2 VXLAN tunnel; traffic forwards bidirectionally CE-A ↔ CE-B with zero loss over 60 seconds; no protocol errors in logs.",
+    "backend": "cli",
+    "category": "Feature interaction",
+    "equipment": "DUT + two neighbor PEs (PE2 RFC7432bis-compliant with L2-Attr, PE3 RFC7432-only without L2-Attr) + IXIA for CE traffic",
+    "expectation": "Pass: DUT detects at least one route (PE3) lacks L2-Attr Extended Community, applies RFC7432 ch.14.1.1 backward-compatible processing, Route Type 2 MAC/IP routes exchanged, FDB populated correctly, traffic forwards.\nFail-on: DUT applies RFC7432bis ch.14.1.1 despite PE3 missing L2-Attr Extended Community, or MAC/IP route exchange fails, or FDB incorrect, or traffic loss > 0.",
+    "req_id": "EVPNS-REQ#240",
+    "sub_category": ""
+  },
   "aff4726632246442": {
     "action_steps": "Setup:  Under configuration / interface / agg-eth / ethernet-segment, configure `es-waiting-time 10` (non-default; default is 3 seconds), commit, and save the running-config.\nAction: Reload the DUT (warm reboot); wait for full boot and ES feature initialization.\nVerify: `show running-config interface agg-eth <id> ethernet-segment` displays `es-waiting-time 10`; then execute `no es-waiting-time` and verify `show running-config` confirms restoration to default (line removed or implicit 3 seconds).",
     "backend": "cli",
@@ -7703,6 +7982,15 @@
     "req_id": "RFC7432bis-§7.1",
     "sub_category": ""
   },
+  "b4bf336e5e078b94": {
+    "action_steps": "Problem: validate that route resolution behavior (ESI-conditional dependency on Ethernet A-D per ES routes) survives control-plane process failure and recovery.\nMethod: kill the EVPN control-plane process on a PE attached to a multi-homed Ethernet Segment, trigger new MAC learning post-recovery, and verify the PE still waits for both MAC/IP Advertisement and Ethernet A-D per ES routes before installing forwarding state for non-reserved ESI MACs.\nSetup: Multi-homed Ethernet Segment with non-reserved ESI (configured via `ethernet-segment` / `identifier 0 <type0-value>` or `identifier 1` on agg-eth interface) already established; IXIA traffic running on the access path.\nAction: Identify the EVPN/BGP control-plane process via `show platform process`; kill it via the documented platform debug command; after supervisor-initiated restart, inject new MAC addresses from the multi-homed CE (IXIA sends frames with fresh source MACs); monitor route arrival via `show bgp l2vpn evpn route-type 1` (Ethernet A-D per ES) and `route-type 2` (MAC/IP Advertisement), and forwarding-state installation via `show evpn mac`.\nVerify: Process restarts within ≤ 5 s; for new MACs with non-reserved ESI, forwarding entries appear in `show evpn mac` only after BOTH route types are received (observable via route timestamps and `es-waiting-time` expiry); if any reserved ESI MACs (ESI 0 or MAX-ESI) are present, they install based on MAC/IP Advertisement route alone without waiting for Ethernet A-D per ES; `show alarms` returns to pre-kill state.",
+    "backend": "cli",
+    "category": "HA",
+    "equipment": "DUT + IXIA + neighbor PE (multi-homed Ethernet Segment topology)",
+    "expectation": "Pass: Process restarts ≤ 5 s; non-reserved ESI MACs install only when both MAC/IP Advertisement and Ethernet A-D per ES routes are present (respecting `es-waiting-time`); reserved ESI MACs install on MAC/IP Advertisement alone; flow recovers ≤ 30 s; data-path interruption ≤ 1 s.\nFail-on: No restart, restart > 5 s, non-reserved ESI MACs install prematurely (before Ethernet A-D per ES route arrives or `es-waiting-time` expires), reserved ESI MACs wait for Ethernet A-D per ES (incorrect behavior), or recovery > 30 s.",
+    "req_id": "RFC7432bis-§9.2.2",
+    "sub_category": ""
+  },
   "b51888bba4a930d0": {
     "action_steps": "Setup:  Configure one EVPN instance with `service-type vlan-based`, single VLAN binding (e.g., VLAN 100), RT import/export, `advertise-mac enable`, and at least one AC. Exercise the EVI through Basic Functionality rows (MAC learning, forwarding). Trigger VID translation if the rig uses different VIDs per PE.\nAction: Collect tech-support including: `show l2-services evpn <name>`, `show l2-services evpn <name> bgp routes`, `show l2-services evpn <name> mac-table`, `show router bgp routes evpn mac`, running-config for the EVI, MPLS forwarding tables, VID translation config (if applicable).\nVerify: Parse tech-support bundle for: EVI config with `service-type vlan-based`, EVPN route advertisements with Ethernet Tag ID = 0 in all Type 2/3 routes (per RFC7432bis §6.1 MUST), single MAC-VRF/bridge table, MPLS label bindings, VID translation entries (if VIDs differ per segment), syslog/alarm entries.",
     "backend": "cli",
@@ -7783,6 +8071,15 @@
     "expectation": "Pass:    'control-word enable' commits without error; running-config shows 'control-word enable'; MPLS packets contain 4-byte control-word. 'no control-word' commits; running-config omits control-word line (default=disable); MPLS packets have no control-word field.\nFail-on: Commit failure on either command, running-config does not reflect command issued, or MPLS packet CW presence/absence contradicts configured state.",
     "req_id": "CLI:control-word (evpn)",
     "sub_category": "control-word (evpn)"
+  },
+  "b6ade4cc80f02aea": {
+    "action_steps": "Problem: Verify that BGP neighbor policy controls (weight, route-reflector-client, allow-as-in, maximum-prefix per EVPNS-REQ#20) operate in the L2VPN EVPN context without disrupting active EVPN service.\nMethod: Apply multiple BGP neighbor policies under `af-l2vpn evpn` context on an active EVPN session with live traffic, and confirm parameters are accepted and enforced with zero service impact.\nSetup: FLOW-010 baseline operational; BGP session established; IXIA traffic active.\nAction:\n1. Enter `configuration routing bgp neighbor <pe2-ip> af-l2vpn evpn` mode\n2. Configure BGP parameters per EVPNS-REQ#20: set weight (to bias local path preference), enable route-reflector-client (if PE1 acts as RR), enable inbound-soft-reconfiguration (store pre-policy routes), set maximum-prefix limit, enable allow-as-in\n3. Commit; monitor for BGP soft-reconfiguration (no hard reset)\n4. Maintain IXIA traffic throughout\nVerify:\n- `show bgp neighbors <pe2-ip> af-l2vpn evpn` confirms configured parameters active\n- `show bgp l2vpn evpn` shows routes with weight applied in best-path decision\n- `show evpn mac` shows local and remote MAC tables intact\n- IXIA reports zero packet loss during config change\n- No BGP session reset event logged",
+    "backend": "cli",
+    "category": "Feature interaction",
+    "equipment": "DUT + neighbor PE + IXIA traffic gen",
+    "expectation": "Pass:    All EVPNS-REQ#20 parameters accepted under af-l2vpn evpn; BGP soft-reconfigures without session reset; EVPN MAC learning uninterrupted; zero traffic loss.\nFail-on: Any parameter rejected with CLI error; BGP hard-resets; EVPN routes flushed; MAC table cleared; packet loss > 1 s.",
+    "req_id": "EVPNS-REQ#20",
+    "sub_category": ""
   },
   "b6f4c4a9994ed30d": {
     "action_steps": "Setup:  Configure EVPN VPLS with `auto-discovery` enabled and `import-rt 100:1`. Neighbor PE advertises EVPN routes with RT 100:1 and RT 200:2. Verify routes with RT 100:1 appear in `show bgp l2vpn evpn`.\nAction: Issue `no import-rt 100:1` under `configuration / l2-services / vpls / auto-discovery`; commit.\nVerify: `show running-config l2-services` has no `import-rt 100:1` entry; `show bgp l2vpn evpn` shows zero routes with import RT 100:1; no MAC entries remain from withdrawn routes.",
@@ -8234,6 +8531,15 @@
     "req_id": "RFC7432bis-§13.2.1",
     "sub_category": ""
   },
+  "bfce0c03630405fa": {
+    "action_steps": "Problem: ESI Label Extended Community value consistency across Type 1 Ethernet A-D routes for the same ES, and vendor-specific alarm plus route-quarantine behavior when labels mismatch (SFS§3.1 delta beyond RFC7432bis §8.2.1 base MUST).\nMethod: Multi-homed ES with two PEs advertising Type 1 routes; inject Type 1 per-ES with mismatched ESI Label from one PE; capture and decode BGP UPDATEs to verify NLRI encoding per §7.1, Route Targets per §8.2.1.1, and per-EVI construction per §8.4.1; confirm DUT raises alarm and quarantines mismatched route per SFS delta; resolve and verify alarm clears.\n\nSetup: Multi-homed ES from prior test; add neighbor PE2 advertising Type 1 routes for same ESI.\n\nAction:\n1. Capture BGP UPDATEs for Type 1 per-ES (ET=MAX-ET, MPLS Label=0) and Type 1 per-EVI (ET=<EVI>, ESI Label) routes; decode NLRI per RFC7432bis §7.1 (RD, ESI, ET, MPLS Label fields), ESI Label Extended Community format, and Route Targets per §8.2.1.1.\n2. Configure or inject via neighbor PE2: Type 1 per-ES with different ESI Label value than PE1's advertisement for same ESI; check DUT alarm state (via show commands or syslog) and verify route is in RIB but excluded from split-horizon and forwarding (SFS delta).\n3. Correct PE2's configuration to match PE1's ESI Label value; verify alarm clears and both routes activate.\n\nVerify:\n1. Type 1 per-ES NLRI: RD, ESI, ET=MAX-ET, MPLS Label=0 per §7.1; Type 1 per-EVI: RD, ESI, ET=<EVI>, ESI Label per §8.4.1; ESI Label Extended Community present with correct encoding (label value, Single-Active flag).\n2. Route Targets match auto-discovery import-rt and export-rt configuration per §8.2.1.1; when ESI Label values mismatch: DUT raises alarm, saves route but does not use for split-horizon or forwarding (SFS delta beyond RFC base).\n3. After correction: alarm clears, ESI Label values consistent across all Type 1 per-ES advertisements for the ES, routes active for best-path selection per §7.13.2.",
+    "backend": "cli",
+    "category": "Packet validation",
+    "equipment": "DUT + two neighbor PEs + IXIA (for BGP route injection and capture)",
+    "expectation": "Pass:    Type 1 per-ES and per-EVI routes encoded per RFC7432bis §7.1, §8.2.1.1, §8.4.1 with ESI Label Extended Community present; when labels mismatch across per-ES advertisements for same ESI, DUT raises alarm and quarantines route (saves but does not use) per SFS delta; alarm clears when mismatch resolved and routes activate with consistent ESI Label values.\nFail-on: Missing ESI Label Extended Community, incorrect NLRI encoding (wrong RD/ESI/ET/MPLS Label fields), Route Target mismatch, mismatched ESI Label values accepted without alarm (RFC base behavior instead of SFS delta), alarm fails to clear after correction, or quarantined route used for split-horizon/forwarding before resolution.",
+    "req_id": "EVPNS-REQ#260",
+    "sub_category": ""
+  },
   "bff48269975ba845": {
     "action_steps": "Setup:  Configure EVPN instance (e.g., VPLS 100) with Ethernet Segment ESI-1 spanning two local DUT interfaces (Eth1/1, Eth1/2). Configure `unknown-mac-flooding enable` and establish BGP EVPN peer with remote PE that also connects to ESI-1. Verify Type-1 Ethernet A-D per-ES routes are advertised/received and DUT allocates unique LT4 MPLS labels for Eth1/1 and Eth1/2 (check via `show evpn ethernet-segment <ESI-1>` or `show mpls forwarding-table` for per-interface labels).\nAction: From remote PE or IXIA emulating remote PE MPLS encap, inject BUM traffic (unknown-unicast destination MAC) with outer label = LT3 (VPLS instance label) and inner label = LT4 corresponding to Eth1/1's ifIndex. Send 100 frames at 10 pps.\nVerify: Capture egress traffic on Eth1/1 and Eth1/2. Inspect `show l2-services vpls <100> mac-table` and BUM forwarding counters. Verify DUT's BUM Split Horizon Table exists with 2 entries (one per ES interface) via `show evpn split-horizon-group` or equivalent.",
     "backend": "cli",
@@ -8430,6 +8736,15 @@
     "equipment": "DUT + IXIA + neighbor PE",
     "expectation": "Pass:    All EVPN routes (RT-2, RT-3, RT-5) carry Ethernet Tag ID = 0. Frames in MPLS core tagged with ingress VID 100. PE2 performs VID translation: egress frames retagged to VID 200. BGP peering up, MAC-VRF operational, bidirectional traffic forwarded.\nFail-on: Any EVPN route with Ethernet Tag ID ≠ 0. VID modified in MPLS core (not original VID 100). PE2 egress frames not translated (remain VID 100). BGP session flaps, MAC not learned, or traffic black-holed.",
     "req_id": "RFC7432bis-§6.1",
+    "sub_category": ""
+  },
+  "c2fd5ec212f6a381": {
+    "action_steps": "Problem: validate that a single-homing PE processes multihoming procedures (Type 4 Ethernet A-D per-ES routes, aliasing, backup paths) from a multihoming PE, per SFS §2.7.9 upgrading RFC7432bis chapter 8.7 from SHOULD to MUST, while negotiating EVPN capabilities per RFC7432bis §7.11.2 and supporting non-revertive behavior per RFC9785 §4.3.\nMethod: configure DUT as single-homing PE, configure 3rd-party as multihoming PE with ethernet-segment and all-active load-balancing, capture BGP messages to verify capability negotiation, advertise multihoming routes, and test DF non-revertive behavior.\nSetup:  Interop session established per prior FLOW-070 test. On 3rd-party: configure ethernet-segment with identifier 0 <type0-value>, load-balancing-mode all-active. DUT: no ethernet-segment (single-homing). Both peers configured to support non-revertive DF election.\nAction: Capture BGP OPEN messages; verify EVPN capability negotiation (RFC7432bis §7.11.2). 3rd-party advertises Type 4 Ethernet A-D per-ES routes and Type 2 MAC/IP routes with aliasing. Simulate DF failover on 3rd-party ES (shut down primary DF's ES interface); verify traffic switches to backup DF. Bring primary DF back up; verify traffic does NOT revert to original DF (non-revertive per RFC9785 §4.3).\nVerify: `show bgp l2vpn evpn` on DUT lists Type 4 routes with ES-Import extended community from 3rd-party. DUT's forwarding table shows aliased MAC entries with multiple next-hops. After DF failover, traffic continues via backup DF. After primary DF recovery, traffic remains on backup DF (non-revertive). No BGP errors or route rejections.",
+    "backend": "cli",
+    "category": "3rd Party Interoperability",
+    "equipment": "DUT + 3rd-party PE (Cisco/Juniper) + IXIA",
+    "expectation": "Pass:    DUT negotiates EVPN capabilities, accepts Type 4 routes, honors aliasing with backup paths, and respects non-revertive DF behavior — demonstrating MUST-level multihoming support per SFS §2.7.9 (overriding RFC7432bis ch.8.7 SHOULD).\nFail-on: EVPN capabilities not negotiated, Type 4 routes rejected, aliasing ignored (single next-hop only), traffic reverts to original DF after recovery, or traffic blackhole during failover — indicating SHOULD-level optional support contrary to SFS MUST.",
+    "req_id": "EVPNS-REQ#190",
     "sub_category": ""
   },
   "c32a2f50d548e4ea": {
@@ -8647,6 +8962,15 @@
     "expectation": "Pass:    Exactly 4 EVPN routes are installed in the local RIB (those without community 65000:100). The 4 routes with the community are blocked by the inbound route-policy before MAC/IP installation. BGP session remains established.\nFail-on: All 8 routes are installed (route-policy not applied), or 0 routes are installed (route-policy blocks all traffic), or the wrong 4 routes are installed (route-policy logic inverted), or BGP session flaps during route processing.",
     "req_id": "CLI:policy",
     "sub_category": "policy"
+  },
+  "c7ed70591f3d2d33": {
+    "action_steps": "Problem: Validate that tech-support captures BGP L2VPN EVPN configuration with common CLI commands (allow-as-in, capability, inbound-soft-reconfiguration, maximum-prefix, private-as, route-reflector-client, weight, group) and operational state for VLAN-based EVPN.\nMethod: Run tech-support on an established FLOW-010 topology where BGP neighbors are configured under af-l2vpn evpn with common commands, then verify the bundle contains complete BGP, EVPN, and MAC learning evidence.\nSetup: FLOW-010 single-homed VLAN-based EVPN established; BGP neighbors configured under af-l2vpn evpn address-family with common commands applied.\nAction: Run `tech-support`; save bundle off-box; extract and inspect for BGP L2VPN EVPN configuration and operational state sections.\nVerify: Bundle contains `show running-config | section bgp` with af-l2vpn evpn and common commands; `show evpn evi` with vlan-based service and RD; `show evpn mac address-table` with local and remote entries; `show bgp l2vpn evpn summary`.",
+    "backend": "cli",
+    "category": "Tech-support",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    Bundle contains BGP configuration showing af-l2vpn evpn with all common commands (allow-as-in, capability, inbound-soft-reconfiguration, maximum-prefix, private-as, route-reflector-client, weight, group), EVPN EVI showing vlan-based service and router distinguisher, and MAC table with local and remote learned entries.\nFail-on: Missing BGP L2VPN EVPN sections, missing common command configuration, missing EVPN EVI state, or missing MAC learning entries in the bundle.",
+    "req_id": "EVPNS-REQ#20",
+    "sub_category": ""
   },
   "c80a86bd98a1dbce": {
     "action_steps": "Setup:  Configure DUT (AS 65001) with EVPN instance and `af-l2vpn evpn` enabled under BGP neighbor 10.1.1.2 in VRF context. Establish eBGP peering. Configure remote PE to advertise EVPN Type-2 MAC/IP routes with AS_PATH manipulated to contain AS 65001 once (simulating route reflection scenario).\nAction: Without allow-as-in configured, verify routes with local AS in AS_PATH are rejected per default loop-detection. Configure allow-as-in count=1 under neighbor af-l2vpn evpn context. Re-advertise route with local AS appearing once; verify acceptance. Advertise second route with local AS appearing twice in AS_PATH; verify rejection.\nVerify: `show bgp l2vpn evpn routes` displays routes with single local-AS occurrence accepted, routes with double occurrence rejected. `show running-config routing bgp` confirms allow-as-in configuration persisted under neighbor af-l2vpn evpn stanza. `show bgp l2vpn evpn neighbor <ip>` shows received/accepted route counts match expected behavior.",
@@ -8927,6 +9251,15 @@
     "req_id": "RFC7432bis-§17.3",
     "sub_category": ""
   },
+  "cf720f7c260d0cd5": {
+    "action_steps": "Problem: Validate that single-active multi-homing maintains service when the primary DF's control process crashes, using the backup PE's aliasing path.\nMethod: Configure single-active ES on two PEs, identify the primary DF, kill its EVPN control process, and measure backup DF takeover time and traffic interruption via IXIA.\nSetup: Single-active ES already configured from prior test (`load-balancing-mode single-active`, `service-carving default`); DF elected; IXIA traffic active.\nAction: 1) Identify primary DF via `show evpn ethernet-segment` on both PEs. 2) On primary DF: identify EVPN control process via `show platform process`. 3) Kill EVPN process using platform debug command. 4) Wait for supervisor restart.\nVerify: 1) EVPN process restarts on failed PE within ≤ 5 s (`show platform process` shows new PID). 2) Backup PE assumes DF role within ≤ 30 s (`show evpn ethernet-segment` on both PEs shows updated DF status). 3) Traffic re-routes via backup PE (aliasing path). 4) IXIA loss histogram shows interruption ≤ 1 s. 5) Both PEs show consistent ES and DF state.",
+    "backend": "cli",
+    "category": "HA",
+    "equipment": "DUT + neighbor PE + IXIA + LACP partner",
+    "expectation": "Pass: Process restarts ≤ 5 s; DF failover completes ≤ 30 s; traffic recovers via aliasing path; interruption ≤ 1 s.\nFail-on: No process restart, restart > 5 s, DF failover > 30 s, aliasing path fails to forward, or traffic interruption > 1 s.",
+    "req_id": "EVPNS-REQ#130",
+    "sub_category": ""
+  },
   "cf9d84d76395c9f7": {
     "action_steps": "Setup:  Configure maximum-prefix limit of 10 L2VPN EVPN routes under the neighbor configuration at af-l2vpn/evpn. Establish BGP EVPN peering with a neighbor PE.\nAction: From the neighbor PE, advertise 11 EVPN routes (mix of type-2 MAC/IP and type-3 IMET routes) to exceed the configured threshold.\nVerify: `show bgp l2vpn evpn summary` immediately after the 11th route is sent; `show log` or syslog capture for BGP NOTIFICATION sent with code 6 sub-code 1.",
     "backend": "cli",
@@ -8988,6 +9321,15 @@
     "equipment": "DUT (PE1) + neighbor PE (PE2, All-Active same ES) + 3rd PE (PE3, not on ES) + IXIA for BUM injection + LACP partner",
     "expectation": "Pass:    Throughout ES convergence, PE1 maintains PE2's upstream-assigned ESI label programmed with action preventing ES forwarding (RFC7432bis §8.3.1.2 MUST #2). PE3 maintains label in PE2's context space (MUST #3). No BUM loop-back to ES.\nFail-on: PE2's ESI label unprogrammed or loses anti-loop action during flap, or PE1 forwards BUM with PE2's label back to ES interface, or PE3's label entry missing, or label lookup fails.",
     "req_id": "RFC7432bis-§8.3.1.2",
+    "sub_category": ""
+  },
+  "d132014046504f1f": {
+    "action_steps": "Problem: validate that malformed unicast Ethernet frames do not crash the EVPN forwarding plane or leak to remote PEs when advertise-mac is enabled.\nMethod: inject variants of malformed unicast frames (bad MAC format, oversized, truncated, reserved bits set) into an established EVPN instance and verify the DUT drops each locally.\nSetup:  EVPN instance from FLOW-031 established with `advertise-mac enable`.\nAction: IXIA injects: (1) unicast frame with invalid MAC DA (non-canonical format), (2) oversized frame (>9216 bytes), (3) truncated frame (length field claims 100 bytes but payload is 50), (4) frame with Ethertype reserved bits set.\nVerify: `show l2-services evpn statistics` for input discard counters (each variant increments by 1); `show log | include malformed` confirms syslog entry per variant; neighbor PE sees zero unexpected MAC routes via `show bgp evpn route-type 2`; DUT does not crash.",
+    "backend": "cli",
+    "category": "Malformed/unsupported packets",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    Each malformed variant dropped at ingress; discard counter +1 per variant; syslog entry present; no new MAC routes at neighbor PE; no crash.\nFail-on: Crash, malformed packet forwarded to PE, missing syslog entry, or stale MAC state propagated via BGP.",
+    "req_id": "EVPNS-REQ#210",
     "sub_category": ""
   },
   "d16c27b91b7c07d6": {
@@ -10484,6 +10826,15 @@
     "req_id": "CLI:mac-address-static (VPLS)",
     "sub_category": "mac-address-static (VPLS)"
   },
+  "f34d93f8177f3b0e": {
+    "action_steps": "Problem: Validate that MAC Mobility state and sticky MAC configuration survive EVPN control-plane restart without data-plane disruption.\nMethod: With multi-homed all-active ESI topology carrying traffic, trigger a MAC move event, reset the EVPN process, and verify MAC mobility state recovers within fast-convergence timeouts.\n\nSetup: Multi-homed all-active ESI topology established with `es-waiting-time` at default (3 seconds); configure one MAC as sticky per RFC7432bis-§15.2.\n\nAction:\n1. Move a MAC from PE1 to PE2 by steering IXIA traffic to PE2-facing port — verify sequence number increments.\n2. Identify EVPN control-plane process: `show platform process | include evpn`.\n3. Reset the identified process.\n4. Monitor IXIA loss histogram during restart and recovery.\n\nVerify:\n1. Process restarts ≤ 5 s.\n2. IXIA loss histogram records ≤ 1 s data-path interruption.\n3. MAC table fully recovers ≤ 30 s (fast convergence per EVPNS-REQ#170).\n4. Inspect MAC entry shows mobility sequence number ≥ 1 and sticky attribute preserved (RFC7432bis-§15.2).",
+    "backend": "cli",
+    "category": "Robustness",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    Process restarts ≤ 5 s; IXIA records ≤ 1 s outage; MAC table recovers ≤ 30 s with mobility sequence number and sticky attribute intact.\nFail-on: Process restart > 5 s, data-path outage > 1 s, MAC mobility sequence number lost, sticky attribute dropped, or recovery > 30 s.",
+    "req_id": "EVPNS-REQ#160",
+    "sub_category": ""
+  },
   "f3624ac9b65642b4": {
     "action_steps": "Setup:  Physical topology with x-eth 0/0/1, x-eth 0/0/2 cabled; DUT in factory config.\nAction: Configure LACP and create agg-eth 0 interface; under `configuration interface agg-eth 0` issue `ethernet-segment`; under `configuration l2-services` issue `evpn evpn-1 service-type vlan-aware-bundle`; configure auto-discovery with import-rt and export-rt route targets; commit.\nVerify: `show running-config interface agg-eth 0` shows ethernet-segment; `show running-config l2-services` shows evpn instance evpn-1; `show lacp` shows operational aggregation.",
     "backend": "cli",
@@ -11022,6 +11373,15 @@
     "equipment": "DUT + 3rd-party PE (Cisco/Juniper) + IXIA",
     "expectation": "Pass:    DUT Type-4 route includes DF Election Extended Community with Don't Preempt flag (bit 0) = 1; 3rd-party PE retains DF role for all Ethernet Tags; IXIA frame loss = 0 during and after DUT interface-up event.\nFail-on: (a) DF Election Extended Community missing or Don't Preempt flag = 0, (b) DUT preempts 3rd-party PE and becomes DF, (c) IXIA reports >0.01% frame loss, or (d) when DUT later advertises mismatched DF algorithm (e.g., HRW vs. preference), both PEs fail to fall back to default modulo-based election per RFC7432 §8.5.",
     "req_id": "RFC9785-§4.3",
+    "sub_category": ""
+  },
+  "ffd3f9c0b19a71e7": {
+    "action_steps": "Problem: Validate that when the active PE's EVPN process fails, remote PEs apply best-path selection to switch all route types (MAC/IP, per-EVI A-D, Inclusive Multicast) to the backup PE via the aliasing path, maintaining service continuity.\nMethod: In an all-active multi-homed topology, kill the EVPN process on one PE, observe IXIA traffic loss, and verify that all BGP EVPN route types reconverge to use the surviving PE's advertisements.\nSetup: All-active ESI already established on PE1 and PE2 via `ethernet-segment` and `load-balancing-mode all-active`; IXIA generating continuous unicast and BUM traffic toward the CE.\nAction: On PE1, identify the EVPN process via `show platform process | include evpn`, reset the process using platform reset CLI, monitor IXIA loss histogram during failover.\nVerify: Process restarts within ≤ 5 s; `show bgp l2vpn evpn route-type 2` on remote PEs switches to PE2's next-hop for MAC/IP routes; `show bgp l2vpn evpn route-type 1` shows per-EVI A-D updated; `show bgp l2vpn evpn route-type 3` shows BUM forwarding via PE2; IXIA loss ≤ 1 s; `show evpn ethernet-segment` on PE1 recovers ≤ 30 s.",
+    "backend": "cli",
+    "category": "Robustness",
+    "equipment": "DUT + IXIA + neighbor PE",
+    "expectation": "Pass:    Process restarts ≤ 5 s; all route types reconverge via aliasing path with ≤ 1 s traffic loss; ESI state fully recovers ≤ 30 s.\nFail-on: Traffic loss > 1 s, any route type fails to reconverge to backup path, process doesn't auto-restart, or ESI state doesn't recover.",
+    "req_id": "EVPNS-REQ#140",
     "sub_category": ""
   },
   "ffdb857e81630291": {

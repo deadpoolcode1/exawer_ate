@@ -375,6 +375,19 @@ def _build_prompt(req: Requirement, row: PlanRow,
             f"(not just the anchor). The Action must clearly visit each one:\n"
             f"  - {ids_titles}\n"
         )
+    # Eyal Ozeri 2026-06-21: continuation rows of a flow must not restate the
+    # topology/setup. The generator marks them (generator.SETUP_ALREADY_
+    # ESTABLISHED); when present, instruct the model to write only the delta.
+    continuation_note = ""
+    if "ALREADY established by the first test of this flow" in row.action_steps:
+        continuation_note = (
+            "\nCONTINUATION ROW: the topology and base service are already "
+            "established by the first test of this flow. Do NOT restate the "
+            "topology or base bring-up in Setup or Action — keep Setup to one "
+            "short line that references the established state plus any delta, "
+            "and let the Action exercise only what THIS case adds.\n"
+        )
+
     return PROMPT_TEMPLATE.format(
         req_id=req.req_id,
         source=req.source,
@@ -393,7 +406,7 @@ def _build_prompt(req: Requirement, row: PlanRow,
         current_action="\n".join("    " + ln for ln in row.action_steps.splitlines()),
         current_expectation="\n".join("    " + ln for ln in row.expectation.splitlines()),
         current_equipment=row.equipment or "(unset)",
-    ) + flow_context
+    ) + flow_context + continuation_note
 
 
 def _parse_response_json(text: str) -> dict | None:

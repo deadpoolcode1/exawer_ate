@@ -46,6 +46,7 @@ from ate.ir import Document
 from ate.parsers import parse
 from ate.planner.categories import (
     RFC_EXCLUDED_CATEGORIES,
+    _split_steps,
     overlay_for_category,
 )
 from ate.planner.cli_rows import cli_command_rows
@@ -92,6 +93,44 @@ def _planrow_for_rfc_orphan(req: Requirement) -> PlanRow:
             "Fail-on: Observable behaviour deviates from the RFC clause."
         ),
     )
+
+
+# Eyal Ozeri 2026-06-21: "the 'action' field repeats … the setup establishment
+# for every step." A flow expands into several category sub-cases that each
+# re-establish the same base topology. For every category after the first, we
+# replace the base flow.setup in the scaffold with this one reference line
+# (keeping only the category-specific extra setup). The marker also tells the AI
+# enricher (ai_enricher._build_prompt) to write only the delta, not restate the
+# topology. Slimming the scaffold changes the row's cache key, so only these
+# continuation rows re-bake.
+SETUP_ALREADY_ESTABLISHED = (
+    "Topology and base service are ALREADY established by the first test of "
+    "this flow — do not restate them; set up only the delta this case needs."
+)
+
+_SETUP_BLOCK_RE = re.compile(r"^Setup:\n(.*?)(?=^Action:)", re.S | re.M)
+_NUM_STEP_RE = re.compile(r"\s*\d+\.\s*(.*)")
+
+
+def _slim_setup_for_continuation(action_steps: str, flow: Flow) -> str:
+    """Replace the base flow.setup in a continuation row's scaffold with a
+    single reference line, preserving any category-specific extra setup."""
+    m = _SETUP_BLOCK_RE.search(action_steps)
+    if not m:
+        return action_steps
+    base = {" ".join(s.lower().split()) for s in _split_steps(flow.setup)}
+    extras: list[str] = []
+    for line in m.group(1).splitlines():
+        sm = _NUM_STEP_RE.match(line)
+        if not sm:
+            continue
+        txt = sm.group(1).strip()
+        if txt and " ".join(txt.lower().split()) not in base:
+            extras.append(txt)
+    steps = [SETUP_ALREADY_ESTABLISHED] + extras
+    block = "Setup:\n" + "\n".join(
+        f"  {i}. {s}" for i, s in enumerate(steps, 1)) + "\n"
+    return action_steps[:m.start()] + block + action_steps[m.end():]
 
 
 def _row_for_flow_category(flow: Flow, category: str,
@@ -221,6 +260,7 @@ def generate_plan(doc: Document | str | Path,
         # protocol behaviour only — vendor-platform categories (CLI,
         # On-the-fly config, Upgrade, Management) do not apply.
         all_rfc = bool(covered) and all(r.source == "rfc" for r in covered)
+        first_cat_done = False
         for cat in flow.categories:
             if all_rfc and cat in RFC_EXCLUDED_CATEGORIES:
                 continue
@@ -228,7 +268,17 @@ def generate_plan(doc: Document | str | Path,
                 if tech_support_done:
                     continue
                 tech_support_done = True
-            flow_rows.append(_row_for_flow_category(flow, cat, covered))
+            pr = _row_for_flow_category(flow, cat, covered)
+            # First emitted category establishes the setup in full; every later
+            # category references it instead of repeating it (Eyal-A).
+            if first_cat_done:
+                pr = pr.model_copy(update={
+                    "action_steps": _slim_setup_for_continuation(
+                        pr.action_steps, flow),
+                })
+            else:
+                first_cat_done = True
+            flow_rows.append(pr)
 
     # Fallback: if no flow matched (e.g. doc with no requirement anchors,
     # or a non-EVPN spec the catalog does not cover), emit one minimal
