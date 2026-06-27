@@ -902,9 +902,11 @@ EVPN_FLOWS: list[Flow] = [
             "baseline at scale."
         ),
         equipment="Two routers + IXIA scale rig (≥ 64K MAC generation)",
-        categories=[
-            "Scale", "Performance", "Long run", "Tech-support",
-        ],
+        # Eyal Ozeri 2026-06-21: rows 1463-66 (Performance / Long-run overlays)
+        # were unclear and redundant with the Scale test itself and with the
+        # dedicated FLOW-120 (Long-run / Performance). Keep this flow to its
+        # actual purpose — Scale.
+        categories=["Scale"],
         selector=FlowSelector(
             title_keywords=[
                 "mac-limit", "mac limit", "scale", " limit ", "max ",
@@ -1296,9 +1298,12 @@ EVPN_FLOWS: list[Flow] = [
             "outage."
         ),
         equipment="DUT + IXIA + neighbor PE + redundant MPLS core paths",
-        categories=[
-            "Basic Functionality", "HA", "Robustness", "Tech-support",
-        ],
+        # Eyal Ozeri 2026-06-21: the Robustness overlay here generated a
+        # control-plane process kill/restart (rows 1678-79) — that belongs in HA
+        # testing, not in a topology/protection (tunnel-failover) flow. Tunnel
+        # failover itself is the HA aspect; the process-kill case is covered by
+        # FLOW-090 (Control-plane recovery). Drop Robustness here.
+        categories=["Basic Functionality", "HA"],
         selector=FlowSelector(),
         related_cli_cmds=["show evpn evi"],
         rfc_refs=["RFC 4364 §10"],
