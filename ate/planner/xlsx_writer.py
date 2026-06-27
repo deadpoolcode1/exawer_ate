@@ -907,6 +907,12 @@ def write_xlsx(plan: Plan, output_path: str | Path,
         # on rows that share it, re-shown when the set changes. Reset per
         # section/topic so each flow (and each CLI command) states IDs once.
         last_req_key: str | None = None
+        # Setup de-duplication (Eyal Ozeri 2026-06-21: "the 'action' field
+        # repeats … the setup establishment for every step"). A flow expands
+        # into several category sub-cases that each re-establish the same base
+        # topology; emit each distinct prerequisite once per flow and drop the
+        # literal repeats. Reset per flow/command.
+        seen_prereq: set[str] = set()
         for r in section_rows:
             provenance = _provenance_for_row(r, req_by_id, inherited_names)
             # Suppress banner if it would repeat the previous banner (e.g.
@@ -915,11 +921,18 @@ def write_xlsx(plan: Plan, output_path: str | Path,
                           else (r.sub_category or r.category or ""))
             if topic_now != last_topic:
                 last_req_key = None  # new flow/command → show its IDs once
+                seen_prereq = set()
             for ar in rows_for_plan_row(
                 r, flow_lookup=flow_lookup,
                 emit_banner=(topic_now != last_topic),
                 provenance=provenance,
             ):
+                if (not ar.is_banner
+                        and ar.expectation == "Prerequisite established"):
+                    norm = " ".join(ar.action.lower().split())
+                    if norm in seen_prereq:
+                        continue  # already established earlier in this flow
+                    seen_prereq.add(norm)
                 if not ar.is_banner and ar.req_ids:
                     key = ", ".join(ar.req_ids)
                     if key == last_req_key:
