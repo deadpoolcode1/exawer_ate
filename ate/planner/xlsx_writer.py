@@ -653,10 +653,12 @@ def _write_rfc_crosscheck_sheet(wb, plan: Plan) -> None:
     cc = getattr(catalog, "rfc_crosscheck", None) if catalog else None
     if cc is None:
         return
+    from ate.planner.curated import DEPENDENCY_RFC_ROLE  # noqa: PLC0415
+
     ws = wb.create_sheet("RFC Cross-Check")
     ws.column_dimensions["A"].width = 14
-    ws.column_dimensions["B"].width = 16
-    ws.column_dimensions["C"].width = 90
+    ws.column_dimensions["B"].width = 44
+    ws.column_dimensions["C"].width = 80
 
     row = 1
     ws.cell(row=row, column=1,
@@ -666,14 +668,16 @@ def _write_rfc_crosscheck_sheet(wb, plan: Plan) -> None:
     row += 1
     intro = ws.cell(
         row=row, column=1,
-        value=("Every RFC the SFS text references, reconciled against the "
-               "RFCs actually provided as engine inputs. Rows highlighted in "
-               "orange are cited by the SFS but were NOT ingested — their "
-               "mandates are invisible to the generated plan. Add them under "
-               "references/<FEATURE>/, or confirm they carry no feature-"
-               "relevant requirements. (RFC 7432 is matched by the ingested "
-               "rfc7432bis revision; BCP-14 keyword RFCs 2119/8174 are "
-               "ignored.)"),
+        value=("Every RFC the SFS text references, reconciled against the RFCs "
+               "actually provided as engine inputs, then classified by EVPN "
+               "relevance (docs/rfc_relevance_design.md): 'ingested' = provided "
+               "in full; 'curated test' = an EVPN-relevant section captured as a "
+               "deterministic test (curated.py — e.g. the DF Election EC, the "
+               "PMSI Tunnel attribute); 'reference-only' = predecessor/framework "
+               "context that carries no EVPN-specific test mandate. Only rows "
+               "highlighted in orange are an unresolved gap. (RFC 7432 is "
+               "matched by the ingested rfc7432bis revision; BCP-14 keyword RFCs "
+               "2119/8174 are ignored.)"),
     )
     intro.alignment = WRAP_LEFT
     intro.font = Font(italic=True, color="555555")
@@ -691,27 +695,49 @@ def _write_rfc_crosscheck_sheet(wb, plan: Plan) -> None:
 
     missing = set(cc.missing)
     ingested = cc.ingested
+    n_curated = n_refonly = n_gap = 0
     for num in sorted(cc.cited, key=int):
-        if num in missing:
-            status = "MISSING — not ingested"
-        elif num in ingested:
+        role = DEPENDENCY_RFC_ROLE.get(num)  # (role, verdict, note)
+        highlight = False
+        note = cc.cited.get(num, "")
+        if num in ingested:
             status = "ingested ✓"
+        elif role and role[1] == "curated":
+            # Yossi-3: EVPN-relevant section captured as a curated test.
+            status = f"ingested (curated test) — {role[0]}"
+            note = role[2]
+            n_curated += 1
+        elif role and role[1] == "flow":
+            # EVPN-relevant section exercised by a functional flow.
+            status = f"covered (flow) — {role[0]}"
+            note = role[2]
+            n_curated += 1
+        elif role and role[1] == "reference-only":
+            # Predecessor / framework context — intentionally not a test.
+            status = f"reference-only — {role[0]}"
+            note = role[2]
+            n_refonly += 1
+        elif num in missing:
+            status = "MISSING — not ingested"
+            highlight = True
+            n_gap += 1
         else:
             status = "ignored (BCP-14 keyword RFC)"
-        cells_row = [f"RFC{num}", status, cc.cited[num]]
+        cells_row = [f"RFC{num}", status, note]
         for c, val in enumerate(cells_row, 1):
             cell = ws.cell(row=row, column=c, value=val)
             cell.alignment = WRAP_LEFT
-        if num in missing:
+        if highlight:
             for c in range(1, 4):
                 ws.cell(row=row, column=c).fill = ORPHAN_FILL
-        ws.row_dimensions[row].height = _row_height_for(cc.cited[num], width=90)
+        ws.row_dimensions[row].height = _row_height_for(note, width=78)
         row += 1
 
     row += 1
     summary = (
         f"Cross-check summary: SFS cites {len(cc.cited)} RFC(s); "
-        f"{len(cc.covered)} ingested, {len(cc.missing)} missing."
+        f"{len(cc.covered)} ingested, {n_curated} curated, "
+        f"{n_refonly} reference-only, {n_gap} unresolved gap(s)."
     )
     cell = ws.cell(row=row, column=1, value=summary)
     cell.font = Font(bold=True, color="1F3A5F")
