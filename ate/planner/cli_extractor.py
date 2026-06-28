@@ -297,7 +297,7 @@ def _parse_command_table(name: str, table: Table, parent_section: str
             syntax = _row_text(r, 1)
         elif label == "command mode":
             mode = _row_text(r, 1)
-        elif label.startswith("parameters table"):
+        elif label.startswith("parameterstable") or label.startswith("parameters table"):
             params_header_idx = i
         elif label == "examples":
             examples = _row_text(r, 1)

@@ -322,6 +322,61 @@ def _negative_value_hint(p: CliParameter) -> str:
     return "a value clearly outside the documented spec"
 
 
+# A numeric value-spec like "1-250000", "0, 40-2400", or "Integer in range
+# 0..65535". We mine the explicit range bounds so the validation row can test
+# the documented boundaries with concrete numbers instead of a vague "a valid
+# in-spec value" (client 2026-06-28: the CLI section must state the actual
+# valid configuration values).
+_NUM_RANGE_RE = re.compile(r"(\d+)\s*(?:\.\.|-)\s*(\d+)")
+# Specs that look numeric but aren't a plain integer range — leave these to
+# `_negative_value_hint`'s format-specific wording.
+_NON_NUMERIC_SPEC = ("ipv4", "ipv6", "mac", "octet", "hex", "xx", ":")
+
+
+def _default_value(p: CliParameter) -> str | None:
+    """The configurable default token, e.g. `300` from a doc default of
+    `300 second`, or `65520`. None when the parameter has no documented
+    default."""
+    if not p.default:
+        return None
+    m = re.match(r"-?\d+", p.default.strip())
+    return m.group(0) if m else p.default.strip()
+
+
+def _numeric_bounds(p: CliParameter):
+    """`(valid_samples, invalid_samples)` mined from a numeric value-spec, or
+    None when the spec isn't a plain integer range.
+
+    `1-250000`   -> (['1', '250000'], ['0 (below range)', '250001 (above range)'])
+    `0, 40-2400` -> (['0', '40', '2400'], ['-1 (below range)', '39 (in the
+                     disallowed gap)', '2401 (above range)'])
+    """
+    spec = p.value_spec
+    low = spec.lower()
+    if any(tok in low for tok in _NON_NUMERIC_SPEC):
+        return None
+    ranges = [(int(a), int(b)) for a, b in _NUM_RANGE_RE.findall(spec)]
+    if not ranges:
+        return None
+    residual = _NUM_RANGE_RE.sub(" ", spec)
+    singletons = [int(t) for t in re.findall(r"-?\d+", residual)]
+    lows = [a for a, _ in ranges]
+    highs = [b for _, b in ranges]
+    gmin, gmax = min(lows + singletons), max(highs + singletons)
+
+    valid = [str(v) for v in sorted(set(singletons + lows + highs))]
+    invalid = [f"{gmin - 1} (below range)", f"{gmax + 1} (above range)"]
+    # One in-gap value for disjoint specs (e.g. the 1..39 hole in 0, 40-2400).
+    segments = sorted(set([(s, s) for s in singletons] + ranges))
+    for (_, hi), (nxt_lo, _) in zip(segments, segments[1:]):
+        if nxt_lo > hi + 1:
+            invalid.insert(1, f"{hi + 1} (in the disallowed gap)")
+            break
+    if "integer" in low:
+        invalid.append("a non-integer string (e.g. `abc`)")
+    return valid, invalid
+
+
 # ── Monitor: the exact Exaware `show` for each command ───────────────────
 # Client 2026-06-01: the Monitor column must be Exaware-CLI-exact —
 # `show configuration` (NOT `show running-config`, which Exaware does not
@@ -575,25 +630,68 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
     # ── Row 2..N: Range / type validation per typed parameter ────────────
     for p in _typed_params(cmd):
         spec = _value_spec_one_line(p)
-        bad = _negative_value_hint(p)
+        bounds = _numeric_bounds(p)
+        if bounds:
+            valid_vals, invalid_vals = bounds
+            valid_clause = (f"the documented boundary values "
+                            f"({', '.join(valid_vals)}) — valid per {spec!r}")
+            bad = "; ".join(invalid_vals)
+        else:
+            valid_clause = f"a valid in-spec value (per {spec!r})"
+            bad = _negative_value_hint(p)
+        default_clause = ""
+        dv = _default_value(p)
+        if dv:
+            default_clause = (f" The documented default is `{dv}`; with "
+                              f"`{cmd.name}` omitted the value defaults to "
+                              f"`{dv}`.")
         rows.append(_mk(
             _scaffold(
                 f"DUT at the `{mode}` configuration level.",
                 f"Issue `{cmd.name} <{p.name}>` with values: "
-                f"(a) a valid in-spec value (per {spec!r}); "
-                f"(b) invalid values: {bad}.",
+                f"(a) {valid_clause}; "
+                f"(b) invalid values: {bad}.{default_clause}",
                 _verify_with_monitors(
-                    ["Valid value commits and is read back with the correct "
-                     "type/format; each invalid value is rejected at parse "
-                     "time with a CLI error naming the parameter; the "
+                    ["Each valid boundary value commits and is read back with "
+                     "the correct type/format; each invalid value is rejected "
+                     "at parse time with a CLI error naming the parameter; the "
                      "configuration does NOT contain the bad value."],
                     monitors),
             ),
             _expect(
-                f"Valid `<{p.name}>` accepted; each invalid value rejected "
-                f"with a parse error; the configuration remains clean",
+                f"Documented valid `<{p.name}>` values accepted; each invalid "
+                f"value rejected with a parse error; the configuration remains "
+                f"clean",
                 f"Invalid value silently accepted, feature crashes, or the "
                 f"configuration retains a partial/invalid `{cmd.name}` line",
+            ),
+        ))
+
+    # ── Default-value row per typed parameter the doc gives a default for ─
+    # Client 2026-06-28: the CLI section must state each parameter's default
+    # and prove it is the effective value when the command is omitted.
+    for p in _typed_params(cmd):
+        dv = _default_value(p)
+        if not dv:
+            continue
+        rows.append(_mk(
+            _scaffold(
+                f"DUT at the `{mode}` configuration level with `{cmd.name}` "
+                f"NOT configured (parameter `{p.name}` omitted).",
+                f"Read back the effective `{p.name}`; then explicitly set the "
+                f"documented default `{cmd.name} {dv}` and read back again.",
+                _verify_with_monitors(
+                    [f"With `{cmd.name}` omitted the effective `{p.name}` is the "
+                     f"documented default ({dv}); `show configuration` omits the "
+                     f"line; explicitly configuring `{cmd.name} {dv}` is accepted "
+                     f"and is a functional no-op (idempotent)."],
+                    monitors),
+            ),
+            _expect(
+                f"Default `{p.name}` = {dv} is in effect when `{cmd.name}` is "
+                f"unconfigured; explicit default is idempotent",
+                f"Effective default differs from the documented {dv}, or "
+                f"setting the default value alters behaviour / configuration",
             ),
         ))
 
