@@ -108,17 +108,36 @@ SETUP_ALREADY_ESTABLISHED = (
     "this flow — do not restate them; set up only the delta this case needs."
 )
 
+# Eyal Ozeri 2026-07-06: slimming the Setup alone wasn't enough — several
+# category overlays (Packet validation, On-the-fly, Feature interaction, Scale,
+# …) also re-emit the base flow.action and flow.verify verbatim, only appending
+# their category-specific delta. That is the "still duplicated" flow content the
+# reviewer sees on the 2nd/3rd appearance of a flow. For continuation rows we
+# now also replace the repeated base Action/Verify with a one-line reference,
+# keeping only the delta steps.
+ACTION_ALREADY_DONE = (
+    "Base test steps are AS IN THE FIRST CASE of this flow — do not restate "
+    "them; perform only the category-specific steps below."
+)
+VERIFY_ALREADY_DONE = (
+    "Base checks are AS IN THE FIRST CASE of this flow — verify only the "
+    "category-specific expectations below."
+)
+
 _SETUP_BLOCK_RE = re.compile(r"^Setup:\n(.*?)(?=^Action:)", re.S | re.M)
+_ACTION_BLOCK_RE = re.compile(r"^Action:\n(.*?)(?=^Verify:)", re.S | re.M)
+_VERIFY_BLOCK_RE = re.compile(r"^Verify:\n(.*)\Z", re.S | re.M)
 _NUM_STEP_RE = re.compile(r"\s*\d+\.\s*(.*)")
 
 
-def _slim_setup_for_continuation(action_steps: str, flow: Flow) -> str:
-    """Replace the base flow.setup in a continuation row's scaffold with a
-    single reference line, preserving any category-specific extra setup."""
-    m = _SETUP_BLOCK_RE.search(action_steps)
+def _slim_block(action_steps: str, block_re: re.Pattern[str], label: str,
+                base_text: str, marker: str) -> str:
+    """Replace a scaffold block's base steps (those that match `base_text`)
+    with a single reference `marker`, keeping only the delta steps."""
+    m = block_re.search(action_steps)
     if not m:
         return action_steps
-    base = {" ".join(s.lower().split()) for s in _split_steps(flow.setup)}
+    base = {" ".join(s.lower().split()) for s in _split_steps(base_text)}
     extras: list[str] = []
     for line in m.group(1).splitlines():
         sm = _NUM_STEP_RE.match(line)
@@ -127,10 +146,24 @@ def _slim_setup_for_continuation(action_steps: str, flow: Flow) -> str:
         txt = sm.group(1).strip()
         if txt and " ".join(txt.lower().split()) not in base:
             extras.append(txt)
-    steps = [SETUP_ALREADY_ESTABLISHED] + extras
-    block = "Setup:\n" + "\n".join(
+    steps = [marker] + extras
+    block = f"{label}:\n" + "\n".join(
         f"  {i}. {s}" for i, s in enumerate(steps, 1)) + "\n"
     return action_steps[:m.start()] + block + action_steps[m.end():]
+
+
+def _slim_setup_for_continuation(action_steps: str, flow: Flow) -> str:
+    """Replace the repeated base Setup / Action / Verify in a continuation
+    row's scaffold with reference lines, keeping only the category-specific
+    delta in each block (so a flow's 2nd/3rd appearance is not a near-copy
+    of the first)."""
+    out = _slim_block(action_steps, _SETUP_BLOCK_RE, "Setup",
+                      flow.setup, SETUP_ALREADY_ESTABLISHED)
+    out = _slim_block(out, _ACTION_BLOCK_RE, "Action",
+                      flow.action, ACTION_ALREADY_DONE)
+    out = _slim_block(out, _VERIFY_BLOCK_RE, "Verify",
+                      flow.verify, VERIFY_ALREADY_DONE)
+    return out
 
 
 def _row_for_flow_category(flow: Flow, category: str,

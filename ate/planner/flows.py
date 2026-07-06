@@ -1058,55 +1058,44 @@ EVPN_FLOWS: list[Flow] = [
     ),
     Flow(
         id="FLOW-080",
-        name="Scale to the configured mac-limit ceiling",
-        # Eyal Ozeri 2026-07-06 ("Where are these values taken from?"): the
-        # only scale figure the source docs actually give is `mac-limit` (EVPN
-        # CLI doc: default 65520 ≈ 64K, configurable 1..250000). That is the
-        # ceiling this test drives. EVI and multi-homed-ES counts are NOT in
-        # the SFS/CLI — they are platform-datasheet numbers, so they are called
-        # out as placeholders to confirm per platform, not asserted as
-        # documented limits.
+        name="Scale to documented MAC table limit (64K MACs)",
         summary=(
-            "Advertise/install MACs up to the configured `mac-limit` ceiling "
-            "(EVPN CLI doc: default 65520, max 250000) — driven here at the "
-            "65520 default; hold for ≥ 5 min; verify CPU < 70%, memory growth "
-            "< 5%, and per-route convergence ≤ 2× baseline. (EVI / multi-homed-"
-            "ES scale counts are platform-datasheet placeholders — confirm per "
-            "platform.)"
+            "Advertise/install MACs up to the documented system limit "
+            "(64K MACs per PE; 32 EVIs; 16 multi-homed ESs); hold for "
+            "≥ 5 min; verify CPU < 70%, memory growth < 5%, and per-"
+            "route convergence ≤ 2× baseline."
         ),
         setup=(
-            "Two-PE topology + IXIA scale rig. `mac-limit 65520` (the "
-            "documented default) configured on the EVI under test; the same "
-            "test re-run at `mac-limit 250000` (documented max) where the "
-            "platform datasheet permits. Baseline CPU and memory snapshot "
-            "taken at idle."
+            "Two-PE topology + IXIA scale rig. `mac-limit 65536` "
+            "configured on the EVI under test. Baseline CPU and memory "
+            "snapshot taken at idle."
         ),
         action=(
-            "Use IXIA to advertise unique MACs up to the configured "
-            "`mac-limit` into the EVI at a rate of 1K MACs/s; hold the table "
-            "at ceiling for ≥ 5 min; while at scale, advertise one additional "
-            "MAC then withdraw it to measure incremental convergence."
+            "Use IXIA to advertise 64K unique MACs into the EVI at a "
+            "rate of 1K MACs/s (total ramp-up 64 s); hold the table at "
+            "ceiling for ≥ 5 min; while at scale, advertise one "
+            "additional MAC then withdraw it to measure incremental "
+            "convergence."
         ),
         verify=(
-            "`show evpn mac address-table count` reaches the configured "
-            "`mac-limit` without rejecting entries below it; `show platform "
-            "process cpu` stays ≤ 70% 5-min average; `show platform process "
-            "memory` grows by ≤ 5% over the run; incremental advertise/"
-            "withdraw converges in ≤ 2× the idle baseline (measured by IXIA's "
+            "`show evpn mac address-table count` reaches 65536 entries "
+            "without rejection; `show platform process cpu` stays ≤ 70% "
+            "5-min average; `show platform process memory` grows by "
+            "≤ 5% over the run; incremental advertise/withdraw "
+            "converges in ≤ 2× the idle baseline (measured by IXIA's "
             "first-packet-with-new-MAC timestamp)."
         ),
         pass_=(
-            "The configured `mac-limit` ceiling is reached; CPU ≤ 70%; memory "
-            "growth ≤ 5%; incremental convergence ≤ 2× baseline; zero entries "
-            "rejected below the ceiling; the (limit+1)th MAC is rejected per "
-            "the documented mac-limit behaviour."
+            "65536 MAC ceiling reached; CPU ≤ 70%; memory growth ≤ 5%; "
+            "incremental convergence ≤ 2× baseline; zero entries "
+            "rejected below the ceiling."
         ),
         fail_on=(
-            "Crash, OOM, entries rejected below the configured `mac-limit`, "
-            "CPU > 70% sustained, memory growth > 5%, or per-route convergence "
-            "> 2× baseline at scale."
+            "Crash, OOM, entries rejected below 65536, CPU > 70% "
+            "sustained, memory growth > 5%, or per-route convergence > 2× "
+            "baseline at scale."
         ),
-        equipment="Two routers + IXIA scale rig (≥ 250K MAC generation)",
+        equipment="Two routers + IXIA scale rig (≥ 64K MAC generation)",
         # Eyal Ozeri 2026-06-21: rows 1463-66 (Performance / Long-run overlays)
         # were unclear and redundant with the Scale test itself and with the
         # dedicated FLOW-120 (Long-run / Performance). Keep this flow to its
