@@ -8,8 +8,9 @@ must:
   - emit a mutex row when ≥2 choice parameters exist;
   - emit a default-behavior row only when the doc names a default;
   - emit a `no` form row only when the syntax shows it;
-  - emit a persistence row;
   - emit a prerequisite row when notes describe constraints.
+Config-persistence across reload is section-level (one row for the whole
+CLI section), not per command.
 """
 from __future__ import annotations
 
@@ -105,13 +106,23 @@ def test_no_form_row_only_when_syntax_shows_it(configs) -> None:
     assert any("no lacp-key" in r.action_steps for r in lk_rows)
 
 
-def test_persistence_row_always_present(configs) -> None:
-    """Every config command needs a reload-persistence row."""
+def test_persistence_row_emitted_once_for_section(configs) -> None:
+    """Config persistence across reload is a device-wide property, tested
+    ONCE for the whole CLI section (Eyal Ozeri 2026-07-06: "Save and reload
+    shouldn't appear for every CLI command"), not per command. So no single
+    command carries it, and the section aggregator emits exactly one."""
+    # No per-command persistence row any more.
     for cmd in configs:
-        rows = rows_for_command(cmd)
-        assert any("survives reload" in r.expectation for r in rows), (
-            f"{cmd.name} missing persistence row"
+        assert not any("survives reload" in r.expectation
+                       for r in rows_for_command(cmd)), (
+            f"{cmd.name} should not carry its own persistence row"
         )
+    # Exactly one section-level persistence row across the CLI section.
+    section = cli_command_rows(configs)
+    persistence = [r for r in section if "survives reload" in r.expectation]
+    assert len(persistence) == 1, (
+        f"expected one section-level persistence row, got {len(persistence)}"
+    )
 
 
 def test_show_command_returns_no_rows() -> None:

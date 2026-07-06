@@ -894,6 +894,14 @@ def write_xlsx(plan: Plan, output_path: str | Path,
     sections = sorted(set(groups) | set(always_show),
                        key=lambda s: (_section_rank(s), s))
 
+    # Cross-section continuation dedup (Eyal Ozeri 2026-07-06: "2nd / 3rd
+    # appearance"). A coverage-driven flow can place rows in more than one
+    # section band; the per-section `seen_prereq` below resets at each band,
+    # so the flow's "…ALREADY established by the first test of this flow…"
+    # continuation placeholder re-emitted once per band. Track that
+    # placeholder globally per flow so it appears exactly once across the
+    # whole sheet, regardless of how many bands the flow spans.
+    seen_continuation: set[str] = set()
     for section in sections:
         row = _write_section_header(ws, section, row)
         section_rows = groups.get(section, [])
@@ -930,7 +938,15 @@ def write_xlsx(plan: Plan, output_path: str | Path,
                 if (not ar.is_banner
                         and ar.expectation == "Prerequisite established"):
                     norm = " ".join(ar.action.lower().split())
-                    if norm in seen_prereq:
+                    # The "…ALREADY established by the first test of this
+                    # flow…" continuation placeholder is deduped per flow
+                    # across ALL section bands, not just within one band.
+                    if "already established by the first test" in norm:
+                        gkey = f"{r.flow_id}|{norm}"
+                        if gkey in seen_continuation:
+                            continue
+                        seen_continuation.add(gkey)
+                    elif norm in seen_prereq:
                         continue  # already established earlier in this flow
                     seen_prereq.add(norm)
                 if not ar.is_banner and ar.req_ids:

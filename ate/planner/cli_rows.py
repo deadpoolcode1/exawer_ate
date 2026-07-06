@@ -293,8 +293,35 @@ def _no_form(cmd: CliCommand) -> str:
     return f"no {cmd.name}"
 
 
+def _is_mandatory_container(cmd: CliCommand) -> bool:
+    """A container the doc marks 'mandatory … cannot be deleted' (e.g.
+    `auto-discovery`). Its `no` form clears the nested attributes but does
+    NOT delete the container itself (Eyal Ozeri 2026-07-06)."""
+    notes = (cmd.notes or "").lower()
+    return bool(cmd.is_container
+                and "mandatory" in notes and "cannot be deleted" in notes)
+
+
+def _is_list_valued(cmd: CliCommand) -> bool:
+    """A command whose value is a route-target — inherently repeatable, so
+    multiple entries may be configured (e.g. `export-rt`, `import-rt`).
+    Such commands take two `no` forms: `no <cmd> <value>` removes one entry,
+    the bare `no <cmd>` removes them all (Eyal Ozeri 2026-07-06)."""
+    for p in _typed_params(cmd):
+        if p.name.lower() == "route-target" or "asn" in (p.value_spec or "").lower():
+            return True
+    return False
+
+
 def _typed_params(cmd: CliCommand) -> list[CliParameter]:
-    return [p for p in cmd.parameters if p.value_spec and not p.is_choice]
+    # Eyal Ozeri 2026-07-06 (row 13, "evpn-name missing?"): the extractor can
+    # emit nameless artifact params for inline choice *values* (e.g. `evpn`'s
+    # `service-type {vlan-based|…}` yields params with name="" and
+    # value_spec="vlan-based"). Those must not drive a per-parameter row — it
+    # rendered `Issue \`evpn <>\``. Require a non-empty name; the real
+    # `evpn-name` param still produces its value-validation row.
+    return [p for p in cmd.parameters
+            if p.value_spec and not p.is_choice and p.name]
 
 
 def _choice_params(cmd: CliCommand) -> list[CliParameter]:
@@ -741,7 +768,61 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
         ))
 
     # ── `no` form row, if syntax shows it ────────────────────────────────
-    if cmd.has_no_form:
+    if cmd.has_no_form and _is_mandatory_container(cmd):
+        # Eyal Ozeri 2026-07-06 (rows 52/66): a mandatory container "cannot be
+        # deleted", so its `no` form does NOT remove the container — it clears
+        # the nested attributes beneath it while the container persists. This
+        # reconciles the contradiction Eyal flagged between the old
+        # "removed cleanly" negation row and the "mandatory / cannot be
+        # deleted" precondition row.
+        attrs = cmd.container_attrs or sub_config_names_for(cmd.name)
+        attr_str = (", ".join(f"`{a}`" for a in attrs) if attrs
+                    else "its nested attributes")
+        rows.append(_mk(
+            _scaffold(
+                f"`{cmd.name}` container present with its attributes "
+                f"({attr_str}) configured beneath it.",
+                f"Issue `{_no_form(cmd)}`; commit.",
+                _verify_with_monitors(
+                    [f"The nested attributes ({attr_str}) are removed from "
+                     f"beneath `{cmd.name}`, but the mandatory `{cmd.name}` "
+                     f"container itself remains in `show configuration` — it "
+                     f"cannot be deleted."],
+                    _feature_show_for(cmd)),
+            ),
+            _expect(
+                f"`no {cmd.name}` clears the nested attributes ({attr_str}) "
+                f"while the mandatory `{cmd.name}` container persists",
+                f"The mandatory `{cmd.name}` container is deleted, or its "
+                f"nested attributes survive the `no` form",
+            ),
+        ))
+    elif cmd.has_no_form and _is_list_valued(cmd):
+        # Eyal Ozeri 2026-07-06 (rows 165/188): a route-target list takes two
+        # `no` forms — `no <cmd> <value>` removes one entry; the bare
+        # `no <cmd>` removes them all. Exercise both.
+        head = cmd.name
+        rows.append(_mk(
+            _scaffold(
+                f"Two `{head}` values configured (Row 1 happy-path, plus a "
+                f"second entry).",
+                [f"Issue `{_no_form(cmd)}` naming one value; commit.",
+                 f"Issue the bare `no {head}` (no value); commit."],
+                _verify_with_monitors(
+                    [f"Naming a value removes only that entry; the other "
+                     f"`{head}` remains. The bare `no {head}` removes all "
+                     f"remaining `{head}` entries at once; the feature reverts "
+                     f"to default with no stale state."],
+                    monitors),
+            ),
+            _expect(
+                f"`no {head} <value>` removes the named entry only; bare "
+                f"`no {head}` removes all `{head}` entries",
+                "The bare form removes only one entry, the valued form removes "
+                "all, or a removed entry leaves stale state",
+            ),
+        ))
+    elif cmd.has_no_form:
         rows.append(_mk(
             _scaffold(
                 f"`{cmd.name}` configured (Row 1 happy-path).",
@@ -761,22 +842,12 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
         ))
 
     # ── Persistence row ──────────────────────────────────────────────────
-    rows.append(_mk(
-        _scaffold(
-            f"`{cmd.name}` configured and committed under the `{mode}` level.",
-            "Save the configuration; reload the DUT.",
-            _verify_with_monitors(
-                [f"After full boot, `show configuration` contains the same "
-                 f"`{cmd.name}` line; the feature comes up automatically with "
-                 f"the saved configuration."],
-                _feature_show_for(cmd)),
-        ),
-        _expect(
-            f"`{cmd.name}` survives reload byte-identical; feature auto-resumes",
-            "Config lost on reload, partial-restore, or feature requires "
-            "manual re-config after reload",
-        ),
-    ))
+    # Eyal Ozeri 2026-07-06: "Save and reload shouldn't appear for every CLI
+    # command." Config persistence across reload is a device-wide property,
+    # not per-command — the whole committed configuration is written to
+    # startup and restored as one unit. Emit it ONCE for the CLI section via
+    # `_persistence_reload_row()` (same single-emit pattern as the `|`
+    # output-modifier row), not once per command.
 
     # ── Help & completion row ─────────────────────────────────────────────
     # `?` lists the documented sub-tokens and TAB completes — an operator
@@ -869,6 +940,42 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
                 "regression introduced by the EVPN AC binding",
                 "VPLS AC, MAC table, or forwarding disrupted by the EVPN "
                 "command",
+            ),
+        ))
+
+    # ── Service-type ↔ attachment-circuit form binding ───────────────────
+    # Eyal Ozeri 2026-07-06 (rows 95/96): the AC interface form the EVI
+    # accepts is bound to the EVI's service-type (EVPN SFS §2.3,
+    # EVPNS-REQ#30/#40/#50/#60). A vlan-based / vlan-aware EVI takes a
+    # *sub-interface* AC (e.g. `x-eth 0/0/1.2`); a port-based EVI takes a
+    # *whole-port* AC (e.g. `agg-eth 1`, `x-eth 0/0/1`, no VLAN sub-if). The
+    # CLI-doc Note only enumerates the interface *types*; this row adds the
+    # service-type constraint the reviewer called out.
+    if "interface" in cmd.name.lower():
+        rows.append(_mk(
+            _scaffold(
+                "Two EVIs defined under `configuration l2-services evpn`: "
+                "`evpn-v` with `service-type vlan-based` and `evpn-p` with "
+                "`service-type port-based`.",
+                [f"On `evpn-v`, bind the AC via `{cmd.name}` using a "
+                 "sub-interface (`x-eth 0/0/1.2`) — valid — then attempt a "
+                 "whole-port form (`x-eth 0/0/1`) — expected invalid.",
+                 f"On `evpn-p`, bind the AC via `{cmd.name}` using a whole "
+                 "port (`agg-eth 1` / `x-eth 0/0/1`) — valid — then attempt a "
+                 "sub-interface form (`x-eth 0/0/1.2`) — expected invalid."],
+                _verify_with_monitors(
+                    ["The vlan-based EVI accepts only the sub-interface AC and "
+                     "rejects the whole-port form; the port-based EVI accepts "
+                     "only the whole-port AC and rejects the sub-interface "
+                     "form; each rejection is a descriptive commit-time error."],
+                    ["show configuration", "show evpn evi"]),
+            ),
+            _expect(
+                "AC form is constrained by service-type: vlan-based / "
+                "vlan-aware → sub-interface only; port-based → whole-port "
+                "only; mismatches rejected at commit with a descriptive error",
+                "A service-type accepts the wrong AC form, or the mismatch is "
+                "silently accepted / half-configured",
             ),
         ))
 
@@ -1096,6 +1203,37 @@ def rows_for_show_command(cmd: CliCommand) -> list[PlanRow]:
     ))]
 
 
+def _persistence_reload_row() -> PlanRow:
+    """A single config-persistence-across-reload test for the whole CLI section.
+
+    Eyal Ozeri 2026-07-06: "Save and reload shouldn't appear for every CLI
+    command." Persistence is a device-wide property — the committed
+    configuration is saved to startup and restored as one unit — so it is
+    exercised once for the section, not per command.
+    """
+    return PlanRow(
+        category=GRP_OTHER, sub_category="configuration persistence (reload)",
+        equipment=EQUIPMENT, sfs_requirement_id="CLI:startup-config",
+        action_steps=_scaffold(
+            "A representative EVPN/BGP configuration is committed and active "
+            "(l2-services EVPN instance, interface AC, and the af-l2vpn evpn "
+            "BGP neighbor all present in `show configuration`).",
+            ["Save the running configuration to startup.",
+             "Reload the DUT and wait for full boot."],
+            ["After boot, `show configuration` is byte-identical to the "
+             "pre-reload configuration; the EVPN service, ACs and BGP EVPN "
+             "session come up automatically from the saved configuration with "
+             "no manual re-config."],
+        ),
+        expectation=_expect(
+            "The full committed configuration survives reload byte-identical "
+            "and every feature auto-resumes from startup config",
+            "Any committed line is lost or altered on reload, the restore is "
+            "partial, or a feature requires manual re-config after reload",
+        ),
+    )
+
+
 def _pipe_modifier_row() -> PlanRow:
     """A single output-modifier (`|`) test for the whole CLI section.
 
@@ -1162,6 +1300,10 @@ def cli_command_rows(commands: list[CliCommand]) -> list[PlanRow]:
     out: list[PlanRow] = []
     for _idx, c in sorted(enumerate(config), key=_config_key):
         out.extend(rows_for_command(c))
+    # One configuration-persistence-across-reload test for the whole CLI
+    # config section (Eyal Ozeri 2026-07-06 — not per command).
+    if config:
+        out.append(_persistence_reload_row())
     for _idx, c in sorted(enumerate(shows), key=_show_key):
         out.extend(rows_for_show_command(c))
     # One output-modifier test for the whole CLI section (not per-command).

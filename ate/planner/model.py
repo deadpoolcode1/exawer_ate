@@ -119,7 +119,7 @@ class Plan(BaseModel):
         "carried in Type 2 NLRI per RFC 7432bis §7.2 (validated in FLOW-030)"
     )
     interfaces: str = (
-        "x-eth, Sub-if, Q-in-Q, agg-eth, vlan-range (all five exercised "
+        "x-eth, Sub-if, Q-in-Q, agg-eth (all four exercised "
         "in FLOW-014; agg-eth additionally in FLOW-020..022)"
     )
     special_interfaces: str = ""

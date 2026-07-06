@@ -228,10 +228,15 @@ CATEGORY_ACTIONS: dict[str, list[tuple[str, str]]] = {
     ],
     "Scale": [
         (_scaffold(
-            "Two-PE topology with {title} configured to the documented system "
-            "limit (64K MACs / 32 EVIs / 16 ESs — adjust per platform spec; "
-            "check `show evpn summary` for the live ceiling).",
-            "Scale {title} to the documented maximum at 1K entries/s; hold "
+            # Eyal Ozeri 2026-07-06 ("Where are these values taken from?"):
+            # the only documented scale figure is `mac-limit` (EVPN CLI doc:
+            # default 65520, max 250000). EVI / ES counts are platform-
+            # datasheet placeholders, not SFS/CLI-documented — say so.
+            "Two-PE topology with {title} scaled to the configured `mac-limit` "
+            "(EVPN CLI doc: default 65520, max 250000); EVI / multi-homed-ES "
+            "counts are platform-datasheet placeholders — confirm per platform "
+            "and check `show evpn summary` for the live ceiling.",
+            "Scale {title} to the configured `mac-limit` at 1K entries/s; hold "
             "for ≥ 5 minutes; sample CPU and memory every 60 s.",
             "Limit reached without crash; CPU 5-min avg ≤ 70%; memory growth "
             "over the run ≤ 5%; incremental convergence ≤ 2× idle baseline."),
@@ -840,13 +845,14 @@ def overlay_for_category(flow, category: str) -> tuple[str, str]:
             _scaffolded(
                 [
                     "Two-PE topology with the flow's service configured.",
-                    "IXIA scale rig connected on access; documented "
-                    "ceiling: 64K MACs / 32 EVIs / 16 multi-homed ESs "
-                    "(adjust per platform spec).",
+                    "IXIA scale rig connected on access; scale ceiling driven "
+                    "by the configured `mac-limit` (EVPN CLI doc: default "
+                    "65520, max 250000). EVI / multi-homed-ES counts are "
+                    "platform-datasheet placeholders — confirm per platform.",
                 ],
                 [
                     "Use IXIA to advertise / install entries up to the "
-                    "documented system limit at 1K entries/s.",
+                    "configured `mac-limit` at 1K entries/s.",
                     "Hold for ≥ 5 minutes at the ceiling; sample CPU "
                     "(`show platform process cpu`) and memory "
                     "(`show platform process memory`) every 60 s.",
@@ -854,13 +860,22 @@ def overlay_for_category(flow, category: str) -> tuple[str, str]:
                     "(advertise one more entry, then withdraw); "
                     "measure first-packet-after-advertise on IXIA.",
                 ],
+                # Eyal Ozeri 2026-06-29: each verify step must carry its
+                # measurement command so it lands in the Monitor column. A
+                # verify line that only restates a numeric threshold (no
+                # `show`) decomposed into a dangling expectation-only row that
+                # duplicated the Pass: criteria below — the confusing/redundant
+                # rows Eyal flagged on FLOW-080. The thresholds live once, in
+                # the pass/fail criteria; the verify steps say how to measure.
                 [
                     f"`{show_cmds[0]}` reaches the documented limit without "
                     "rejection.",
-                    "CPU 5-min average ≤ 70%; memory growth over the run "
-                    "≤ 5% of baseline.",
-                    "Incremental convergence ≤ 2× the idle baseline "
-                    "(< 500 ms typical).",
+                    "Sample CPU and memory every 60 s during the hold via "
+                    "`show platform process cpu` and "
+                    "`show platform process memory`.",
+                    "Measure incremental advertise/withdraw convergence via "
+                    "IXIA's first-packet-with-new-MAC timestamp, cross-checked "
+                    "with `show evpn mac address-table count`.",
                 ],
             ),
             _expected(
@@ -1025,9 +1040,10 @@ def overlay_for_category(flow, category: str) -> tuple[str, str]:
                     "IXIA traffic running on the flow's data path."
                 ],
                 [
-                    "Identify the relevant control-plane process via "
-                    "`show platform process`.",
-                    "Kill the process via the documented platform debug "
+                    "Identify the control-plane process that owns this flow "
+                    "— for EVPN, the BGP/EVPN routing daemon (`bgpd`) — via "
+                    "`show platform process | include bgp` (or `evpn`).",
+                    "Kill that process via the documented platform debug "
                     "command (not graceful restart).",
                     "Wait for supervisor-initiated restart.",
                 ],

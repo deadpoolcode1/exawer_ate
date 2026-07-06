@@ -43,6 +43,7 @@ from ate.planner.cli_extractor import (
     mark_containers,
 )
 from ate.planner.cli_inheritance import expand as expand_inherited
+from ate.planner.cli_inheritance import deinvent as deinvent_inherited
 from ate.planner.extractor import extract_requirements
 from ate.planner.model import Requirement
 from ate.planner.req_classifier import classify_all
@@ -180,7 +181,14 @@ def build_catalog(doc: Document | str | Path,
     inherited_cmds: list[CliCommand] = []
     if cli_doc_path is not None:
         extracted_cmds = extract_commands(cli_doc_path)
-        inherited_cmds = expand_inherited(extracted_cmds)
+        # Expand the inheritance table, then de-invent it as an explicit
+        # pipeline step (Eyal Ozeri 2026-07-06): the curated table records
+        # our best guess at the BGP knobs' grammar, but the deliverable must
+        # not assert fabricated parameter ranges/enumerations for knobs whose
+        # real syntax we do not have. `deinvent_inherited` strips that detail
+        # to coarse "accepted & operational per BGP manual" commands. Remove
+        # this step once the real Exaware BGP CLI doc is ingested.
+        inherited_cmds = deinvent_inherited(expand_inherited(extracted_cmds))
     cli_commands = extracted_cmds + inherited_cmds
     # Re-run container marking over the combined set so a container's
     # child attributes include inherited sub-configs (e.g. `af-l2vpn evpn`

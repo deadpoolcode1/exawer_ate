@@ -277,6 +277,59 @@ BGP_NEIGHBOR_AF_L2VPN_EVPN = InheritanceEntry(
 INHERITANCE_TABLE: list[InheritanceEntry] = [BGP_NEIGHBOR_AF_L2VPN_EVPN]
 
 
+_DEINVENT_NOTE = (
+    "Exact argument grammar, value ranges and defaults await Exaware's BGP "
+    "CLI manual — this row verifies the knob is accepted under `af-l2vpn "
+    "evpn` and is operational; validate the precise parameters against the "
+    "device."
+)
+
+
+def deinvent(commands: list[CliCommand]) -> list[CliCommand]:
+    """Pipeline transform — de-invent a list of inherited CliCommands.
+
+    Applied as an explicit step in the Requirements Builder
+    (`requirements_builder.build_catalog`) right after `expand()`, so the
+    curated inheritance table stays a faithful record of what we believe the
+    BGP knobs look like, while the *deliverable* only asserts what we can
+    stand behind. See `_deinvent` for the per-command rationale. When the
+    real Exaware BGP CLI manual is ingested, drop this step — the extracted
+    commands carry their true grammar and need no de-invention.
+    """
+    return [_deinvent(c) for c in commands]
+
+
+def _deinvent(sub: CliCommand) -> CliCommand:
+    """Strip the *invented* parameter detail from a hand-curated sub-config.
+
+    Eyal Ozeri 2026-07-06 flagged the guessed parameter grammar on the
+    inherited BGP knobs (`capability`'s ORF option enumeration, `maximum-
+    prefix`'s `<threshold-pct>/<interval>` structure and its `1..65535`
+    range) as invented — the EVPN CLI doc is silent on these and we do not
+    have the BGP CLI manual. Per the 2026-07-06 decision we test each knob
+    coarsely ("accepted & operational per the BGP manual") instead of
+    asserting fabricated boundaries: drop the parameter list and any
+    `{choice|…}` / `[optional …]` syntax structure so cli_rows no longer
+    emits invented range / mutex / default-value / variant rows. The knob's
+    name, `no` form and standard-BGP behavioural description are kept.
+    """
+    first = sub.syntax_lines[0] if sub.syntax_lines else sub.name
+    name_tok_count = len(sub.name.split())
+    had_arg = len(first.split()) > name_tok_count
+    coarse = f"{sub.name} <value>" if had_arg else sub.name
+    syntax = coarse + (f"\nno {sub.name}" if sub.has_no_form else "")
+    note = (sub.notes + " " if sub.notes else "") + _DEINVENT_NOTE
+    return CliCommand(
+        name=sub.name, kind=sub.kind, syntax=syntax,
+        syntax_lines=[ln for ln in syntax.splitlines() if ln.strip()],
+        mode=sub.mode, mode_path=sub.mode_path, mode_paths=sub.mode_paths,
+        description=sub.description, parameters=[], examples="",
+        notes=note, has_no_form=sub.has_no_form,
+        default_behavior=sub.default_behavior,
+        related_features=sub.related_features, section=sub.section,
+    )
+
+
 def expand(extracted: list[CliCommand]) -> list[CliCommand]:
     """Produce inherited sub-config CliCommand objects for parents that
     appear in `extracted`.
@@ -286,6 +339,10 @@ def expand(extracted: list[CliCommand]) -> list[CliCommand]:
     appended to the output — skipping any sub-config whose name is
     already present in `extracted` (idempotent under repeated runs and
     safe to call when the real BGP CLI doc is later integrated).
+
+    `expand()` returns the curated table verbatim; the pipeline then runs
+    `deinvent()` over the result (see `build_catalog`) to strip the
+    fabricated parameter grammar before the deliverable is built.
     """
     extracted_names = {c.name for c in extracted}
     out: list[CliCommand] = []

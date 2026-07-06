@@ -5,6 +5,7 @@ from ate.planner.cli_extractor import CliCommand
 from ate.planner.cli_inheritance import (
     BGP_NEIGHBOR_AF_L2VPN_EVPN,
     INHERITANCE_TABLE,
+    deinvent,
     expand,
     inheritance_source_for,
 )
@@ -51,19 +52,45 @@ def test_expand_idempotent_on_existing_sub_config() -> None:
 
 def test_inherited_commands_round_trip_through_cli_rows() -> None:
     """Each inherited sub-config must produce the standard row family
-    (happy-path / range / mutex / default / `no` / persistence / help /
-    filter / precondition) without changes to cli_rows.py."""
+    (happy-path / range / mutex / default / `no` / help / filter /
+    precondition) without changes to cli_rows.py. Config-persistence is now
+    a single section-level row (Eyal Ozeri 2026-07-06), not per command."""
     inherited = expand([_make_cmd("af-l2vpn evpn")])
+    cmd_names = {c.name for c in inherited}
     rows = cli_command_rows(inherited)
     assert rows, "cli_command_rows returned no rows for inherited commands"
     # Each command produces multiple PlanRows (family); at minimum
-    # happy-path + persistence + help + filter = 4.
+    # happy-path + help + filter + precondition = 4. Section-level singleton
+    # rows (e.g. the one "configuration persistence (reload)" row) are not
+    # per-command, so exclude them from the per-command floor.
     by_subcat: dict[str, int] = {}
     for r in rows:
-        by_subcat[r.sub_category] = by_subcat.get(r.sub_category, 0) + 1
+        if r.sub_category in cmd_names:
+            by_subcat[r.sub_category] = by_subcat.get(r.sub_category, 0) + 1
+    assert by_subcat, "no per-command rows produced for inherited commands"
     assert all(n >= 4 for n in by_subcat.values()), (
         f"row family too small per command: {by_subcat}"
     )
+    # And exactly one section-level persistence row for the whole set.
+    persistence = [r for r in rows if "survives reload" in r.expectation]
+    assert len(persistence) == 1, (
+        f"expected one section-level persistence row, got {len(persistence)}"
+    )
+
+
+def test_deinvent_strips_invented_parameter_grammar() -> None:
+    """`deinvent()` (the Requirements-Builder pipeline step, Eyal Ozeri
+    2026-07-06) removes the fabricated parameter grammar for knobs whose real
+    syntax we don't have: no params, coarse syntax, `no` form kept."""
+    inherited = expand([_make_cmd("af-l2vpn evpn")])
+    assert any(c.parameters for c in inherited), "fixture should have params"
+    coarse = deinvent(inherited)
+    assert all(not c.parameters for c in coarse), "de-invent must drop params"
+    joined = " ".join(c.syntax for c in coarse)
+    assert "orf-prefix-list" not in joined  # invented capability enumeration
+    assert "65535" not in joined            # invented maximum-prefix range
+    mp = next(c for c in coarse if c.name == "maximum-prefix")
+    assert any(ln.startswith("no ") for ln in mp.syntax_lines)  # `no` kept
 
 
 def test_inheritance_source_for_returns_source_string() -> None:

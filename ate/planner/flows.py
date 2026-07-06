@@ -102,17 +102,24 @@ EVPN_FLOWS: list[Flow] = [
             "send 1 Gbps known-unicast (then unknown-unicast) frames "
             "PE1→PE2 and PE2→PE1 for ≥ 60 s."
         ),
+        # Eyal Ozeri 2026-07-06 (row 549, "type-3 ?"): make bring-up assert
+        # BOTH route types — the remote PE installs the Type 2 MAC/IP for known
+        # unicast AND installs the Type 3 IMET and uses it to flood BUM — not
+        # just Type 2.
         verify=(
             "`show evpn evi evi-1` reports the EVI up; access AC bound; "
             "MAC table populates from data-plane learning; tcpdump on PE↔PE "
-            "shows MAC/IP (Type 2) and IMET (Type 3) routes; IXIA receives "
-            "frames on the far port at line rate (≥ 0.99 Gbps for a 1 Gbps "
-            "offered load)."
+            "shows MAC/IP (Type 2) and IMET (Type 3) routes; the remote PE "
+            "installs the Type 2 MAC/IP (known-unicast forwarding) and the "
+            "Type 3 IMET (BUM flooding tunnel) and forwards on each "
+            "accordingly; IXIA receives frames on the far port at line rate "
+            "(≥ 0.99 Gbps for a 1 Gbps offered load)."
         ),
         pass_=(
-            "EVI up within ≤ 10 s of commit; routes installed; bidirectional "
-            "unicast forwarded; MAC table reflects learned MACs; ≤ 0 packet "
-            "drops over the 60 s steady-state window."
+            "EVI up within ≤ 10 s of commit; both Type 2 and Type 3 routes "
+            "installed and used (unicast on Type 2, BUM on the Type 3 IMET); "
+            "bidirectional unicast forwarded; MAC table reflects learned MACs; "
+            "≤ 0 packet drops over the 60 s steady-state window."
         ),
         fail_on=(
             "EVI never reaches up state, MAC not learned, frames "
@@ -135,7 +142,12 @@ EVPN_FLOWS: list[Flow] = [
                 "remote mac learning", "mac learning",
                 "route distinguisher", "rd assignment",
                 "evpn configuration",
-                "bgp common cli",
+                # Eyal Ozeri 2026-07-06: "bgp common cli" (EVPNS-REQ#20) used
+                # to attach here, so every one of FLOW-010's category overlays
+                # regenerated a near-duplicate "BGP common commands accepted"
+                # test — the repetition Eyal flagged ("I'd expect a separate
+                # BGP bring-up phase"). REQ#20 now lives on the dedicated
+                # FLOW-015 (BGP af-l2vpn evpn bring-up) instead.
                 "auto-derivation from the ethernet tag",
             ],
             explicit_req_ids=["EVPNS-REQ#380"],  # generic "Configuration"
@@ -258,53 +270,68 @@ EVPN_FLOWS: list[Flow] = [
     ),
     Flow(
         id="FLOW-014",
-        name="Access-interface variants on EVPN AC (Q-in-Q, Sub-if, vlan-range, agg-eth, x-eth)",
+        name="Access-interface variants on EVPN AC (Q-in-Q, Sub-if, agg-eth, x-eth)",
+        # Eyal Ozeri 2026-06-29: drop vlan-range from the access-interface
+        # matrix — vlan-range support is being removed, so it must not appear
+        # as an exercised AC form here or on the cover page (model.interfaces).
         summary=(
             "Bind the EVPN AC to each documented access-interface form — "
-            "x-eth, Sub-if (single-tagged), Q-in-Q (double-tagged), "
-            "agg-eth (LACP LAG), and vlan-range — and verify each "
-            "forwards correctly. Exercises the full interface matrix the "
-            "cover page advertises."
+            "x-eth, Sub-if (single-tagged), Q-in-Q (double-tagged), and "
+            "agg-eth (LACP LAG) — and verify each forwards correctly. "
+            "Exercises the full interface matrix the cover page advertises."
         ),
         setup=(
-            "Two-PE EVPN service up (FLOW-010 baseline). Five access "
+            "Two-PE EVPN service up (FLOW-010 baseline). Four access "
             "ports on PE1 cabled to IXIA: x-eth-1 (untagged), "
             "sub-if x-eth-2.100 (single-tag VLAN 100), x-eth-3 "
-            "(Q-in-Q outer 200 inner 10..20), agg-eth-1 (LACP LAG of "
-            "two x-eth members), and vlan-range x-eth-4 vlan-range "
-            "300..309."
+            "(Q-in-Q outer 200 inner 10..20), and agg-eth-1 (LACP LAG of "
+            "two x-eth members)."
         ),
+        # Eyal Ozeri 2026-07-06: (row 666) add the VLAN-ID manipulation the
+        # SFS mandates for tagged ACs (§2.3.1.1 — the system replaces the
+        # ingress VLAN-ID with the configured normalized VLAN-ID); (row 661)
+        # the untagged (port-based) and tagged (sub-interface) forms live on
+        # SEPARATE physical ports on purpose — they cannot co-exist on one
+        # port, so the flow now asserts that a mixed binding is rejected.
         action=(
             "Bind each access-interface form to a dedicated EVI via "
-            "`interface <form> evpn evi-N` in turn. From IXIA, send "
-            "100 Mbps unicast through each form simultaneously: untagged "
-            "on x-eth-1, VLAN 100 on x-eth-2.100, S-Tag 200 + C-Tag 15 "
-            "on x-eth-3, LACP-balanced on agg-eth-1, and VLAN 305 on the "
-            "vlan-range AC."
+            "`interface <form> evpn evi-N` in turn. On the sub-if AC, "
+            "configure a normalized VLAN-ID (map ingress VLAN 100 → "
+            "normalized VLAN 4) to exercise VLAN-ID manipulation "
+            "(SFS §2.3.1.1). From IXIA, send 100 Mbps unicast through each "
+            "form simultaneously: untagged on x-eth-1, VLAN 100 on "
+            "x-eth-2.100, S-Tag 200 + C-Tag 15 on x-eth-3, and LACP-balanced "
+            "on agg-eth-1. Finally, attempt to bind BOTH an untagged "
+            "(port-based) AC and a VLAN sub-interface AC on the same physical "
+            "port to confirm the two cannot co-exist."
         ),
         verify=(
             "`show evpn evi` lists each EVI up with its bound AC. "
             "`show interface detail` confirms each access form: x-eth "
             "untagged, sub-if dot1q 100, Q-in-Q outer 200 / inner 10..20 "
-            "stack, agg-eth lacp Up, vlan-range 300..309 active. IXIA "
-            "receives every offered frame on the far PE at the offered "
-            "rate (≥ 0.99× line rate)."
+            "stack, and agg-eth lacp Up. The DUT rewrites the ingress "
+            "VLAN-ID to the configured normalized VLAN-ID on egress (VLAN-op "
+            "applied). IXIA receives every offered frame on the far PE at the "
+            "offered rate (≥ 0.99× line rate). Binding an untagged AC and a "
+            "tagged sub-if AC on one physical port is rejected at commit."
         ),
         pass_=(
-            "All five access-interface forms bind to EVPN cleanly; ≤ 0 "
+            "All four access-interface forms bind to EVPN cleanly; ≤ 0 "
             "packet drops over 60 s steady state on each form; tag "
             "stack preserved (Q-in-Q frames egress with both tags; "
             "sub-if frames egress with single tag; untagged remains "
-            "untagged)."
+            "untagged); the ingress VLAN-ID is normalized to the configured "
+            "value; untagged and tagged ACs are rejected on the same port."
         ),
         fail_on=(
-            "Any form rejects the EVPN binding, Q-in-Q outer/inner tag "
-            "drift, vlan-range filter leaks frames outside the range, "
-            "or LACP LAG fails to bring up with EVPN."
+            "Any form rejects a valid EVPN binding, Q-in-Q outer/inner tag "
+            "drift, LACP LAG fails to bring up with EVPN, VLAN-ID "
+            "normalization is not applied, or an untagged and a tagged AC are "
+            "both accepted on the same physical interface."
         ),
         equipment=(
-            "DUT + IXIA (5 ports: untagged, single-tag, double-tag, "
-            "LACP partner, vlan-range) + neighbor PE"
+            "DUT + IXIA (4 ports: untagged, single-tag, double-tag, "
+            "LACP partner) + neighbor PE"
         ),
         categories=[
             "Basic Functionality", "Packet validation", "Feature interaction",
@@ -313,13 +340,79 @@ EVPN_FLOWS: list[Flow] = [
         selector=FlowSelector(
             title_keywords=[
                 "q-in-q", "qinq", "sub-if", "sub interface", "subinterface",
-                "vlan-range", "vlan range", "agg-eth", "lag",
+                "agg-eth", "lag",
             ],
             required_tags=["CONFIG"],
         ),
         related_cli_cmds=["interface (VPLS/EVPN)", "evpn"],
         rfc_refs=["RFC 7432bis §6"],
         coverage_driven=True,
+    ),
+    Flow(
+        # Eyal Ozeri 2026-07-06: dedicated "BGP bring-up phase" for the
+        # af-l2vpn evpn common-command knobs (EVPNS-REQ#20). Previously REQ#20
+        # attached to FLOW-010 and every category overlay there regenerated a
+        # near-duplicate "BGP common commands accepted" row. Those knobs are
+        # now exercised ONCE, end-to-end, in this flow. Per-knob CLI-acceptance
+        # is covered separately by the CLI Configuration section (the
+        # af-l2vpn evpn inherited sub-configs, de-invented pending the BGP CLI
+        # manual). Single category on purpose — no overlay multiplication.
+        id="FLOW-015",
+        name="BGP L2VPN EVPN address-family (af-l2vpn evpn) bring-up",
+        summary=(
+            "Bring a BGP EVPN neighbor up under `af-l2vpn evpn` and verify the "
+            "common BGP neighbor-policy knobs (EVPNS-REQ#20: allow-as-in, "
+            "capability, inbound-soft-reconfiguration, maximum-prefix, "
+            "private-as, route-reflector-client, weight, group) are accepted "
+            "in the L2VPN EVPN context and operate without disrupting the "
+            "session. Exact per-knob argument grammar is validated in the CLI "
+            "Configuration section; this flow proves they function end-to-end."
+        ),
+        setup=(
+            "PE1 and PE2 over MPLS transport. A base BGP session between the "
+            "PEs is configured but the L2VPN EVPN address-family is not yet "
+            "enabled on the neighbor."
+        ),
+        action=(
+            "On PE1, under `configuration routing bgp vrf neighbor <PE2-ip>`, "
+            "enter `af-l2vpn evpn` and configure the common neighbor-policy "
+            "knobs one commit at a time: `route-reflector-client` (iBGP), "
+            "`allow-as-in`, `inbound-soft-reconfiguration`, `maximum-prefix` "
+            "(with a limit sized above the expected route count), "
+            "`private-as`, `weight`, and any `capability`/`group` the BGP "
+            "manual documents. Commit after each; then bring the EVPN service "
+            "up and exchange Type 2/3 routes across the session."
+        ),
+        verify=(
+            "Each knob commits without CLI error and reads back under "
+            "`af-l2vpn evpn` in `show configuration`. The BGP EVPN session "
+            "establishes and stays up (no hard reset); `show bgp l2vpn evpn "
+            "summary` shows the neighbor Established; reflected routes carry "
+            "ORIGINATOR_ID/CLUSTER_LIST when route-reflector-client is set; "
+            "the maximum-prefix limit tears the session down only when the "
+            "documented threshold is exceeded."
+        ),
+        pass_=(
+            "All EVPNS-REQ#20 knobs are accepted under `af-l2vpn evpn`, persist "
+            "in `show configuration`, and are operational (route reflection, "
+            "AS handling, soft-reconfiguration, prefix-limit) without "
+            "disrupting the active EVPN service."
+        ),
+        fail_on=(
+            "Any knob is rejected under `af-l2vpn evpn`, silently ignored, "
+            "forces a hard session reset when it should be non-disruptive, or "
+            "the maximum-prefix limit fails to act at the documented threshold."
+        ),
+        equipment="DUT + neighbor PE",
+        categories=["Basic Functionality"],
+        selector=FlowSelector(
+            explicit_req_ids=["EVPNS-REQ#20"],
+        ),
+        related_cli_cmds=[
+            "allow-as-in", "capability", "inbound-soft-reconfiguration",
+            "maximum-prefix", "private-as", "route-reflector-client",
+        ],
+        rfc_refs=["RFC 4271", "RFC 4456", "RFC 7432bis §9"],
     ),
     Flow(
         id="FLOW-020",
@@ -466,29 +559,53 @@ EVPN_FLOWS: list[Flow] = [
             "MAC learned on access; Type 2 route advertised PE↔PE; remote "
             "PE installs and uses it."
         ),
+        # Eyal Ozeri 2026-07-06 (row 768): broaden the Type-2 matrix — MAC-only
+        # vs MAC+IP encodings; community / extended-community handling incl.
+        # reserved communities; the BUM→unicast label switch once a MAC is
+        # learned; and confirming that a MAC moving between two LOCAL ACs on
+        # the same PE does NOT trigger a new advertisement.
         setup="Two-PE EVPN up; CE attached to PE1; clean MAC table.",
         action=(
-            "Send a known-unicast frame from CE-A (behind PE1) to CE-B "
-            "(behind PE2) twice: (1) IPv4 host (e.g. 10.0.0.1 → 10.0.0.2), "
-            "(2) IPv6 host (e.g. 2001:db8::1 → 2001:db8::2). Capture the "
-            "BGP UPDATE on PE↔PE for each."
+            "(1) Send a known-unicast frame from CE-A (behind PE1) to CE-B "
+            "(behind PE2) in three encodings: MAC-only (no IP), IPv4 host "
+            "(10.0.0.1 → 10.0.0.2), and IPv6 host (2001:db8::1 → "
+            "2001:db8::2); capture the BGP UPDATE on PE↔PE for each. "
+            "(2) Re-advertise MAC+IP carrying (a) a standard community, (b) a "
+            "non-reserved extended community, and (c) a reserved community, "
+            "and once with none. "
+            "(3) Before CE-B's MAC is learned, send a frame to it and observe "
+            "BUM flooding; then let PE2 learn CE-B via Type 2 and confirm "
+            "subsequent frames switch from the BUM/IMET label to the unicast "
+            "Type-2 label. "
+            "(4) Move CE-A's MAC from one local AC to another local AC on PE1 "
+            "and watch the PE↔PE session."
         ),
         verify=(
             "Type 2 NLRI carries: RD + ESI (zero for single-homed) + "
-            "Eth-Tag + MAC (length=48) + (optional) IP (4-byte for IPv4, "
-            "16-byte for IPv6 — IP Address Length field reflects which) "
-            "+ MPLS Label1 [+ Label2] per RFC 7432bis §7.2; remote PE "
-            "installs MAC + label for both v4 and v6 entries; reverse "
-            "traffic forwards on the learned label in both directions."
+            "Eth-Tag + MAC (length=48) + (optional) IP (0 for MAC-only, "
+            "4-byte for IPv4, 16-byte for IPv6 — IP Address Length field "
+            "reflects which) + MPLS Label1 [+ Label2] per RFC 7432bis §7.2; "
+            "remote PE installs MAC (+ label) for the MAC-only, v4 and v6 "
+            "entries; reverse traffic forwards on the learned label. Standard "
+            "and extended communities (including reserved ones) are carried / "
+            "handled per policy without corrupting the route. Once the MAC is "
+            "learned via Type 2, forwarding switches from the BUM/IMET label "
+            "to the unicast label. A MAC moving between two LOCAL ACs on PE1 "
+            "updates the local forwarding entry but does NOT emit a new Type 2 "
+            "advertisement or a MAC-mobility event."
         ),
         pass_=(
-            "Type 2 encoded per §7.2 for both IPv4 and IPv6 host IPs; "
-            "remote install + bidirectional flow for each address family."
+            "Type 2 encoded per §7.2 for MAC-only, IPv4 and IPv6; remote "
+            "install + bidirectional flow for each; communities (incl. "
+            "reserved) handled cleanly; forwarding switches BUM→unicast on "
+            "learn; a purely-local interface move triggers no re-advertisement."
         ),
         fail_on=(
-            "MAC length ≠ 48, IP Address Length field ≠ 0/32/128, "
-            "missing label, malformed RD/ESI, IPv6 host IP not carried, "
-            "or remote PE drops the route."
+            "MAC length ≠ 48, IP Address Length field ≠ 0/32/128, missing "
+            "label, malformed RD/ESI, IPv6 host IP not carried, a community "
+            "mishandled/corrupted, forwarding stuck on the BUM label after "
+            "learning, a local interface move spuriously re-advertising the "
+            "MAC, or remote PE drops the route."
         ),
         equipment="DUT + IXIA + neighbor PE",
         categories=[
@@ -496,17 +613,20 @@ EVPN_FLOWS: list[Flow] = [
             "Malformed/unsupported packets", "Feature interaction",
             "PM", "Tech-support",
         ],
+        # Eyal Ozeri 2026-07-06 (row 773, "That's type-1"): the L2-Attr /
+        # ESI-Label Extended-Community requirements (RFC7432bis §7.5, §7.11;
+        # EVPNS-REQ#240) are carried on the Ethernet A-D (Type 1) routes, not
+        # Type 2 — those keywords moved to FLOW-032 so the Type-1 content stops
+        # landing in this Type-2 flow.
         selector=FlowSelector(
             title_keywords=[
                 "mac/ip", "mac advertisement", "type 2", "type-2",
                 "address advertisement",
                 "lt1", "lt2", "lt3", "lt4", "label type",
                 "mac unicast forwarding table", "mac forwarding table",
-                "local learning", "l2-attr", "l2 attr",
-                "layer 2 attributes",
+                "local learning",
                 "attribute processing", "nlri processing",
                 "forwarding packets received",
-                "esi label extended community",
                 "flow label",
                 "domain-wide common block",
             ],
@@ -522,20 +642,45 @@ EVPN_FLOWS: list[Flow] = [
             "IMET advertises tunnel info; ingress replication delivers "
             "BUM frames to all remote PEs in the EVI."
         ),
-        setup="Three-PE EVPN; ingress-replication tunnel; BUM source on access at PE1.",
+        # Eyal Ozeri 2026-07-06: (row 809) show the full IMET lifecycle across
+        # all three PEs — each PE that joins the EVI advertises its own Type 3
+        # IMET and the others receive and install it, building the
+        # ingress-replication flood list; (row 806) be explicit that an
+        # unknown-unicast is flooded via that list and the source MAC is
+        # learned from the returning/again-seen frame, after which forwarding
+        # goes unicast (Type 2) rather than continuing to flood.
+        setup=(
+            "Three-PE EVPN (PE1, PE2, PE3) all in the same EVI; "
+            "ingress-replication PMSI; a BUM source on access at PE1."
+        ),
         action=(
-            "Send a broadcast and an unknown-unicast frame from PE1's "
-            "access port; trace replication on PE1→PE2 and PE1→PE3 links."
+            "(1) On EVI join, confirm each PE installs and advertises its own "
+            "Type 3 IMET route; verify PE1 installs its own and receives + "
+            "installs PE2's and PE3's, building the ingress-replication flood "
+            "list. (2) Send a broadcast from PE1's access port; trace "
+            "replication on PE1→PE2 and PE1→PE3. (3) Send an unknown-unicast "
+            "from PE1; confirm it is flooded to PE2 and PE3 over the IR list, "
+            "the destination's MAC is then learned (Type 2), and subsequent "
+            "frames to it forward unicast without further flooding."
         ),
         verify=(
-            "Type 3 NLRI per §7.3; PMSI Tunnel attribute encodes the "
-            "tunnel type, label, and tunnel ID; each remote PE receives "
-            "exactly one copy; no duplication."
+            "Each PE's Type 3 NLRI is encoded per §7.3; the PMSI Tunnel "
+            "attribute encodes the tunnel type (ingress replication), label, "
+            "and tunnel ID; every PE installs every other PE's IMET; broadcast "
+            "and unknown-unicast reach each remote PE exactly once (no "
+            "duplication); after MAC learning, unknown-unicast to that MAC "
+            "stops flooding and forwards on the unicast label."
         ),
-        pass_="One copy per remote PE; correct PMSI encoding.",
+        pass_=(
+            "All three PEs advertise + install each other's IMET; one copy per "
+            "remote PE for BUM; correct PMSI encoding; unknown-unicast "
+            "transitions from flooded to unicast once the MAC is learned."
+        ),
         fail_on=(
-            "Duplicate replication, missing PMSI Tunnel attribute, wrong "
-            "tunnel type, or BUM delivered to a non-EVI PE."
+            "A PE fails to advertise or install an IMET, duplicate "
+            "replication, missing PMSI Tunnel attribute, wrong tunnel type, "
+            "BUM delivered to a non-EVI PE, or unknown-unicast keeps flooding "
+            "after the MAC is learned."
         ),
         equipment="DUT + IXIA + neighbor PE",
         categories=[
@@ -581,14 +726,19 @@ EVPN_FLOWS: list[Flow] = [
         categories=[
             "Basic Functionality", "Packet validation", "Tech-support",
         ],
+        # Eyal Ozeri 2026-07-06 (row 773): L2-Attr / ESI-Label Extended
+        # Communities ride on the Ethernet A-D (Type 1) routes — pick up those
+        # requirements here (moved off the Type-2 FLOW-030).
         selector=FlowSelector(
             title_keywords=[
                 "ethernet a-d", "auto-discovery route",
                 "type 1", "type-1", "ad route",
+                "l2-attr", "l2 attr", "layer 2 attributes",
+                "esi label extended community",
             ],
             required_tags=["PROTOCOL"],
         ),
-        rfc_refs=["RFC 7432bis §7.1"],
+        rfc_refs=["RFC 7432bis §7.1", "RFC 7432bis §7.5", "RFC 7432bis §7.11"],
     ),
     Flow(
         id="FLOW-033",
@@ -625,27 +775,49 @@ EVPN_FLOWS: list[Flow] = [
     Flow(
         id="FLOW-040",
         name="MAC Mobility (host moves between PEs)",
+        # Eyal Ozeri 2026-07-06 (row 867): the base case is a LOCAL MAC (learned
+        # on the DUT's own access) being superseded by a remote Type 2. Add the
+        # remote→remote case: from the DUT's viewpoint a MAC first learned via
+        # PE1's Type 2 moves and is superseded by PE2's Type 2 — both
+        # advertisements are remote to the DUT. Requires a third PE as observer.
         summary=(
-            "A MAC learned behind PE1 reappears behind PE2; MAC Mobility "
-            "EC sequence increments and the old advertisement is withdrawn."
+            "A MAC moves between PEs; the MAC Mobility EC sequence increments "
+            "and the superseded advertisement is withdrawn. Covers both a "
+            "local→remote move and a remote(PE1)→remote(PE2) move observed by "
+            "a third PE."
         ),
-        setup="Two-PE EVPN; host H1 attached to PE1, learned by both PEs.",
+        setup=(
+            "Three-PE EVPN (PE1, PE2, and the DUT as observer). Host H1 is "
+            "attached to PE1 and learned by all PEs."
+        ),
         action=(
-            "Move H1's frames to PE2 (e.g. detach LAN cable from PE1's "
-            "access, attach to PE2's access; or send from a different MAC "
-            "on PE2). Capture PE2's new Type 2 advertisement."
+            "Case A (local→remote): learn H1 locally on the DUT's access, then "
+            "move H1 to PE2; capture PE2's Type 2 and the DUT's local "
+            "withdrawal. Case B (remote→remote): with H1 learned by the DUT "
+            "via PE1's Type 2, move H1 from PE1 to PE2 (detach from PE1's "
+            "access, attach to PE2's; or source from PE2); capture PE2's new "
+            "Type 2 advertisement."
         ),
         verify=(
-            "MAC Mobility EC carries an incremented sequence number; PE1 "
-            "withdraws its older advertisement; FIB on remote PE installs "
-            "PE2 as the new path within the fast-convergence bound."
+            "In both cases the MAC Mobility EC carries an incremented sequence "
+            "number and the superseded advertisement is withdrawn. Case A: the "
+            "DUT withdraws its local entry and installs the remote path. "
+            "Case B: the DUT replaces PE1's remote route with PE2's remote "
+            "route (higher sequence) and its FIB points to PE2 within the "
+            "fast-convergence bound; no traffic is sent toward the stale PE1 "
+            "path."
         ),
-        pass_="Sequence increments; old advertisement withdrawn; FIB updates promptly.",
+        pass_=(
+            "Sequence increments and the older advertisement is withdrawn in "
+            "both the local→remote and remote→remote moves; FIB updates "
+            "promptly to the new PE."
+        ),
         fail_on=(
-            "Sequence does not increment, no withdrawal, stale MAC entry, "
-            "or sticky-MAC flag misapplied."
+            "Sequence does not increment, no withdrawal, the DUT keeps the "
+            "stale (local or PE1) entry, traffic sent to the old path, or "
+            "sticky-MAC flag misapplied."
         ),
-        equipment="DUT + IXIA + neighbor PE",
+        equipment="DUT + IXIA + 2 neighbor PEs",
         categories=[
             "Basic Functionality", "Packet validation", "Robustness",
             "Tech-support",
@@ -832,20 +1004,42 @@ EVPN_FLOWS: list[Flow] = [
             "Exaware DUT + 3rd-party PE physically connected; routing-policy "
             "permits L2VPN-EVPN."
         ),
+        # Eyal Ozeri 2026-07-06 (row 991): also drive the DUT with unsupported
+        # / possibly-proprietary content — unknown BGP capabilities in OPEN,
+        # unknown/vendor extended communities and unknown attributes on EVPN
+        # routes, and unknown EVPN route types — and confirm the DUT degrades
+        # gracefully (RFC 7606 attribute handling; unknown-capability
+        # negotiation) rather than resetting the session or corrupting state.
         action=(
             "Configure `af-l2vpn evpn` neighbor on DUT and the symmetric "
             "config on the 3rd party. Bring the session up; capture OPEN "
-            "messages on both sides; advertise routes from each side."
+            "messages on both sides; advertise routes from each side. Then "
+            "have the 3rd party (or IXIA) send: (1) an OPEN advertising an "
+            "unknown/optional capability; (2) EVPN routes carrying an unknown "
+            "extended community and an unknown optional-transitive attribute; "
+            "(3) an unknown/unsupported EVPN route type."
         ),
         verify=(
-            "Both sides advertise the L2VPN-EVPN AFI/SAFI capability; "
-            "session reaches Established; routes from each side install "
-            "into the other's RIB; encapsulation is interoperable."
+            "Both sides advertise the L2VPN-EVPN AFI/SAFI capability; session "
+            "reaches Established; routes from each side install into the "
+            "other's RIB; encapsulation is interoperable. Unknown optional "
+            "capabilities are ignored without tearing the session; unknown "
+            "optional-transitive attributes are preserved and passed through, "
+            "malformed ones are handled per RFC 7606 (attribute-discard / "
+            "treat-as-withdraw, not session reset); an unknown EVPN route type "
+            "is ignored without dropping the known routes."
         ),
-        pass_="Capability exchanged; session up; routes installed bidirectionally.",
+        pass_=(
+            "Capability exchanged; session up; known routes installed "
+            "bidirectionally; unknown capabilities/communities/attributes/"
+            "route-types handled gracefully with no session reset or state "
+            "corruption."
+        ),
         fail_on=(
-            "Missing capability, NOTIFICATION on OPEN, route rejected, or "
-            "encoding mismatch on the wire."
+            "Missing capability, NOTIFICATION on OPEN, a valid route rejected, "
+            "encoding mismatch on the wire, or the DUT resets the session / "
+            "corrupts state on an unknown capability, attribute, community, or "
+            "route type."
         ),
         equipment="DUT + 3rd-party PE (Cisco/Juniper) + IXIA",
         categories=[
@@ -864,44 +1058,55 @@ EVPN_FLOWS: list[Flow] = [
     ),
     Flow(
         id="FLOW-080",
-        name="Scale to documented MAC table limit (64K MACs)",
+        name="Scale to the configured mac-limit ceiling",
+        # Eyal Ozeri 2026-07-06 ("Where are these values taken from?"): the
+        # only scale figure the source docs actually give is `mac-limit` (EVPN
+        # CLI doc: default 65520 ≈ 64K, configurable 1..250000). That is the
+        # ceiling this test drives. EVI and multi-homed-ES counts are NOT in
+        # the SFS/CLI — they are platform-datasheet numbers, so they are called
+        # out as placeholders to confirm per platform, not asserted as
+        # documented limits.
         summary=(
-            "Advertise/install MACs up to the documented system limit "
-            "(64K MACs per PE; 32 EVIs; 16 multi-homed ESs); hold for "
-            "≥ 5 min; verify CPU < 70%, memory growth < 5%, and per-"
-            "route convergence ≤ 2× baseline."
+            "Advertise/install MACs up to the configured `mac-limit` ceiling "
+            "(EVPN CLI doc: default 65520, max 250000) — driven here at the "
+            "65520 default; hold for ≥ 5 min; verify CPU < 70%, memory growth "
+            "< 5%, and per-route convergence ≤ 2× baseline. (EVI / multi-homed-"
+            "ES scale counts are platform-datasheet placeholders — confirm per "
+            "platform.)"
         ),
         setup=(
-            "Two-PE topology + IXIA scale rig. `mac-limit 65536` "
-            "configured on the EVI under test. Baseline CPU and memory "
-            "snapshot taken at idle."
+            "Two-PE topology + IXIA scale rig. `mac-limit 65520` (the "
+            "documented default) configured on the EVI under test; the same "
+            "test re-run at `mac-limit 250000` (documented max) where the "
+            "platform datasheet permits. Baseline CPU and memory snapshot "
+            "taken at idle."
         ),
         action=(
-            "Use IXIA to advertise 64K unique MACs into the EVI at a "
-            "rate of 1K MACs/s (total ramp-up 64 s); hold the table at "
-            "ceiling for ≥ 5 min; while at scale, advertise one "
-            "additional MAC then withdraw it to measure incremental "
-            "convergence."
+            "Use IXIA to advertise unique MACs up to the configured "
+            "`mac-limit` into the EVI at a rate of 1K MACs/s; hold the table "
+            "at ceiling for ≥ 5 min; while at scale, advertise one additional "
+            "MAC then withdraw it to measure incremental convergence."
         ),
         verify=(
-            "`show evpn mac address-table count` reaches 65536 entries "
-            "without rejection; `show platform process cpu` stays ≤ 70% "
-            "5-min average; `show platform process memory` grows by "
-            "≤ 5% over the run; incremental advertise/withdraw "
-            "converges in ≤ 2× the idle baseline (measured by IXIA's "
+            "`show evpn mac address-table count` reaches the configured "
+            "`mac-limit` without rejecting entries below it; `show platform "
+            "process cpu` stays ≤ 70% 5-min average; `show platform process "
+            "memory` grows by ≤ 5% over the run; incremental advertise/"
+            "withdraw converges in ≤ 2× the idle baseline (measured by IXIA's "
             "first-packet-with-new-MAC timestamp)."
         ),
         pass_=(
-            "65536 MAC ceiling reached; CPU ≤ 70%; memory growth ≤ 5%; "
-            "incremental convergence ≤ 2× baseline; zero entries "
-            "rejected below the ceiling."
+            "The configured `mac-limit` ceiling is reached; CPU ≤ 70%; memory "
+            "growth ≤ 5%; incremental convergence ≤ 2× baseline; zero entries "
+            "rejected below the ceiling; the (limit+1)th MAC is rejected per "
+            "the documented mac-limit behaviour."
         ),
         fail_on=(
-            "Crash, OOM, entries rejected below 65536, CPU > 70% "
-            "sustained, memory growth > 5%, or per-route convergence > 2× "
-            "baseline at scale."
+            "Crash, OOM, entries rejected below the configured `mac-limit`, "
+            "CPU > 70% sustained, memory growth > 5%, or per-route convergence "
+            "> 2× baseline at scale."
         ),
-        equipment="Two routers + IXIA scale rig (≥ 64K MAC generation)",
+        equipment="Two routers + IXIA scale rig (≥ 250K MAC generation)",
         # Eyal Ozeri 2026-06-21: rows 1463-66 (Performance / Long-run overlays)
         # were unclear and redundant with the Scale test itself and with the
         # dedicated FLOW-120 (Long-run / Performance). Keep this flow to its
@@ -927,18 +1132,28 @@ EVPN_FLOWS: list[Flow] = [
             "active under traffic; verify auto-recovery (process restart "
             "≤ 5 s, BGP re-establish ≤ 30 s) and ≤ 1 s data-plane outage."
         ),
+        # Eyal Ozeri 2026-07-06 (row 1014, "Where is the 'load'?"): make the
+        # traffic load explicit and central — the whole point of this flow is
+        # recovery *under load*, so a steady IXIA rate runs throughout and the
+        # data-plane outage is measured against it.
         setup=(
-            "Single-router topology with EVPN service active; IXIA traffic "
-            "flowing for ≥ 1 min."
+            "Single-router topology with EVPN service active. IXIA drives a "
+            "steady bidirectional load of ≥ 500 Mbps known-unicast across the "
+            "EVPN service for ≥ 1 min to establish steady state; this load "
+            "keeps running for the whole test."
         ),
         action=(
-            "Kill the EVPN-related control-plane process via the platform "
-            "debug command; let the supervisor restart it."
+            "With the IXIA load still running, kill the EVPN-related "
+            "control-plane process via the platform debug command; let the "
+            "supervisor restart it. Do not stop or pause the offered load at "
+            "any point."
         ),
         verify=(
             "Process restarts within ≤ 5 s of SIGKILL; BGP EVPN session "
-            "re-establishes within ≤ 30 s; data-plane remains forwarding "
-            "(IXIA measures ≤ 1 s of zero-bps outage on the access port)."
+            "re-establishes within ≤ 30 s; under the sustained IXIA load the "
+            "data-plane keeps forwarding (IXIA measures ≤ 1 s of zero-bps "
+            "outage on the access port, and no reordering/duplication of the "
+            "in-flight load)."
         ),
         pass_=(
             "Process restarts in ≤ 5 s; data-plane outage ≤ 1 s; BGP EVPN "
@@ -1083,20 +1298,37 @@ EVPN_FLOWS: list[Flow] = [
             "Steady IXIA traffic for ≥ 1 minute through the canonical EVPN "
             "service."
         ),
+        # Eyal Ozeri 2026-07-06: (row 1064) spell the live-modification
+        # examples out concretely; (row 1065) adding an import-rt must pull in
+        # the now-matching remote routes — verify the Type 2 (MAC/IP) and
+        # Type 3 (IMET) routes carrying that RT are imported and installed,
+        # and withdrawn again when the import-rt is removed.
         action=(
-            "Modify a parameter live (e.g. add an import-rt, switch "
-            "load-balancing-mode, change DF preference, change "
-            "es-waiting-time); commit. Then change it back."
+            "Modify a parameter live, one change at a time, committing each: "
+            "(1) add a second `import-rt 65000:2` to the EVI; "
+            "(2) switch `load-balancing-mode` all-active ↔ single-active; "
+            "(3) change DF `preference`; (4) change `es-waiting-time`. After "
+            "each, revert it. For the import-rt case, a remote PE is "
+            "advertising Type 2/3 routes tagged with `65000:2`."
         ),
         verify=(
-            "IXIA reports zero or near-zero loss during the change; "
-            "`show running-config` reflects the new value within ≤ 1 s; "
-            "feature reconverges without service flap."
+            "IXIA reports zero or near-zero loss during each change; "
+            "`show configuration` reflects the new value within ≤ 1 s; "
+            "feature reconverges without service flap. When `import-rt "
+            "65000:2` is added, the matching remote Type 2 (MAC/IP) and "
+            "Type 3 (IMET) routes are imported and installed "
+            "(`show bgp l2vpn evpn`, `show evpn mac address-table`); when it "
+            "is removed, those routes are withdrawn from the EVI."
         ),
-        pass_="Modification applied without service interruption.",
+        pass_=(
+            "Each modification applies without service interruption; adding "
+            "the import-rt installs the matching remote Type 2/3 routes and "
+            "removing it withdraws them."
+        ),
         fail_on=(
-            "Traffic loss > 0 packets on a documented hitless change, or "
-            "new config not active within 1 s."
+            "Traffic loss > 0 packets on a documented hitless change, new "
+            "config not active within 1 s, or adding/removing the import-rt "
+            "fails to install/withdraw the matching Type 2/3 routes."
         ),
         equipment="DUT + IXIA + neighbor PE",
         categories=[
@@ -1170,34 +1402,48 @@ EVPN_FLOWS: list[Flow] = [
             "across it, and confirm the P node pops the transport label and "
             "the egress PE forwards on the service label alone."
         ),
+        # Eyal Ozeri 2026-07-06 (row 1075): also exercise explicit-null.
+        # implicit-null (label 3) → P node POPs the transport label (true PHP);
+        # explicit-null (label 0) → P node SWAPs to label 0, so the egress PE
+        # receives a two-label stack (explicit-null over the service label),
+        # preserving the transport EXP/QoS to the egress. Both are valid
+        # signalling choices and must be tested.
         setup=(
             "Three-node MPLS path PE1–P–PE2; LDP or RSVP-TE LSPs up; BGP "
             "EVPN session PE1↔PE2. One EVI (`evi-1`) up on both PEs with a "
-            "single-homed CE on each side. PE2 advertises implicit-null "
-            "(label 3) for its loopback so the P node performs PHP."
+            "single-homed CE on each side. The test is run twice: (A) PE2 "
+            "advertises implicit-null (label 3) for its loopback so the P node "
+            "performs PHP; (B) PE2 advertises explicit-null (label 0) so the P "
+            "node swaps to the explicit-null label."
         ),
         action=(
-            "Confirm PE2 signals implicit-null for its loopback FEC. From "
-            "IXIA, send known-unicast then BUM EVPN traffic CE1→CE2 for "
-            "≥ 60 s. On the P node, inspect the label operation for PE2's "
+            "For each variant, confirm the label PE2 signals for its loopback "
+            "FEC. From IXIA, send known-unicast then BUM EVPN traffic CE1→CE2 "
+            "for ≥ 60 s. On the P node, inspect the label operation for PE2's "
             "FEC; on PE2, capture the received frame's label stack."
         ),
         verify=(
-            "`show mpls forwarding-table` on the P node shows a POP (not "
-            "SWAP) operation for PE2's loopback FEC. The frame arriving at "
-            "PE2 carries exactly one label (the EVPN service/VPN label) — "
-            "the transport label has been removed upstream. `show evpn evi "
-            "evi-1` on PE2 learns the remote MAC; IXIA receives frames on "
-            "the far port at line rate."
+            "Variant A (implicit-null): the P node shows a POP (not SWAP) for "
+            "PE2's loopback FEC and the frame arriving at PE2 carries exactly "
+            "one label (the EVPN service/VPN label). Variant B (explicit-"
+            "null): the P node SWAPs to label 0 and the frame arriving at PE2 "
+            "carries a two-label stack — explicit-null (0) over the service "
+            "label — with the transport EXP preserved. In both variants "
+            "`show evpn evi evi-1` on PE2 learns the remote MAC and IXIA "
+            "receives frames on the far port at line rate."
         ),
         pass_=(
-            "Penultimate P node pops the transport label; egress PE forwards "
-            "on the single service label; bidirectional EVPN traffic passes "
-            "with ≤ 0 drops over the steady-state window."
+            "implicit-null → penultimate P node pops the transport label and "
+            "the egress PE forwards on the single service label; explicit-null "
+            "→ P node swaps to label 0 and the egress PE forwards the "
+            "explicit-null-over-service stack; bidirectional EVPN traffic "
+            "passes with ≤ 0 drops over the steady-state window in both."
         ),
         fail_on=(
-            "P node swaps instead of pops, egress PE receives a two-label "
-            "stack, frames black-holed, or service label mis-bound."
+            "For implicit-null: P node swaps instead of pops, or egress PE "
+            "receives a two-label stack. For explicit-null: P node pops or "
+            "swaps to the wrong label, or EXP is not preserved. Either "
+            "variant: frames black-holed or service label mis-bound."
         ),
         equipment="DUT (PE) + P router + neighbor PE + IXIA",
         categories=[
@@ -1269,41 +1515,55 @@ EVPN_FLOWS: list[Flow] = [
             "fail the primary (link/LSP down), and measure failover time and "
             "loss while the EVPN service stays up."
         ),
+        # Eyal Ozeri 2026-07-06 (row 1092): run the failover across the four
+        # transport-protection variants — LDP with FRR (IGP LFA / remote-LFA)
+        # and without FRR (bare LDP, relying on IGP reconvergence); RSVP-TE
+        # with protection (facility / one-to-one backup) and without. The
+        # EVPN service must survive all four; only the outage bound differs.
         setup=(
-            "Two-PE topology with a primary LSP and a pre-signalled backup "
-            "LSP (RSVP-TE FRR or a secondary path) to PE2's loopback; BGP "
-            "EVPN up; `evi-1` up on both PEs; IXIA traffic running on the "
-            "data path for ≥ 1 minute."
+            "Two-PE topology with redundant MPLS core paths to PE2's loopback; "
+            "BGP EVPN up; `evi-1` up on both PEs; IXIA traffic running on the "
+            "data path for ≥ 1 minute. The test is repeated for four transport "
+            "protection variants: (1) LDP with FRR (IGP LFA / remote-LFA); "
+            "(2) LDP without FRR; (3) RSVP-TE with FRR/protection (facility or "
+            "one-to-one backup); (4) RSVP-TE without protection."
         ),
         action=(
-            "While IXIA traffic flows, fail the primary tunnel (down the "
-            "primary core link or the primary LSP). Watch the IXIA loss "
-            "histogram. Restore the primary and observe revert behaviour."
+            "For each protection variant, while IXIA traffic flows, fail the "
+            "primary tunnel (down the primary core link or the primary LSP). "
+            "Watch the IXIA loss histogram. Restore the primary and observe "
+            "revert behaviour."
         ),
         verify=(
-            "On failure, traffic moves onto the backup LSP — `show mpls lsp` "
-            "shows the backup active; the EVPN service does not flap (`show "
-            "evpn evi evi-1` stays up, remote MAC retained). IXIA loss "
-            "histogram records the outage window. On primary restore, "
-            "traffic reverts (or holds, per policy) without a second outage."
+            "On failure, traffic moves onto the backup path — the protected "
+            "variants (LDP FRR, RSVP protection) cut over locally; the "
+            "unprotected variants converge via IGP/RSVP re-signalling. In all "
+            "four the EVPN service does not flap (`show evpn evi evi-1` stays "
+            "up, remote MAC retained). IXIA loss histogram records the outage "
+            "window per variant. On primary restore, traffic reverts (or "
+            "holds, per policy) without a second outage."
         ),
         pass_=(
-            "Failover to the backup tunnel completes with data-path outage "
-            "≤ 50 ms (FRR) / ≤ 1 s (secondary path); EVPN service stays up; "
-            "no MAC re-learn storm; clean revert on restore."
+            "Failover completes in every variant with the EVPN service up and "
+            "no MAC re-learn storm; data-path outage ≤ 50 ms for the protected "
+            "variants (LDP FRR / RSVP protection) and within the IGP/RSVP "
+            "reconvergence bound (≤ a few seconds) for the unprotected "
+            "variants; clean revert on restore."
         ),
         fail_on=(
-            "Traffic black-holed after primary failure, outage exceeds the "
-            "documented bound, EVPN service flaps, or revert causes a second "
-            "outage."
+            "Traffic black-holed after primary failure in any variant, a "
+            "protected variant exceeds its sub-50 ms bound, the EVPN service "
+            "flaps, or revert causes a second outage."
         ),
         equipment="DUT + IXIA + neighbor PE + redundant MPLS core paths",
-        # Eyal Ozeri 2026-06-21: the Robustness overlay here generated a
-        # control-plane process kill/restart (rows 1678-79) — that belongs in HA
-        # testing, not in a topology/protection (tunnel-failover) flow. Tunnel
-        # failover itself is the HA aspect; the process-kill case is covered by
-        # FLOW-090 (Control-plane recovery). Drop Robustness here.
-        categories=["Basic Functionality", "HA"],
+        # Eyal Ozeri 2026-06-21/29: the HA overlay here generated a control-
+        # plane process kill/restart (the "Identify the relevant control-plane
+        # process" / "Kill the process" rows Eyal flagged) — that belongs in
+        # dedicated control-plane-recovery testing, not in a topology/protection
+        # (tunnel-failover) flow. Tunnel failover IS the HA aspect of this flow,
+        # and the process-kill case is already covered by FLOW-090 (Control-
+        # plane recovery). Drop the HA overlay entirely; keep Basic Functionality.
+        categories=["Basic Functionality"],
         selector=FlowSelector(),
         related_cli_cmds=["show evpn evi"],
         rfc_refs=["RFC 4364 §10"],
