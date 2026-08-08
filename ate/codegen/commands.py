@@ -1,0 +1,221 @@
+"""EVPN command registry for generated Java — grounded in the CLI doc.
+
+`cmp.tests.common.Commands` is Exaware's shared enum of CLI templates
+(1220 lines) and it contains **zero EVPN entries** — only VPLS / VPWS /
+xconnect under `l2-services`. The generated suite needs its own.
+
+Two decisions worth stating:
+
+1. **A separate `EvpnCommands` enum, not additions to `Commands`.**
+   `CmpRouter.configAndValidate` and every `runCommandAndSwitch*` overload take
+   the `ICmpCliCmd` *interface*, so a standalone enum is a drop-in. Appending
+   to the shared 1220-line file would be a merge conflict against every other
+   branch for no benefit.
+
+2. **Every entry declares the CLI-doc command it comes from**, and
+   `validate_grounding()` refuses to emit if that command is absent from the
+   extracted catalog. This is `cli_crosscheck.py`'s posture carried into code
+   generation: the plan already guarantees it asserts no non-existent command,
+   and generated Java must clear the same bar.
+
+Where the CLI doc's own syntax looks like a typo (`unknow-mac-flooding`,
+`Advertise-mac`), the entry is flagged `doc_suspect` rather than silently
+"corrected" — a guessed spelling fails at run time on the DUT and is exactly
+the class of error this project has been burned by.
+"""
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from ate.planner.cli_extractor import CliCommand
+
+#: JSystem `SessionMode` constant names, mirrored so the emitter can render
+#: them without importing anything Java-side.
+CLI = "SessionMode.CLI"
+CLI_CONFIGURE = "SessionMode.CLI_CONFIGURE"
+
+
+@dataclass(frozen=True)
+class EvpnCommand:
+    """One entry of the generated `EvpnCommands` enum."""
+
+    key: str            # enum constant, e.g. "SHOW_EVPN_GLOBAL_NAME_$"
+    template: str = ""  # printf template, e.g. "show evpn global name %s"
+    mode: str = CLI
+    #: Heading of the CLI-doc command this derives from. Checked against the
+    #: extracted catalog by `validate_grounding`.
+    source: str = ""
+    #: Documented syntax line, carried into a Javadoc comment so a reviewer can
+    #: see what the template was derived from without opening the CLI doc.
+    doc_syntax: str = ""
+    #: True when the documented syntax looks like a doc typo. Emitted with a
+    #: visible warning comment instead of a silent fix.
+    doc_suspect: str = ""
+
+
+EVPN_COMMANDS: list[EvpnCommand] = [
+    # ── service configuration ────────────────────────────────────────────
+    EvpnCommand(
+        key="CONFIGURE_L2_SERVICES_EVPN_$_SERVICE_TYPE_$",
+        template="l2-services evpn %s service-type %s",
+        mode=CLI_CONFIGURE,
+        source="evpn",
+        doc_syntax=("evpn evpn-name [service-type {vlan-based | vlan-bundle | "
+                    "vlan-aware-bundle | port-based}]"),
+    ),
+    EvpnCommand(
+        key="CONFIGURE_NO_L2_SERVICES_EVPN_$",
+        template="no l2-services evpn %s",
+        mode=CLI_CONFIGURE,
+        source="evpn",
+        doc_syntax="no evpn",
+    ),
+    EvpnCommand(
+        key="CONFIGURE_L2_SERVICES_EVPN_$_AUTO_DISCOVERY",
+        template="l2-services evpn %s auto-discovery",
+        mode=CLI_CONFIGURE,
+        source="auto-discovery",
+        doc_syntax="auto-discovery",
+    ),
+    EvpnCommand(
+        key="CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$",
+        template="l2-services evpn %s import-rt %s",
+        mode=CLI_CONFIGURE,
+        source="import-rt",
+        doc_syntax="import-rt route-target",
+    ),
+    EvpnCommand(
+        key="CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$",
+        template="l2-services evpn %s export-rt %s",
+        mode=CLI_CONFIGURE,
+        source="export-rt",
+        doc_syntax="export-rt route-target",
+    ),
+    EvpnCommand(
+        key="CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$",
+        template="l2-services evpn %s interface %s",
+        mode=CLI_CONFIGURE,
+        source="interface (VPLS/EVPN)",
+        doc_syntax="interface if-name",
+    ),
+    EvpnCommand(
+        key="CONFIGURE_L2_SERVICES_EVPN_$_MAC_AGING_TIME_$",
+        template="l2-services evpn %s mac-aging-time %s",
+        mode=CLI_CONFIGURE,
+        source="mac-aging-time",
+        doc_syntax="mac-aging-time seconds",
+    ),
+    EvpnCommand(
+        key="CONFIGURE_NO_L2_SERVICES_EVPN_$_MAC_AGING_TIME",
+        template="no l2-services evpn %s mac-aging-time",
+        mode=CLI_CONFIGURE,
+        source="mac-aging-time",
+        doc_syntax="no mac-aging-time",
+    ),
+    EvpnCommand(
+        key="CONFIGURE_L2_SERVICES_EVPN_$_UNKNOWN_MAC_FLOODING_$",
+        template="l2-services evpn %s unknow-mac-flooding %s",
+        mode=CLI_CONFIGURE,
+        source="unknown-mac-flooding",
+        doc_syntax="unknow-mac-flooding enable | disable",
+        doc_suspect=("CLI doc spells this 'unknow-mac-flooding' (missing 'n') "
+                     "while the command heading says 'unknown-mac-flooding'. "
+                     "Template follows the documented SYNTAX verbatim. Confirm "
+                     "against the DUT before first run."),
+    ),
+
+    # ── EVPN show / clear ────────────────────────────────────────────────
+    EvpnCommand(
+        key="SHOW_EVPN_GLOBAL",
+        template="show evpn global",
+        source="show evpn global",
+        doc_syntax="show evpn global [name evpn-name]",
+    ),
+    EvpnCommand(
+        key="SHOW_EVPN_GLOBAL_NAME_$",
+        template="show evpn global name %s",
+        source="show evpn global",
+        doc_syntax="show evpn global [name evpn-name]",
+    ),
+    EvpnCommand(
+        key="SHOW_EVPN_SUMMARY_NAME_$",
+        template="show evpn summary name %s",
+        source="show evpn summary",
+        doc_syntax="show evpn summary [name evpn-name]",
+    ),
+    EvpnCommand(
+        key="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$",
+        template="show evpn mac-address-table name %s",
+        source="show evpn mac address-table",
+        doc_syntax=("show evpn mac-address-table [name evpn-name "
+                    "[source interface | mac mac-address]]"),
+        doc_suspect=("CLI-doc heading reads 'show evpn mac address-table' "
+                     "(space) but its SYNTAX cell reads "
+                     "'show evpn mac-address-table' (hyphen). Template follows "
+                     "the SYNTAX cell. Confirm on the DUT."),
+    ),
+    EvpnCommand(
+        key="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
+        template="show evpn mac-address-table name %s source %s",
+        source="show evpn mac address-table",
+        doc_syntax=("show evpn mac-address-table [name evpn-name "
+                    "[source interface | mac mac-address]]"),
+    ),
+    EvpnCommand(
+        key="SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$",
+        template="show evpn bum routing-table name %s",
+        source="show evpn bum routing-table",
+        doc_syntax="show evpn bum routing-table [name evpn-name [vlan-id vlan-id]]",
+    ),
+    EvpnCommand(
+        key="CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$",
+        template="clear evpn mac address-table name %s",
+        source="clear evpn mac address-table",
+        doc_syntax=("clear evpn mac address-table [name evpn-name "
+                    "[source interface | mac mac-address]]"),
+    ),
+
+    # ── BGP EVPN tables ──────────────────────────────────────────────────
+    EvpnCommand(
+        key="SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL",
+        template="show bgp l2vpn evpn table evi evi-name %s detail",
+        source="show bgp l2vpn evpn table evi",
+        doc_syntax=("show bgp l2vpn evpn table evi [evi-name evi-name "
+                    "[evpn-prefix]] [brief | detail]"),
+    ),
+    EvpnCommand(
+        key="SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
+        template="show bgp l2vpn evpn neighbors advertised-routes %s detail",
+        source="show bgp l2vpn evpn neighbors advertised/received routes",
+        doc_syntax=("show bgp l2vpn evpn neighbors {advertised-routes | "
+                    "received-routes} [neighbor-ip [evpn-prefix]] "
+                    "[brief | detail]"),
+    ),
+]
+
+
+class UngroundedCommandError(RuntimeError):
+    """Raised when a registry entry names a CLI command the catalog lacks."""
+
+
+def validate_grounding(cli_commands: list[CliCommand]) -> list[str]:
+    """Assert every registry entry traces to an extracted CLI-doc command.
+
+    Returns the list of `doc_suspect` warnings so the caller can surface them;
+    raises `UngroundedCommandError` if any entry is ungrounded, because an
+    ungrounded command in generated code is the same defect class the plan's
+    command cross-check was built to eliminate.
+    """
+    known = {c.name for c in cli_commands}
+    missing = sorted({c.source for c in EVPN_COMMANDS
+                      if c.source and c.source not in known})
+    if missing:
+        raise UngroundedCommandError(
+            "EvpnCommands entries reference CLI commands absent from the "
+            f"extracted catalog: {missing}"
+        )
+    return [f"{c.key}: {c.doc_suspect}" for c in EVPN_COMMANDS if c.doc_suspect]
+
+
+def command_keys() -> set[str]:
+    return {c.key for c in EVPN_COMMANDS}

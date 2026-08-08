@@ -82,6 +82,22 @@ def main(argv: list[str] | None = None) -> int:
     p_pf.add_argument("--dry-run", action="store_true",
                       help="Print the resolved SFS/CLI/RFCs without running the planner")
 
+    p_cg = sub.add_parser("codegen",
+                          help="Generate the JSystem/Java EVPN test suite (M2) "
+                               "from the SFS + CLI doc into cmp-tests-project "
+                               "layout")
+    p_cg.add_argument("-o", "--out", default="out/codegen",
+                      help="Output root; files land under "
+                           "<out>/cmp/tests/evpn/ (default: out/codegen)")
+    p_cg.add_argument("--sfs",
+                      default="references/EVPN/EVPN System Specification 1.00.docx",
+                      help="EVPN System Functional Spec (.docx)")
+    p_cg.add_argument("--cli-doc",
+                      default="references/EVPN/EVPN CLI 1.00.docx",
+                      help="EVPN CLI doc (.docx) — commands are grounded against it")
+    p_cg.add_argument("--summary", action="store_true",
+                      help="Print the plan without writing files")
+
     args = p.parse_args(argv)
 
     if args.cmd == "parse":
@@ -90,7 +106,49 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_plan(args)
     if args.cmd == "plan-feature":
         return _cmd_plan_feature(args)
+    if args.cmd == "codegen":
+        return _cmd_codegen(args)
     return 2
+
+
+def _cmd_codegen(args) -> int:
+    """M2 code generation. Grounding failures are fatal, not warnings."""
+    from ate.codegen import generate_evpn_suite  # noqa: PLC0415
+    from ate.codegen.commands import UngroundedCommandError  # noqa: PLC0415
+
+    try:
+        result = generate_evpn_suite(args.sfs, args.cli_doc)
+    except UngroundedCommandError as e:
+        print(f"error: {e}")
+        return 1
+
+    print(f"scripts: {len(result.scripts)}   "
+          f"steps: {result.n_steps}   files: {len(result.files)}")
+    for script in result.scripts:
+        todo = len(script.open_todos)
+        print(f"  {script.flow_id}  {script.class_name}  "
+              f"{len(script.steps)} steps"
+              + (f"  ({todo} awaiting lab data)" if todo else ""))
+
+    if result.warnings:
+        print("\nCLI-doc anomalies carried into the generated code:")
+        for w in result.warnings:
+            print(f"  - {w}")
+
+    if result.open_todos:
+        print(f"\n{len(result.open_todos)} step(s) need real device output "
+              "before their assertions mean anything:")
+        for t in result.open_todos:
+            print(f"  - {t}")
+
+    if args.summary:
+        return 0
+
+    written = result.write(args.out)
+    print(f"\nwrote {len(written)} file(s) under {args.out}/")
+    for w in written:
+        print(f"  {w}")
+    return 0
 
 
 def _cmd_parse(args) -> int:
