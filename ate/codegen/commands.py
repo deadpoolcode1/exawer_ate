@@ -119,9 +119,12 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         source="unknown-mac-flooding",
         doc_syntax="unknow-mac-flooding enable | disable",
         doc_suspect=("CLI doc spells this 'unknow-mac-flooding' (missing 'n') "
-                     "while the command heading says 'unknown-mac-flooding'. "
-                     "Template follows the documented SYNTAX verbatim. Confirm "
-                     "against the DUT before first run."),
+                     "in the syntax AND in both parameter descriptions, while "
+                     "the heading says 'unknown-mac-flooding'. Consistent "
+                     "misspelling usually means the product itself has it, so "
+                     "the template follows the SYNTAX verbatim. Not exercised "
+                     "by any current step, so it blocks nothing; confirm "
+                     "before a step starts using it."),
     ),
 
     # ── EVPN show / clear ────────────────────────────────────────────────
@@ -143,20 +146,27 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         source="show evpn summary",
         doc_syntax="show evpn summary [name evpn-name]",
     ),
+    # The EVPN CLI doc is internally inconsistent here: this command's SYNTAX
+    # cell reads `show evpn mac-address-table` (hyphen) while its own heading,
+    # and the `clear evpn mac address-table` syntax in the same document, use a
+    # space. Three independent sources settle it in favour of the space form:
+    #   * `clear evpn mac address-table` (same doc, same object)
+    #   * the shipped Command Reference Guide v8.X.0, where the whole VPLS
+    #     family is `show/clear vpls mac address-table`, with worked examples
+    #   * Exaware's own production automation —
+    #     `Commands.SHOW_VPLS_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$` is
+    #     "show vpls mac address-table name %s source %s"
+    # so the hyphen is the outlier. Resolved, not deferred.
     EvpnCommand(
         key="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$",
-        template="show evpn mac-address-table name %s",
+        template="show evpn mac address-table name %s",
         source="show evpn mac address-table",
         doc_syntax=("show evpn mac-address-table [name evpn-name "
                     "[source interface | mac mac-address]]"),
-        doc_suspect=("CLI-doc heading reads 'show evpn mac address-table' "
-                     "(space) but its SYNTAX cell reads "
-                     "'show evpn mac-address-table' (hyphen). Template follows "
-                     "the SYNTAX cell. Confirm on the DUT."),
     ),
     EvpnCommand(
         key="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
-        template="show evpn mac-address-table name %s source %s",
+        template="show evpn mac address-table name %s source %s",
         source="show evpn mac address-table",
         doc_syntax=("show evpn mac-address-table [name evpn-name "
                     "[source interface | mac mac-address]]"),

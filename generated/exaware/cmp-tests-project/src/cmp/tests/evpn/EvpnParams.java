@@ -47,7 +47,7 @@ public class EvpnParams implements ISuiteParams {
     /** FLOW-010.S09 - NOT YET VALIDATED. Needs real `show evpn mac-address-table` output. */
     public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {};
 
-    /** FLOW-010.S10 - NOT YET VALIDATED. Needs real `show bgp l2vpn evpn neighbors advertised-routes` output, and depends on how the BGP EVPN peer is provided (see LabProfile.notes). */
+    /** FLOW-010.S10 - NOT YET VALIDATED. Needs real output of the route table above. */
     public final String[] FLOW010_S10_TYPE3_ADVERTISED_LINES = new String[] {};
 
     /** FLOW-030.S03 - NOT YET VALIDATED. Expected per-port rx rows depend on the .ixncfg port naming and offered rate. */
@@ -56,7 +56,7 @@ public class EvpnParams implements ISuiteParams {
     /** FLOW-030.S04 - NOT YET VALIDATED. Needs real MAC-table output plus the AC1 source-MAC range. */
     public final String[] FLOW030_S04_AC1_MACS_LEARNT_LINES = new String[] {};
 
-    /** FLOW-030.S05 - NOT YET VALIDATED. Needs real advertised-routes output. */
+    /** FLOW-030.S05 - NOT YET VALIDATED. Needs real output of the route table above. */
     public final String[] FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES = new String[] {};
 
     /** FLOW-030.S07 - NOT YET VALIDATED. Expected rows depend on .ixncfg port naming. */
@@ -65,7 +65,7 @@ public class EvpnParams implements ISuiteParams {
     /** FLOW-030.S09 - NOT YET VALIDATED. Needs real MAC-table output plus the AC2 source-MAC range. */
     public final String[] FLOW030_S09_AC2_MACS_LEARNT_LINES = new String[] {};
 
-    /** FLOW-030.S10 - NOT YET VALIDATED. Needs real advertised-routes output. */
+    /** FLOW-030.S10 - NOT YET VALIDATED. Needs real output of the route table above. */
     public final String[] FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES = new String[] {};
 
     /** FLOW-030.S12 - NOT YET VALIDATED. Expected rows depend on .ixncfg port naming. */

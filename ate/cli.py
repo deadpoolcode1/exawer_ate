@@ -97,6 +97,40 @@ def main(argv: list[str] | None = None) -> int:
                       help="EVPN CLI doc (.docx) — commands are grounded against it")
     p_cg.add_argument("--summary", action="store_true",
                       help="Print the plan without writing files")
+    p_cg.add_argument("--selected-only", action="store_true",
+                      help="Only emit tests the dirty queue marks SELECTED "
+                           "(the SOW's 'code generation based on selected "
+                           "tests'); refreshes and updates the queue")
+    p_cg.add_argument("--queue", default=None,
+                      help="Queue file path (default: out/codegen_queue.json)")
+
+    p_q = sub.add_parser("queue",
+                         help="Dirty queue — which generated tests are "
+                              "selected, generated, approved or stale")
+    p_q.add_argument("action",
+                     choices=("status", "refresh", "select", "select-all",
+                              "approve"),
+                     help="status: show the table; refresh: recompute "
+                          "fingerprints and mark stale; select/approve: "
+                          "change state for the given test IDs")
+    p_q.add_argument("test_ids", nargs="*",
+                     help="Test IDs (flow IDs, e.g. FLOW-030)")
+    p_q.add_argument("--queue", default=None, help="Queue file path")
+    p_q.add_argument("--sfs",
+                     default="references/EVPN/EVPN System Specification 1.00.docx")
+    p_q.add_argument("--cli-doc",
+                     default="references/EVPN/EVPN CLI 1.00.docx")
+    p_q.add_argument("--rehash", action="store_true",
+                     help="Digest source documents by content instead of "
+                          "size+mtime (slower, catches touch-only rewrites)")
+
+    p_m = sub.add_parser("match",
+                         help="Run the pattern library over a generated test "
+                              "plan and report how much of it maps to "
+                              "executable steps")
+    p_m.add_argument("xlsx", help="Generated test plan .xlsx")
+    p_m.add_argument("--show-unmatched", type=int, default=0,
+                     help="Print N unmatched rows (default 0)")
 
     args = p.parse_args(argv)
 
@@ -108,7 +142,104 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_plan_feature(args)
     if args.cmd == "codegen":
         return _cmd_codegen(args)
+    if args.cmd == "queue":
+        return _cmd_queue(args)
+    if args.cmd == "match":
+        return _cmd_match(args)
     return 2
+
+
+def _queue_bits(args):
+    """Shared queue plumbing: load the queue, refresh it against the current
+    scripts, and return (queue, scripts, refresh report)."""
+    from ate.codegen.evpn_scripts import evpn_scripts  # noqa: PLC0415
+    from ate.codegen.queue import (  # noqa: PLC0415
+        DEFAULT_QUEUE_PATH,
+        Queue,
+        digest_sources,
+        digest_sources_full,
+    )
+
+    sources = [args.sfs, args.cli_doc]
+    digest = (digest_sources_full(sources) if getattr(args, "rehash", False)
+              else digest_sources(sources))
+    q = Queue.load(args.queue or DEFAULT_QUEUE_PATH)
+    scripts = evpn_scripts()
+    report = q.refresh(scripts, digest)
+    return q, scripts, report
+
+
+def _cmd_queue(args) -> int:
+    q, scripts, report = _queue_bits(args)
+
+    if args.action == "select":
+        if not args.test_ids:
+            print("error: select needs at least one test ID")
+            return 2
+        unknown = q.select(args.test_ids)
+        for u in unknown:
+            print(f"warning: unknown test ID {u!r}")
+    elif args.action == "select-all":
+        picked = q.select_all()
+        print(f"selected {len(picked)}: {', '.join(picked)}")
+        print("(APPROVED tests were left alone; they hold reviewed work)")
+    elif args.action == "approve":
+        if not args.test_ids:
+            print("error: approve needs at least one test ID")
+            return 2
+        unknown = q.approve(args.test_ids)
+        for u in unknown:
+            print(f"warning: unknown test ID {u!r}")
+
+    for key, label in (("added", "new"), ("stale", "stale"),
+                       ("removed", "gone from the catalog")):
+        if report[key]:
+            print(f"{label}: {', '.join(report[key])}")
+    if report["stale_approved"]:
+        print("WARNING: these were APPROVED and their inputs changed — "
+              "regenerating will overwrite reviewed work: "
+              f"{', '.join(report['stale_approved'])}")
+
+    print()
+    print(f"{'TEST':<12} {'STATE':<10} {'CLASS':<36} FINGERPRINT")
+    for tid in sorted(q.entries):
+        e = q.entries[tid]
+        print(f"{e.test_id:<12} {e.state.value:<10} {e.class_name:<36} "
+              f"{e.fingerprint}")
+    counts = {k: v for k, v in q.summary().items() if v}
+    print("\n" + "  ".join(f"{k}={v}" for k, v in counts.items()))
+    print(f"queue: {q.save()}")
+    return 0
+
+
+def _cmd_match(args) -> int:
+    import openpyxl  # noqa: PLC0415
+
+    from ate.codegen.patterns import match_plan  # noqa: PLC0415
+
+    wb = openpyxl.load_workbook(args.xlsx)
+    ws = wb["Test Plan Topics"]
+    rows = []
+    for r in list(ws.iter_rows(values_only=True))[1:]:
+        action = (r[1] or "").strip()
+        if not action:
+            continue
+        reqs = [x.strip() for x in (r[2] or "").split(",") if x.strip()]
+        rows.append((action, reqs))
+
+    rep = match_plan(rows)
+    print(f"plan rows with an action : {len(rows)}")
+    print(f"cross-reference rows     : {rep.skipped} (not executable; excluded)")
+    print(f"automatable rows         : {rep.total}")
+    print(f"mapped to typed steps    : {rep.matched}  ({rep.recall:.1%})")
+    print()
+    for kind, n in sorted(rep.by_kind().items(), key=lambda kv: -kv[1]):
+        print(f"  {kind:<18} {n}")
+    print(f"\nunmatched: {len(rep.unmatched())} (emitted as TODO stubs "
+          "carrying the original sentence)")
+    for u in rep.unmatched()[:args.show_unmatched]:
+        print(f"  - {u.text[:110]}")
+    return 0
 
 
 def _cmd_codegen(args) -> int:
@@ -121,6 +252,25 @@ def _cmd_codegen(args) -> int:
     except UngroundedCommandError as e:
         print(f"error: {e}")
         return 1
+
+    queue = None
+    if args.selected_only:
+        queue, _scripts, report = _queue_bits(args)
+        if report["stale_approved"]:
+            print("WARNING: overwriting reviewed work for "
+                  f"{', '.join(report['stale_approved'])}")
+        selected = set(queue.selected_ids())
+        if not selected:
+            print("nothing SELECTED in the queue — "
+                  "run `ate queue select <TEST-ID>` first")
+            queue.save()
+            return 0
+        keep = {s.class_name for s in result.scripts if s.flow_id in selected}
+        result.scripts = [s for s in result.scripts if s.flow_id in selected]
+        result.files = [f for f in result.files
+                        if not f.class_name.startswith("TC")
+                        or f.class_name in keep]
+        print(f"generating only SELECTED tests: {', '.join(sorted(selected))}")
 
     print(f"scripts: {len(result.scripts)}   "
           f"steps: {result.n_steps}   files: {len(result.files)}")
@@ -148,6 +298,10 @@ def _cmd_codegen(args) -> int:
     print(f"\nwrote {len(written)} file(s) under {args.out}/")
     for w in written:
         print(f"  {w}")
+
+    if queue is not None:
+        queue.mark_generated([s.flow_id for s in result.scripts])
+        print(f"queue updated: {queue.save()}")
     return 0
 
 

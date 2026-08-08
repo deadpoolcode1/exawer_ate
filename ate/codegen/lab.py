@@ -28,6 +28,7 @@ so a lab change is a one-line edit rather than a regeneration.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from enum import Enum
 
 
 @dataclass(frozen=True)
@@ -55,6 +56,31 @@ class TrafficItem:
     dst: str
 
 
+class PeerSource(str, Enum):
+    """Where the BGP EVPN session that carries Type-2/Type-3 routes comes from.
+
+    All three IXIA ports are attachment circuits, so the peer cannot be one of
+    them. Rather than block on the answer, the generator supports every option
+    and adjusts *how* it asserts advertisement:
+
+      * `NEIGHBOUR` — a peer exists (emulated, a fourth port, a real PE, or a
+        software speaker on `DevicesSut.LINUX1`). Advertisement is asserted
+        with `show bgp l2vpn evpn neighbors advertised-routes <peer> detail`.
+      * `NONE` — no peer is wired. Advertisement is asserted against the
+        local EVI table instead, with `show bgp l2vpn evpn table evi <name>
+        detail`, which lists the routes this PE originates without needing
+        anybody to receive them.
+
+    The `NONE` path is weaker — it proves origination, not transmission — but
+    it is a real assertion, it needs no lab change, and every other step in the
+    suite is unaffected. Default is `NONE` so the suite runs on the rig as
+    described; flip to `NEIGHBOUR` the moment a peer exists.
+    """
+
+    NEIGHBOUR = "neighbour"
+    NONE = "none"
+
+
 @dataclass(frozen=True)
 class LabProfile:
     id: str
@@ -65,14 +91,28 @@ class LabProfile:
     acs: list[AccessCircuit]
     traffic_items: list[TrafficItem]
     bgp_neighbor: str
-    #: Seconds to wait for MAC aging. Placeholder until Exaware confirm the
-    #: EVPN default — the VPLS suite treats this as a tuned per-platform value
-    #: with a large deviation window, and EVPN will need the same.
+    peer_source: PeerSource = PeerSource.NONE
+    #: Seconds to wait for MAC aging.
+    #:
+    #: Grounded, not guessed: the EVPN CLI doc's `mac-aging-time` parameter
+    #: table gives range `0, 40-2400` (0 disables aging) and states "The
+    #: default value is 300 second". Its Notes cell adds that Jerico1 devices
+    #: support only the subset `0, 100-600` — so a Jerico1 rig must override
+    #: this, and `MAC_AGING_MAX_JERICHO1` below is the ceiling to stay under.
     mac_aging_seconds: int = 300
+    #: Documented aging bounds, carried through so a reviewer sees why the
+    #: value above is legal and what a platform override may not exceed.
+    mac_aging_min: int = 40
+    mac_aging_max: int = 2400
+    mac_aging_max_jericho1: int = 600
     #: Poll budget for "show" assertions, mirroring ShowVplsDetail's 30 s / 5 s.
     verify_timeout_ms: int = 30000
     verify_interval_ms: int = 5000
     notes: list[str] = field(default_factory=list)
+
+    @property
+    def asserts_advertisement_via_peer(self) -> bool:
+        return self.peer_source is PeerSource.NEIGHBOUR
 
     def ac(self, name: str) -> AccessCircuit:
         for a in self.acs:
@@ -109,12 +149,14 @@ SINGLE_DUT_3AC = LabProfile(
     traffic_items=[TI_AC1_TO_AC2, TI_AC2_TO_AC1, TI_AC3_TO_AC1],
     bgp_neighbor="PE2",
     notes=[
-        "AC2 and AC3 MUST be configured in the .ixncfg with identical source "
-        "MAC addresses — the whole MAC-move half of FLOW-030 depends on it.",
-        "The BGP EVPN neighbor is NOT one of the three IXIA ports. It needs "
-        "either a fourth port, an IXIA-emulated peer, or a real remote PE; "
-        "'verify Type-2 advertised' reads "
-        "`show bgp l2vpn evpn neighbors advertised-routes`, which requires a "
-        "peer to exist. OPEN QUESTION for Exaware.",
+        "AC2 and AC3 must source identical MAC addresses — the whole MAC-move "
+        "half of FLOW-030 depends on it. Items are referenced by name, so "
+        "either a prebuilt .ixncfg or a code-built set via "
+        "IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM satisfies the suite.",
+        "peer_source defaults to NONE: no BGP EVPN peer is assumed, and "
+        "advertisement is asserted against the local EVI table. Set "
+        "PeerSource.NEIGHBOUR once a peer exists (fourth port, emulated peer, "
+        "real PE, or a software speaker on DevicesSut.LINUX1) to assert "
+        "transmission rather than origination.",
     ],
 )

@@ -25,7 +25,7 @@ passes is worse than an explicit gap.
 """
 from __future__ import annotations
 
-from ate.codegen.lab import SINGLE_DUT_3AC, LabProfile
+from ate.codegen.lab import SINGLE_DUT_3AC, LabProfile, PeerSource
 from ate.codegen.script_ir import Step, StepKind, TestScript
 
 # Requirement anchors, mirrored from the flow selectors in planner/flows.py so
@@ -33,6 +33,26 @@ from ate.codegen.script_ir import Step, StepKind, TestScript
 _R_BRINGUP = ["EVPNS-REQ#30", "EVPNS-REQ#40", "EVPNS-REQ#50", "EVPNS-REQ#380"]
 _R_TYPE2 = ["RFC7432bis-§7.2"]
 _R_TYPE3 = ["RFC7432bis-§7.3", "RFC7432bis-§11"]
+
+
+def _advertised(lab: LabProfile) -> tuple[str, list[str], str]:
+    """How to assert "this route is advertised", given the rig.
+
+    With a BGP EVPN peer we can read what was actually sent to it. Without one
+    — the default on a rig whose three IXIA ports are all attachment circuits —
+    we read the local EVI table, which lists the routes this PE originates.
+    Weaker (origination, not transmission) but a real assertion that needs no
+    lab change, and it keeps every other step identical.
+
+    Returns (command key, args, a phrase for the step text).
+    """
+    if lab.peer_source is PeerSource.NEIGHBOUR:
+        return ("SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
+                [lab.bgp_neighbor],
+                f"advertised to {lab.bgp_neighbor}")
+    return ("SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL",
+            [lab.evi_name],
+            "originated into the local EVI table (no BGP peer on this rig)")
 
 
 def _bring_up(lab: LabProfile) -> TestScript:
@@ -44,6 +64,7 @@ def _bring_up(lab: LabProfile) -> TestScript:
     flooding and MAC-move assertions in FLOW-030/031 possible at all.
     """
     evi = lab.evi_name
+    _adv_cmd, _adv_args, _adv_phrase = _advertised(lab)
     steps: list[Step] = [
         Step(
             id="FLOW-010.S01",
@@ -112,15 +133,12 @@ def _bring_up(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-010.S10",
             kind=StepKind.VERIFY_ROUTE,
-            text=("Verify the Type-3 IMET route for this EVI is advertised to "
-                  f"{lab.bgp_neighbor}"),
-            command="SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
-            args=[lab.bgp_neighbor],
+            text=f"Verify the Type-3 IMET route for this EVI is {_adv_phrase}",
+            command=_adv_cmd,
+            args=list(_adv_args),
             expect_key="FLOW010_S10_TYPE3_ADVERTISED_LINES",
             req_ids=_R_TYPE3,
-            todo=("Needs real `show bgp l2vpn evpn neighbors advertised-routes` "
-                  "output, and depends on how the BGP EVPN peer is provided "
-                  "(see LabProfile.notes)."),
+            todo="Needs real output of the route table above.",
         ),
     ]
     return TestScript(
@@ -148,6 +166,7 @@ def _type2(lab: LabProfile) -> TestScript:
     """
     evi = lab.evi_name
     ac1, ac2, ac3 = lab.acs
+    _adv_cmd, _adv_args, _adv_phrase = _advertised(lab)
     steps = [
         Step(
             id="FLOW-030.S01",
@@ -188,12 +207,13 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S05",
             kind=StepKind.VERIFY_ROUTE,
-            text="Verify AC1 source MACs are advertised as Type-2 routes",
-            command="SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
-            args=[lab.bgp_neighbor],
+            text=("Verify AC1 source MACs are emitted as Type-2 routes, "
+                  f"{_adv_phrase}"),
+            command=_adv_cmd,
+            args=list(_adv_args),
             expect_key="FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES",
             req_ids=_R_TYPE2,
-            todo="Needs real advertised-routes output.",
+            todo="Needs real output of the route table above.",
         ),
         Step(
             id="FLOW-030.S06",
@@ -234,12 +254,13 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S10",
             kind=StepKind.VERIFY_ROUTE,
-            text="Verify AC2 source MACs are also advertised as Type-2 routes",
-            command="SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
-            args=[lab.bgp_neighbor],
+            text=("Verify AC2 source MACs are also emitted as Type-2 routes, "
+                  f"{_adv_phrase}"),
+            command=_adv_cmd,
+            args=list(_adv_args),
             expect_key="FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES",
             req_ids=_R_TYPE2,
-            todo="Needs real advertised-routes output.",
+            todo="Needs real output of the route table above.",
         ),
         Step(
             id="FLOW-030.S11",
@@ -262,8 +283,8 @@ def _type2(lab: LabProfile) -> TestScript:
             kind=StepKind.VERIFY_NO_EVENT,
             text=("Snapshot the advertised Type-2 routes before moving the "
                   "MACs to AC3"),
-            command="SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
-            args=[lab.bgp_neighbor],
+            command=_adv_cmd,
+            args=list(_adv_args),
             req_ids=_R_TYPE2,
         ),
         Step(
@@ -289,9 +310,9 @@ def _type2(lab: LabProfile) -> TestScript:
             id="FLOW-030.S16",
             kind=StepKind.VERIFY_NO_EVENT,
             text=("Verify NO new Type-2 was triggered by the local AC2 → AC3 "
-                  "move (advertised routes unchanged vs the snapshot)"),
-            command="SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
-            args=[lab.bgp_neighbor],
+                  "move (route table unchanged vs the snapshot)"),
+            command=_adv_cmd,
+            args=list(_adv_args),
             req_ids=_R_TYPE2,
         ),
         Step(
@@ -333,13 +354,10 @@ def _type3(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-031.S02",
             kind=StepKind.WAIT,
-            text="Wait for the MAC aging time to expire",
+            text=(f"Wait out the {lab.mac_aging_seconds}s MAC aging time "
+                  "(CLI doc default; range 0, 40-2400)"),
             seconds=lab.mac_aging_seconds,
             req_ids=_R_TYPE2,
-            todo=("EVPN MAC-aging default is not stated in the CLI doc. The "
-                  "VPLS suite treats aging as a tuned per-platform value with "
-                  "a wide deviation window (TC05_VplsMacAgingTime); EVPN will "
-                  "need the same. Confirm the default with Exaware."),
         ),
         Step(
             id="FLOW-031.S03",

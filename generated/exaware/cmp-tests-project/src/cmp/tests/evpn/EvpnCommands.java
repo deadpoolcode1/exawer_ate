@@ -45,9 +45,12 @@ public enum EvpnCommands implements ICmpCliCmd {
 
     /** CLI doc: unknown-mac-flooding - unknow-mac-flooding enable | disable */
     // WARNING -- verify against the DUT before first run:
-    // CLI doc spells this 'unknow-mac-flooding' (missing 'n') while the command
-    // heading says 'unknown-mac-flooding'. Template follows the documented
-    // SYNTAX verbatim. Confirm against the DUT before first run.
+    // CLI doc spells this 'unknow-mac-flooding' (missing 'n') in the syntax AND
+    // in both parameter descriptions, while the heading says
+    // 'unknown-mac-flooding'. Consistent misspelling usually means the product
+    // itself has it, so the template follows the SYNTAX verbatim. Not exercised
+    // by any current step, so it blocks nothing; confirm before a step starts
+    // using it.
     CONFIGURE_L2_SERVICES_EVPN_$_UNKNOWN_MAC_FLOODING_$("l2-services evpn %s unknow-mac-flooding %s", SessionMode.CLI_CONFIGURE),
 
     /** CLI doc: show evpn global - show evpn global [name evpn-name] */
@@ -60,14 +63,10 @@ public enum EvpnCommands implements ICmpCliCmd {
     SHOW_EVPN_SUMMARY_NAME_$("show evpn summary name %s"),
 
     /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
-    // WARNING -- verify against the DUT before first run:
-    // CLI-doc heading reads 'show evpn mac address-table' (space) but its SYNTAX
-    // cell reads 'show evpn mac-address-table' (hyphen). Template follows the
-    // SYNTAX cell. Confirm on the DUT.
-    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$("show evpn mac-address-table name %s"),
+    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$("show evpn mac address-table name %s"),
 
     /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
-    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$("show evpn mac-address-table name %s source %s"),
+    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$("show evpn mac address-table name %s source %s"),
 
     /** CLI doc: show evpn bum routing-table - show evpn bum routing-table [name evpn-name [vlan-id vlan-id]] */
     SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$("show evpn bum routing-table name %s"),
