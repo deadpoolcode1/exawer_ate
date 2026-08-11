@@ -1,0 +1,24 @@
+scripts: 3   steps: 33   files: 6
+  FLOW-010  TC01_EvpnVlanBasedBringUp  10 steps  (3 awaiting lab data)
+  FLOW-030  TC02_EvpnType2MacIpAdvertisement  17 steps  (9 awaiting lab data)
+  FLOW-031  TC03_EvpnType3ImetFlooding  6 steps  (3 awaiting lab data)
+
+CLI-doc anomalies carried into the generated code:
+  - CONFIGURE_L2_SERVICES_EVPN_$_UNKNOWN_MAC_FLOODING_$: CLI doc spells this 'unknow-mac-flooding' (missing 'n') in the syntax AND in both parameter descriptions, while the heading says 'unknown-mac-flooding'. Consistent misspelling usually means the product itself has it, so the template follows the SYNTAX verbatim. Not exercised by any current step, so it blocks nothing; confirm before a step starts using it.
+
+15 step(s) need real device output before their assertions mean anything:
+  - FLOW-010.S08: Expected lines need real `show evpn global` output from the DUT — the CLI doc documents the syntax, not the layout.
+  - FLOW-010.S09: Needs real `show evpn mac address-table` output.
+  - FLOW-010.S10: Needs real output of the route table above.
+  - FLOW-030.S03: Expected per-port rx rows depend on the .ixncfg port naming and offered rate.
+  - FLOW-030.S04: Needs real MAC-table output plus the AC1 source-MAC range.
+  - FLOW-030.S05: Needs real output of the route table above.
+  - FLOW-030.S07: Expected rows depend on .ixncfg port naming.
+  - FLOW-030.S09: Needs real MAC-table output plus the AC2 source-MAC range.
+  - FLOW-030.S10: Needs real output of the route table above.
+  - FLOW-030.S12: Expected rows depend on .ixncfg port naming.
+  - FLOW-030.S15: Needs real MAC-table output.
+  - FLOW-030.S17: Expected rows depend on .ixncfg port naming.
+  - FLOW-031.S04: Needs real MAC-table output.
+  - FLOW-031.S05: Needs real BGP EVPN table output.
+  - FLOW-031.S06: Needs real `show evpn bum routing-table` output.

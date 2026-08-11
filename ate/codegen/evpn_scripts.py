@@ -128,7 +128,7 @@ def _bring_up(lab: LabProfile) -> TestScript:
             args=[evi],
             expect_key="FLOW010_S09_MAC_TABLE_EMPTY_LINES",
             req_ids=_R_BRINGUP,
-            todo="Needs real `show evpn mac-address-table` output.",
+            todo="Needs real `show evpn mac address-table` output.",
         ),
         Step(
             id="FLOW-010.S10",

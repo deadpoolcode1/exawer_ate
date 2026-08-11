@@ -1,0 +1,8 @@
+
+TEST         STATE      CLASS                                FINGERPRINT
+FLOW-010     new        TC01_EvpnVlanBasedBringUp            fe3601c9d33c8a07
+FLOW-030     approved   TC02_EvpnType2MacIpAdvertisement     a6d4ef90a7951f81
+FLOW-031     new        TC03_EvpnType3ImetFlooding           a2c7d197db8232a3
+
+new=2  approved=1
+queue: out/codegen_queue.json

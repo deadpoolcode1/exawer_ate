@@ -1,0 +1,16 @@
+### PATTERN MATCH ###
+plan rows with an action : 698
+cross-reference rows     : 86 (not executable; excluded)
+automatable rows         : 612
+mapped to typed steps    : 537  (87.7%)
+
+  verify_cli         160
+  config             153
+  verify_route       98
+  verify_ixia        80
+  traffic_state      37
+  verify_no_event    4
+  wait               4
+  traffic_stop       1
+
+unmatched: 75 (emitted as TODO stubs carrying the original sentence)
