@@ -118,6 +118,28 @@ def _expect(pass_: str, fail_on: str = "") -> str:
     return f"Pass:    {pass_}"
 
 
+# L2-services `evpn`/`vpls` submodes are entered per named instance; the mode
+# path must show the selector the operator supplies (Eyal Ozeri 2026-07-13).
+_L2_INSTANCE_SELECTOR = {"evpn": "<evpn-name>", "vpls": "<vpls-name>"}
+
+
+def _expand_l2_instance(path: list[str]) -> list[str]:
+    """Insert the instance selector after a named `l2-services` submode token.
+
+    `["configuration","l2-services","evpn"]` →
+    `["configuration","l2-services","evpn","<evpn-name>"]`. Only expands `evpn`
+    /`vpls` that directly follow `l2-services`, so the SAFI keyword in
+    `af-l2vpn evpn` is left alone.
+    """
+    out: list[str] = []
+    for i, tok in enumerate(path):
+        out.append(tok)
+        if (tok in _L2_INSTANCE_SELECTOR
+                and i > 0 and path[i - 1] == "l2-services"):
+            out.append(_L2_INSTANCE_SELECTOR[tok])
+    return out
+
+
 def _mode_path_str(cmd: CliCommand) -> str:
     """Render the configuration mode entry sequence as a CLI path.
 
@@ -131,6 +153,21 @@ def _mode_path_str(cmd: CliCommand) -> str:
     paths = cmd.mode_paths or ([cmd.mode_path] if cmd.mode_path else [])
     if not paths:
         return "configuration"
+    # EVPN test-plan scope: a knob shared by both L2-services services (e.g.
+    # `mac-limit`, whose Command Mode cell lists `l2-services vpls` AND
+    # `l2-services evpn`) must render only the EVPN mode here — VPLS is out of
+    # scope for the EVPN TP (Eyal Ozeri batch-2, 2026-07-07). Without this it
+    # rendered `l2-services {vpls|evpn}`.
+    if any("evpn" in p for p in paths):
+        paths = [p for p in paths if "vpls" not in p]
+    # `evpn` / `vpls` under `l2-services` are *named-instance* submodes: you
+    # descend into them as `evpn <evpn-name>` / `vpls <vpls-name>`, so the mode
+    # path must carry the instance selector (Eyal Ozeri 2026-07-13, mac-limit:
+    # the correct sequence is `l2-services evpn <evpn-name> mac-limit <limit>`,
+    # not a bare `l2-services evpn` level). The `evpn` of `af-l2vpn evpn` is a
+    # fixed SAFI keyword, not an instance — it is left untouched because it does
+    # not follow `l2-services`.
+    paths = [_expand_l2_instance(p) for p in paths]
     if len(paths) == 1:
         return " ".join(paths[0])
 
@@ -181,15 +218,22 @@ def _cli_config_group(cmd: CliCommand) -> str:
     """Bucket a config command into its functional CLI group."""
     name = cmd.name.lower()
     mode = cmd.mode_path
+    # Consider every parent mode the command is reachable from, not just the
+    # first: `mac-limit` lists both `l2-services vpls` and `l2-services evpn`,
+    # and its first path is the VPLS one — grouping off `mode_path` alone put a
+    # shared EVPN knob in the VPLS section (Eyal Ozeri 2026-07-13).
+    paths = cmd.mode_paths or ([mode] if mode else [])
     if name == "af-l2vpn evpn" or "af-l2vpn" in mode:
         return GRP_BGP_AF
     if name.startswith("lacp"):
         return GRP_LACP
-    if "interface" in mode:
+    if any("interface" in p for p in paths):
         return GRP_INTERFACE
-    if "evpn" in mode and "vpls" not in mode:
+    # EVPN wins over VPLS for a knob shared by both services — the EVPN TP
+    # exercises it in its EVPN instance.
+    if any("evpn" in p for p in paths):
         return GRP_L2_EVPN
-    if "vpls" in mode:
+    if any("vpls" in p for p in paths):
         return GRP_L2_VPLS
     if mode == ["configuration", "l2-services"]:
         # the `evpn <name>` instance command sits at the l2-services root
@@ -291,6 +335,74 @@ def _no_form(cmd: CliCommand) -> str:
         if ln.lower().startswith("no "):
             return ln
     return f"no {cmd.name}"
+
+
+def _missing_last_word_test(cmd: CliCommand) -> tuple[str, str, str] | None:
+    """Build a "final mandatory token omitted" negative test, or None.
+
+    Client 2026-07-13 (Eyal Ozeri): the CLI section should also test what
+    happens when a *mandatory* word is missing — starting with the last word,
+    which should generally fail as an incomplete command. We only emit the test
+    when the trailing token is genuinely mandatory:
+
+      * ends in `]`  → the last token is `[optional]`; omitting it is VALID
+        (the command defaults), so there is no failure to assert — skip.
+      * ends in `}`  → the last token is a mandatory `{a|b}` choice — drop the
+        whole group.
+      * otherwise    → the last token is a bare mandatory literal/value
+        (e.g. `mac-limit <limit>`) — drop that one token.
+
+    Skips containers (no value of their own) and commands with no argument
+    beyond the command name (`af-l2vpn evpn`), where "drop the last word" would
+    eat into the command name rather than an argument.
+
+    Returns (full_invocation, truncated_invocation, dropped_token), all
+    placeholder-wrapped, or None when no mandatory-trailing test applies.
+    """
+    if cmd.is_container:
+        return None
+    line = ""
+    for ln in cmd.syntax_lines:
+        if not ln.lower().startswith("no "):
+            line = ln.strip()
+            break
+    if not line:
+        return None
+    name_len = len(cmd.name.split())
+    if len(line.split()) <= name_len:
+        return None  # no argument beyond the command name
+    if _has_top_level_pipe(line):
+        return None  # a top-level `a | b` alternation, not a linear command —
+        # each alternative is itself complete, so "drop the last word" is
+        # ill-defined (it would leave a dangling `|`). The documented value-set
+        # row covers these; the missing-word test stays on linear commands.
+    if line.endswith("]"):
+        return None  # trailing token optional — omitting it is valid
+    param_names = {p.name for p in cmd.parameters if p.name}
+    if line.endswith("}"):
+        depth = 0
+        cut = None
+        for i in range(len(line) - 1, -1, -1):
+            if line[i] == "}":
+                depth += 1
+            elif line[i] == "{":
+                depth -= 1
+                if depth == 0:
+                    cut = i
+                    break
+        if cut is None:
+            return None
+        truncated_raw = line[:cut].rstrip()
+        dropped_raw = line[cut:]
+    else:
+        toks = line.split()
+        truncated_raw = " ".join(toks[:-1])
+        dropped_raw = toks[-1]
+    if len(truncated_raw.split()) < name_len:
+        return None  # would truncate into the command name itself
+    return (_wrap_placeholders(line, param_names),
+            _wrap_placeholders(truncated_raw, param_names),
+            _wrap_placeholders(dropped_raw, param_names))
 
 
 def _is_mandatory_container(cmd: CliCommand) -> bool:
@@ -622,6 +734,38 @@ def rows_for_command(cmd: CliCommand) -> list[PlanRow]:
                 f"{related} reads back via `{primary_show}`",
                 "Commit is rejected, or the configured line is absent from "
                 "`show configuration` after commit",
+            ),
+        ))
+
+    # ── Negative: final mandatory token omitted (incomplete command) ─────
+    # Client 2026-07-13 (Eyal Ozeri): test what happens when a mandatory word
+    # is missing — starting with the last word, which should fail as an
+    # incomplete command. Only emitted when the trailing token is mandatory
+    # (see _missing_last_word_test).
+    missing = _missing_last_word_test(cmd)
+    if missing:
+        full, truncated, dropped = missing
+        rows.append(_mk(
+            _scaffold(
+                f"DUT at the `{mode}` configuration level.",
+                f"Enter the command with its final mandatory token `{dropped}` "
+                f"omitted — type `{truncated}` (instead of the complete "
+                f"`{full}`) and attempt to commit.",
+                _verify_with_monitors(
+                    [f"The CLI rejects `{truncated}` as an incomplete command "
+                     f"at parse time (e.g. \"% Incomplete command\" or a "
+                     f"message that `{dropped}` is required); nothing is "
+                     f"committed and `show configuration` contains no "
+                     f"`{cmd.name}` line."],
+                    monitors),
+            ),
+            _expect(
+                f"`{truncated}` is rejected as incomplete — the mandatory "
+                f"`{dropped}` cannot be omitted; the running configuration is "
+                f"unchanged",
+                f"The DUT accepts `{truncated}` (silently supplies a value for "
+                f"the missing `{dropped}`, or commits a partial `{cmd.name}` "
+                f"line)",
             ),
         ))
 
