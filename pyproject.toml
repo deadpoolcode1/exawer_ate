@@ -16,6 +16,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# `ate capture` talks to lab devices over SSH. Pinned below 3.0 on purpose:
+# paramiko 3+ dropped SHA-1 `ssh-rsa` host keys, which is the only host-key
+# algorithm this lab's routers offer, so a newer release cannot connect to them
+# at all. Optional, so the pipeline itself never needs an SSH stack.
+lab = [
+    "paramiko>=2.9,<3.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-cov>=5.0",

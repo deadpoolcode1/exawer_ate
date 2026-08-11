@@ -103,6 +103,21 @@ def main(argv: list[str] | None = None) -> int:
                            "tests'); refreshes and updates the queue")
     p_cg.add_argument("--queue", default=None,
                       help="Queue file path (default: out/codegen_queue.json)")
+    p_cap = sub.add_parser("capture",
+                           help="Run the suite's show commands on a real DUT "
+                                "and record their output as expectations")
+    p_cap.add_argument("--host", required=True, help="DUT management IP")
+    p_cap.add_argument("--user", default="admin")
+    p_cap.add_argument("--password", default="admin")
+    p_cap.add_argument("--jump", default=None, metavar="USER@HOST",
+                       help="SSH through this host (the lab is not routable "
+                            "from a laptop), e.g. ilan@192.168.31.226")
+    p_cap.add_argument("--out", default="out/captured_expectations.json")
+    p_cap.add_argument("--sfs",
+                       default="references/EVPN/EVPN System Specification 1.00.docx")
+    p_cap.add_argument("--cli-doc",
+                       default="references/EVPN/EVPN CLI 1.00.docx")
+
     p_cg.add_argument("--from-plan", default=None, metavar="XLSX",
                       help="Generated test plan to derive additional suites "
                            "from mechanically (no curated steps)")
@@ -152,7 +167,37 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_queue(args)
     if args.cmd == "match":
         return _cmd_match(args)
+    if args.cmd == "capture":
+        return _cmd_capture(args)
     return 2
+
+
+def _cmd_capture(args) -> int:
+    """Record real device output as expectations for the generated suite."""
+    from ate.codegen.capture import capture_for_scripts  # noqa: PLC0415
+    from ate.codegen.evpn_scripts import evpn_scripts  # noqa: PLC0415
+
+    scripts = evpn_scripts()
+    session = capture_for_scripts(scripts, args.host, args.user,
+                                  args.password, jump=args.jump)
+    print(f"host  : {session.host}")
+    print(f"build : {session.build}")
+    for c in session.results:
+        mark = {"ok": "OK ", "empty": "EMPTY", "unsupported": "NO "}[c.status]
+        print(f"  [{mark:5}] {c.expect_key:42} {c.command}")
+        if c.note:
+            print(f"           {c.note}")
+    counts = session.by_status()
+    print("\n" + "  ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    usable = session.usable()
+    print(f"usable expectations: {len(usable)} of {len(session.results)}")
+    if not usable:
+        print("\nNothing usable was captured, so no expectation was written. "
+              "That is the correct outcome when the device does not implement "
+              "the feature - freezing a rejection as an expectation would "
+              "produce a test that passes by asserting the feature is absent.")
+    print(f"saved: {session.save(args.out)}")
+    return 0
 
 
 def _queue_bits(args):

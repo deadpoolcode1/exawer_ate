@@ -412,3 +412,71 @@ def test_bringup_params_binds_placeholders_to_the_sut_intpool(scripts):
     assert "cmp.tests.evpn.EvpnParams" in crt          # loadTestParamFile
     for i in range(1, 4):
         assert f"int{i}" in crt and f"vport{i}" in crt
+
+
+# ── capturing real device output as expectations (capture.py) ────────────
+
+
+def test_a_rejected_command_never_becomes_an_expectation():
+    """Freezing 'syntax error' as expected output would make a test that
+    passes by asserting the feature is absent."""
+    from ate.codegen.capture import UNSUPPORTED, _classify
+
+    raw = ("show evpn global\r\n"
+           "----------------------------------^\r\n"
+           "syntax error: element does not exist\r\n"
+           "router[2026-08-11-18:38:43]# ")
+    status, lines, note = _classify(raw, "show evpn global")
+    assert status is UNSUPPORTED or status == UNSUPPORTED
+    assert lines == []
+    assert "rejected" in note
+
+
+def test_empty_output_is_not_treated_as_success():
+    """A device with nothing configured answers empty; freezing that would
+    assert emptiness forever."""
+    from ate.codegen.capture import EMPTY, _classify
+
+    status, lines, _ = _classify("show bgp table\r\nrouter[x]# ", "show bgp table")
+    assert status == EMPTY
+    assert lines == []
+
+
+def test_real_output_is_captured_without_echo_or_prompt():
+    from ate.codegen.capture import OK, _classify
+
+    raw = ("show system alarm\r\n"
+           "TIMESTAMP            SEVERITY  DESCRIPTION\r\n"
+           "----------------------------------------------------\r\n"
+           "2026-08-11 16:14:53  Critical  PSU PSU-1 is Failed\r\n"
+           "router[2026-08-11-18:38:43]# ")
+    status, lines, _ = _classify(raw, "show system alarm")
+    assert status == OK
+    assert len(lines) == 3
+    assert not any("router[" in ln for ln in lines), "prompt leaked"
+    assert not any(ln.strip() == "show system alarm" for ln in lines), "echo leaked"
+
+
+def test_only_ok_captures_are_offered_as_expectations():
+    from ate.codegen.capture import (
+        EMPTY,
+        OK,
+        UNSUPPORTED,
+        CapturedCommand,
+        CaptureSession,
+    )
+
+    s = CaptureSession(results=[
+        CapturedCommand("A_LINES", "show a", OK, ["row"]),
+        CapturedCommand("B_LINES", "show b", UNSUPPORTED),
+        CapturedCommand("C_LINES", "show c", EMPTY),
+    ])
+    assert s.usable() == {"A_LINES": ["row"]}
+
+
+def test_commands_needed_renders_arguments(scripts):
+    from ate.codegen.capture import commands_needed
+
+    needed = dict(commands_needed(scripts))
+    assert needed, "the suite must need some show output"
+    assert all("%s" not in cmd for cmd in needed.values()), "unrendered template"

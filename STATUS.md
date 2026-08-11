@@ -22,7 +22,7 @@
 | Demo: extract requirements from docs | ✅ 133 reqs → 269 plan rows |
 | Up to 3 integration-ready test plans | ✅ compile against the real framework |
 
-Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`. 218 ATE tests pass.
+Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`. 223 ATE tests pass.
 
 ## Honest limits
 
@@ -30,6 +30,7 @@ Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xli
 - **The mechanical path works but grounds almost nothing.** Plan → typed steps → compiling Java runs end to end (`TCM020`, compiles), but only 6 of 142 CLI snippets resolve to a command. Cause: the `EvpnCommands` registry is 18 hand-written entries covering only the curated flows. **Fix = auto-derive the registry from the CLI doc's 44 extracted commands.** This is the #1 M4 task.
 - **DUT config is generated; IXIA config cannot be.** `bringUpParams.crt` + `configurations/compass/EVPN_Base.cfg` are emitted in the house format (modelled on `cmp/tests/vpls/`). The `.ixncfg` is a binary IxNetwork save — its `.crt` row ships commented out so a missing file cannot abort bring-up. The `.cfg` omits the underlay (lab data) and its block structure is unverified against a real EVPN device.
 - **Nothing has ever been executed on hardware.** 15 of 33 steps hold empty expectations by design.
+- **The device→expectations stage is built and proven, but has nothing to capture.** `ate capture` runs the suite's show commands on a real DUT and records the output. Verified on pc-3021: all 11 EVPN commands rejected (correctly writing nothing), while `show system alarm`/`show bgp summary` captured cleanly — so the mechanism works and waits only on an EVPN build.
 
 ## Blocked on Exaware
 
@@ -38,6 +39,7 @@ Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xli
 | 1 | **An EVPN-capable build.** Reserved SUT pc-3021 runs 8.7.0 LAB 904, which has no EVPN in its data model | Blocks all execution + the 15 open assertions |
 | 2 | **Ticket ID** for the branch (`AUT-nnn` / `EM-nnnn`) | Blocks handover; push path itself is solved (via tate 10.1.70.200) |
 | 3 | **`.ixncfg`** with 3 traffic items, AC2/AC3 sharing MACs | Blocks the MAC-move test |
+| 4 | **DUT pc-3021 has a Critical alarm** — `PSU PSU-1 is Failed` | Pre-existing; `@After` alarm checks will look flaky |
 
 ## Next
 

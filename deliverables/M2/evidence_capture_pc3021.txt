@@ -1,0 +1,79 @@
+CLOSING THE LAST STAGE — device output → expectations
+=====================================================
+Run 2026-08-11 against the reserved SUT pc-3021, DUT exa-il01-ec-3021
+(10.3.21.1), through the CodeValue dev box.
+
+    ate capture --host 10.3.21.1 --jump ilan@192.168.31.226
+
+WHY THIS EXISTS
+---------------
+15 of the suite's 33 steps ship with empty expectations, because the *shape* of
+`show evpn global` or `show evpn mac address-table` output cannot be known from
+the documents — the CLI doc gives syntax, not layout. `ate capture` runs exactly
+the commands the generated scripts need against a real device and records what
+comes back, closing the loop:
+
+    documents -> plan -> code -> DEVICE -> expectations -> code
+
+1. RESULT AGAINST pc-3021
+--------------------------
+   unsupported = 11        usable expectations = 0 of 11
+
+   Every EVPN show command the suite needs was rejected by the device:
+
+     [NO] FLOW010_S08_EVPN_GLOBAL_LINES        show evpn global
+     [NO] FLOW010_S09_MAC_TABLE_EMPTY_LINES    show evpn mac address-table name evi-1
+     [NO] FLOW010_S10_TYPE3_ADVERTISED_LINES   show bgp l2vpn evpn table evi evi-name evi-1 detail
+     [NO] FLOW030_S04_AC1_MACS_LEARNT_LINES    show evpn mac address-table name evi-1 source agg-eth-1
+     [NO] FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES
+     [NO] FLOW030_S09_AC2_MACS_LEARNT_LINES
+     [NO] FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES
+     [NO] FLOW030_S15_MACS_MOVED_TO_AC3_LINES
+     [NO] FLOW031_S04_MACS_AGED_OUT_LINES
+     [NO] FLOW031_S05_TYPE2_WITHDRAWN_LINES
+     [NO] FLOW031_S06_BUM_ROUTING_LINES        show evpn bum routing-table name evi-1
+
+   all with `syntax error: element does not exist` — build 8.7.0 LAB 904 has no
+   EVPN in its data model.
+
+   **No expectation file was written.** That is the correct outcome, not a
+   failure of the tool: freezing a rejection as expected output would produce a
+   suite that passes by asserting the feature is absent.
+
+2. THE MECHANISM ITSELF IS VERIFIED
+------------------------------------
+   The run above only exercises the rejection path, so all three classifier
+   paths were validated against the same DUT using commands it does implement:
+
+     [ok         ] show system alarm     3 lines captured
+     [ok         ] show bgp summary     39 lines captured
+     [unsupported] show evpn global      rejected
+
+   Echo and prompt are stripped; the captured lines are the table itself. So
+   the last stage of the pipeline works today — it is waiting on a device that
+   implements EVPN, not on more code.
+
+3. INCIDENTAL: THE DUT HAS A CRITICAL ALARM
+--------------------------------------------
+   `show system alarm` on exa-il01-ec-3021 reports:
+
+     TIMESTAMP            SEVERITY  DESCRIPTION
+     ----------------------------------------------------
+     2026-08-11 16:14:53  Critical  PSU PSU-1 is Failed
+
+   Worth Exaware's attention: a failed power supply on the SUT reserved for
+   this activity. It does not affect the findings above, and `CmpTestCase`'s
+   own @After checks new alarms — a pre-existing Critical alarm is the kind of
+   thing that makes a suite look flaky later.
+
+HOW TO USE IT WHEN AN EVPN BUILD EXISTS
+----------------------------------------
+   Point it at the device; usable captures land in the JSON keyed by the
+   `EvpnParams` constant they fill:
+
+     ate capture --host <dut> --jump <box> --out out/captured_expectations.json
+
+   Only OK captures are offered. EMPTY (ran, returned nothing) and UNSUPPORTED
+   (rejected) are recorded with their reason but never become expectations.
+   Every capture is stamped with host, software build and the command that
+   produced it, so an expectation is reviewable rather than magic.
