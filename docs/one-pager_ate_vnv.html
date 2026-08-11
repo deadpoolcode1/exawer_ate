@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<style>
+@page { size: A4 portrait; margin: 10mm 12mm; }
+* { box-sizing: border-box; }
+body { font-family: "Helvetica Neue", Arial, sans-serif; font-size: 8.1pt; line-height: 1.2; color: #1a1a1a; margin: 0; }
+h1 { font-size: 15pt; margin: 0; color: #0b3d6b; }
+.sub { font-size: 9pt; font-weight: 600; color: #2b6cb0; margin: 1px 0 5px 0; }
+h2 { font-size: 9pt; margin: 7px 0 2px 0; color: #0b3d6b; border-bottom: 1px solid #cdd9e5; padding-bottom: 1px; text-transform: uppercase; letter-spacing: .3px; }
+hr { border: none; border-top: 2px solid #0b3d6b; margin: 5px 0; }
+table { border-collapse: collapse; width: 100%; margin: 3px 0; font-size: 8pt; }
+th { background: #0b3d6b; color: #fff; text-align: left; padding: 3px 6px; }
+td { border-bottom: 1px solid #d6dde4; padding: 3px 6px; vertical-align: top; }
+ul { margin: 2px 0; padding-left: 15px; }
+li { margin: 1.5px 0; }
+strong { color: #0b3d6b; }
+p { margin: 3px 0; }
+.cols { display: flex; gap: 16px; }
+.cols > div { flex: 1; }
+.legend { font-size: 7pt; color: #5a6b7b; margin: 2px 0 0 0; }
+.legend b { color: #0b3d6b; }
+.cta { margin-top: 6px; padding: 6px 9px; background: #f4f7fa; border-left: 3px solid #0b3d6b; }
+.sig { font-size: 8pt; color: #555; margin-top: 3px; }
+</style></head>
+<body>
+
+<h1>From Specs to Automated Tests &mdash; One Pipeline</h1>
+<div class="sub">An AI-assisted test-plan &amp; automation pipeline for ATE, QA &amp; V&amp;V teams</div>
+<hr>
+
+<h2>The problem we solve</h2>
+<p>Every release cycle, verification teams redo the same expensive manual work: read the spec, the CLI/API manual, and the relevant RFCs/standards, then hand-translate all of it into a test plan &mdash; row by row &mdash; before anyone can even start automating. It's slow, inconsistent between engineers, and hard to audit (<em>"which requirement does this test cover? which MUST-clause did we miss?"</em>). Test-plan authoring becomes the bottleneck that holds up automation &mdash; not the automation itself.</p>
+
+<h2>What our system does &mdash; end to end</h2>
+<p>We turn your <strong>own engineering documents</strong> into a <strong>traceable, review-ready test plan</strong>, then into the <strong>automation skeleton and executable tests</strong> that run in your CI &mdash; one continuous pipeline. Every test stays traceable back to the exact requirement, command, or standard clause it verifies. Nothing is invented; nothing is silently dropped.</p>
+
+<svg viewBox="0 0 1000 150" width="100%" xmlns="http://www.w3.org/2000/svg" font-family="Helvetica Neue, Arial, sans-serif">
+  <defs>
+    <marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#2b6cb0"/>
+    </marker>
+    <marker id="ahr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L6,3 L0,6 Z" fill="#7a97b5"/>
+    </marker>
+  </defs>
+
+  <!-- region headers -->
+  <text x="245" y="14" text-anchor="middle" fill="#0b3d6b" font-size="13" font-weight="bold" letter-spacing="0.5">LIVE TODAY</text>
+  <text x="245" y="27" text-anchor="middle" fill="#5a6b7b" font-size="10.5">Test-plan generation</text>
+  <text x="755" y="14" text-anchor="middle" fill="#5a6b7b" font-size="13" font-weight="bold" letter-spacing="0.5">INTENDED NEXT</text>
+  <text x="755" y="27" text-anchor="middle" fill="#7a8a99" font-size="10.5">Test automation</text>
+
+  <!-- phase divider -->
+  <line x1="500" y1="40" x2="500" y2="146" stroke="#9bb0c4" stroke-width="1.2" stroke-dasharray="4 4"/>
+
+  <!-- arrows -->
+  <line x1="149" y1="94" x2="173" y2="94" stroke="#2b6cb0" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="319" y1="94" x2="343" y2="94" stroke="#2b6cb0" stroke-width="1.4" marker-end="url(#ah)"/>
+  <line x1="489" y1="94" x2="513" y2="94" stroke="#7a97b5" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahr)"/>
+  <line x1="659" y1="94" x2="683" y2="94" stroke="#7a97b5" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahr)"/>
+  <line x1="829" y1="94" x2="853" y2="94" stroke="#7a97b5" stroke-width="1.4" stroke-dasharray="5 3" marker-end="url(#ahr)"/>
+
+  <!-- box 1: documents -->
+  <rect x="5" y="46" width="140" height="96" rx="7" fill="#fff" stroke="#2b6cb0" stroke-width="1.3"/>
+  <text x="75" y="80" text-anchor="middle" fill="#0b3d6b" font-size="15" font-weight="bold">Your documents</text>
+  <text x="75" y="101" text-anchor="middle" fill="#5a6b7b" font-size="11.5">Specs &#183; CLI / API</text>
+  <text x="75" y="116" text-anchor="middle" fill="#5a6b7b" font-size="11.5">RFCs &#183; parent specs</text>
+
+  <!-- box 2: extract -->
+  <rect x="175" y="46" width="140" height="96" rx="7" fill="#fff" stroke="#2b6cb0" stroke-width="1.3"/>
+  <text x="245" y="80" text-anchor="middle" fill="#0b3d6b" font-size="14.5" font-weight="bold">Extract &amp; merge</text>
+  <text x="245" y="101" text-anchor="middle" fill="#5a6b7b" font-size="11.5">one catalog</text>
+  <text x="245" y="116" text-anchor="middle" fill="#5a6b7b" font-size="11.5">full provenance / trace</text>
+
+  <!-- box 3: TEST PLAN (hero) -->
+  <rect x="345" y="46" width="140" height="96" rx="7" fill="#0b3d6b"/>
+  <text x="415" y="80" text-anchor="middle" fill="#fff" font-size="15" font-weight="bold" letter-spacing="0.4">TEST PLAN</text>
+  <text x="415" y="101" text-anchor="middle" fill="#cfe0f0" font-size="11.5">review-ready</text>
+  <text x="415" y="116" text-anchor="middle" fill="#cfe0f0" font-size="11.5">coverage + compliance</text>
+
+  <!-- box 4: automation skeleton -->
+  <rect x="515" y="46" width="140" height="96" rx="7" fill="#eef3f8" stroke="#7a97b5" stroke-width="1.3" stroke-dasharray="5 3"/>
+  <text x="585" y="80" text-anchor="middle" fill="#38597a" font-size="14" font-weight="bold">Automation</text>
+  <text x="585" y="95" text-anchor="middle" fill="#38597a" font-size="14" font-weight="bold">skeleton</text>
+  <text x="585" y="118" text-anchor="middle" fill="#6b8197" font-size="11.5">scaffolded per test</text>
+
+  <!-- box 5: executable tests -->
+  <rect x="685" y="46" width="140" height="96" rx="7" fill="#eef3f8" stroke="#7a97b5" stroke-width="1.3" stroke-dasharray="5 3"/>
+  <text x="755" y="80" text-anchor="middle" fill="#38597a" font-size="14" font-weight="bold">Executable tests</text>
+  <text x="755" y="101" text-anchor="middle" fill="#6b8197" font-size="11.5">scripts &#183; fixtures</text>
+  <text x="755" y="116" text-anchor="middle" fill="#6b8197" font-size="11.5">harness wiring</text>
+
+  <!-- box 6: CI run -->
+  <rect x="855" y="46" width="140" height="96" rx="7" fill="#eef3f8" stroke="#7a97b5" stroke-width="1.3" stroke-dasharray="5 3"/>
+  <text x="925" y="80" text-anchor="middle" fill="#38597a" font-size="14" font-weight="bold">CI / regression</text>
+  <text x="925" y="101" text-anchor="middle" fill="#6b8197" font-size="11.5">automated runs</text>
+  <text x="925" y="116" text-anchor="middle" fill="#6b8197" font-size="11.5">results &#183; reports</text>
+</svg>
+<p class="legend"><b>&#9632; Solid = live today</b> (specs &rarr; traceable, review-ready test plan).&nbsp;&nbsp;<b>&#9633; Dashed = the intended next phase</b> &mdash; the same structured plan drives automation-skeleton generation, executable tests, and CI regression runs.</p>
+
+<div class="cols">
+<div>
+<h2>What we ingest</h2>
+<table>
+<tr><th>Source</th><th>What we extract</th></tr>
+<tr><td><strong>Functional specs</strong></td><td>Requirements, behaviors, config semantics</td></tr>
+<tr><td><strong>CLI / API manuals</strong></td><td>Exact syntax, parameters, defaults, modes</td></tr>
+<tr><td><strong>RFCs &amp; standards</strong></td><td>MUST/SHALL mandates, as first-class reqs</td></tr>
+<tr><td><strong>Parent / inherited specs</strong></td><td>Sub-config the feature doc assumes</td></tr>
+</table>
+<p>We fit the pipeline to <em>your</em> sources, and match <em>your</em> existing test-plan format &mdash; no retraining of your QA team.</p>
+</div>
+<div>
+<h2>Why it matters for ATE / QA / V&amp;V</h2>
+<ul>
+<li><strong>Weeks &rarr; hours</strong> for first-draft test-plan authoring.</li>
+<li><strong>Full traceability</strong> &mdash; every test maps to a requirement, command, or standard clause.</li>
+<li><strong>Provable coverage</strong> &mdash; auto cross-check flags MUST/SHALL clauses your spec misses.</li>
+<li><strong>Consistency</strong> &mdash; same rigor every release, independent of who ran it.</li>
+<li><strong>Automation-ready</strong> &mdash; the structured plan is the foundation automation builds on; we unblock the bottleneck <em>before</em> automation.</li>
+</ul>
+</div>
+</div>
+
+<h2>Proof point</h2>
+<p>The pipeline is in active use generating compliance-grade test plans for a networking-software vendor &mdash; ingesting vendor specs, CLI manuals, and multiple IETF RFCs into one traceable plan with automated standards cross-checking. The same approach applies directly to <strong>IoT device, protocol, and firmware verification</strong>, where device specs + connectivity standards + certification requirements create exactly the same multi-source authoring burden.</p>
+
+<div class="cta">
+<strong>Let's talk.</strong> A short technical session with your V&amp;V leads is enough to scope a pilot on one of your features and show the generated plan against your own documents.
+<div class="sig"><strong>[Your Name]</strong> &middot; [email] &middot; [phone] &middot; [company / site]</div>
+</div>
+
+</body></html>
