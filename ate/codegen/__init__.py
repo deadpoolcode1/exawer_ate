@@ -77,6 +77,13 @@ def generate_evpn_suite(sfs_path: str | Path,
         from ate.codegen.plan_scripts import scripts_from_plan  # noqa: PLC0415
         scripts = scripts + scripts_from_plan(plan_xlsx, plan_flows, lab)
     files = emit_all(scripts, lab)
+    # Per-scenario device configuration, in the house format (modelled on
+    # cmp/tests/vpls/): the bring-up table plus the DUT .cfg it loads.
+    from ate.codegen.device_config import (  # noqa: PLC0415
+        emit_bringup_params,
+        emit_dut_config,
+    )
+    files += [emit_bringup_params(scripts, lab), emit_dut_config(scripts, lab)]
     todos = [f"{s.id}: {s.todo}" for sc in scripts for s in sc.open_todos]
 
     return GenerationResult(files=files, scripts=scripts,

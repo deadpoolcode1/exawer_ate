@@ -60,6 +60,38 @@ conflict with their team.
 Every command template is grounded in the EVPN CLI doc; `validate_grounding()`
 **raises** at generation time if a template has no documented origin.
 
+## Per-scenario device configuration
+
+A suite in Exaware's tree is not only Java. Modelled on `cmp/tests/vpls/`, the
+generator also emits:
+
+| File | Contents |
+|---|---|
+| `bringUpParams.crt` | devices, per-test config files, intPool binding, before/after actions |
+| `configurations/compass/EVPN_Base.cfg` | the EVPN service, in the device's own hierarchical config syntax |
+
+Both follow the house conventions: `cleanBaseConfig` loads first with
+LOAD_TYPE 1 (override) and the feature `.cfg` merges over it with LOAD_TYPE 2,
+and the `.cfg` names `int1`/`int2`/`int3` placeholders that the `.crt`'s
+find-and-replace table binds to the SUT's `data1` intPool — so one config
+serves every testbed, and it lands on pc3021's pool unchanged.
+
+Three things are deliberately **not** generated:
+
+- **The underlay** (interface addressing, MPLS/LDP, BGP) — lab data, absent
+  from the SFS and CLI doc. Inventing addresses would put fiction into a file
+  that gets typed at a real router; it must come from `cleanBaseConfig` or the
+  site config.
+- **The `.ixncfg`** — a binary IxNetwork save, not derivable from documents.
+  Its row in the `.crt` is emitted **commented out**, because a row pointing at
+  a missing file aborts bring-up for the whole suite.
+- **The ping table** — needs AC-side addressing we do not have.
+
+The `.cfg`'s block structure and `!` terminators are derived mechanically from
+flat command syntax and are marked UNVERIFIED in the file's own header: no
+device that implements EVPN has been available to confirm them against real
+`show configuration` output.
+
 ## Status: what is done and what is open
 
 **Done.** All four M2 bullets. The suite compiles unmodified against

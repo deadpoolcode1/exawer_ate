@@ -347,3 +347,68 @@ def test_every_mechanically_derived_step_carries_a_todo():
                  "Send 1 Gbps of known-unicast from AC1"):
         step = _step_for("F.M1", text, [])
         assert step is not None and step.todo, text
+
+
+# ── per-scenario device configuration (device_config.py) ─────────────────
+
+
+def test_dut_config_uses_intpool_placeholders_not_lab_interfaces(scripts):
+    """One .cfg must serve every testbed — that is why VPLS names int1/int2."""
+    from ate.codegen.device_config import emit_dut_config
+    from ate.codegen.lab import SINGLE_DUT_3AC
+
+    cfg = emit_dut_config(scripts, SINGLE_DUT_3AC).content
+    assert "interface int1" in cfg
+    for ac in SINGLE_DUT_3AC.acs:
+        assert ac.interface not in cfg, f"{ac.interface} pins the cfg to one rig"
+
+
+def test_dut_config_never_contains_clear_or_no_forms(scripts):
+    from ate.codegen.device_config import emit_dut_config
+    from ate.codegen.lab import SINGLE_DUT_3AC
+
+    body = [ln for ln in emit_dut_config(scripts, SINGLE_DUT_3AC).content
+            .splitlines() if not ln.startswith("!")]
+    assert not [ln for ln in body if ln.strip().startswith(("no ", "clear "))]
+
+
+def test_dut_config_declares_that_the_underlay_is_absent(scripts):
+    """Inventing IP/MPLS/BGP would put fiction in a file typed at a router."""
+    from ate.codegen.device_config import emit_dut_config
+    from ate.codegen.lab import SINGLE_DUT_3AC
+
+    head = emit_dut_config(scripts, SINGLE_DUT_3AC).content
+    assert "NOT included - the underlay" in head
+    assert "UNVERIFIED" in head
+
+
+def test_bringup_params_layers_clean_base_then_merges(scripts):
+    from ate.codegen.device_config import emit_bringup_params
+    from ate.codegen.lab import SINGLE_DUT_3AC
+
+    crt = emit_bringup_params(scripts, SINGLE_DUT_3AC).content
+    clean = next(ln for ln in crt.splitlines() if "cleanBaseConfig" in ln)
+    merge = next(ln for ln in crt.splitlines() if "EVPN_Base.cfg" in ln)
+    assert clean.split()[-2] == "1", "cleanBaseConfig must override"
+    assert merge.split()[-2] == "2", "the feature cfg must merge"
+
+
+def test_bringup_params_keeps_the_missing_ixncfg_commented(scripts):
+    """A row pointing at a missing file aborts bring-up for the whole suite."""
+    from ate.codegen.device_config import emit_bringup_params
+    from ate.codegen.lab import SINGLE_DUT_3AC
+
+    crt = emit_bringup_params(scripts, SINGLE_DUT_3AC).content
+    ixncfg = next(ln for ln in crt.splitlines() if ".ixncfg" in ln
+                  and "/configurations/ixia/" in ln)
+    assert ixncfg.lstrip().startswith("//")
+
+
+def test_bringup_params_binds_placeholders_to_the_sut_intpool(scripts):
+    from ate.codegen.device_config import emit_bringup_params
+    from ate.codegen.lab import SINGLE_DUT_3AC
+
+    crt = emit_bringup_params(scripts, SINGLE_DUT_3AC).content
+    assert "cmp.tests.evpn.EvpnParams" in crt          # loadTestParamFile
+    for i in range(1, 4):
+        assert f"int{i}" in crt and f"vport{i}" in crt

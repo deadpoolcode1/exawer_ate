@@ -22,13 +22,13 @@
 | Demo: extract requirements from docs | ✅ 133 reqs → 269 plan rows |
 | Up to 3 integration-ready test plans | ✅ compile against the real framework |
 
-Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`. 212 ATE tests pass.
+Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`. 218 ATE tests pass.
 
 ## Honest limits
 
 - **The 3 delivered suites are hand-curated at step level.** The tool emits the Java; a human wrote the 33 steps.
 - **The mechanical path works but grounds almost nothing.** Plan → typed steps → compiling Java runs end to end (`TCM020`, compiles), but only 6 of 142 CLI snippets resolve to a command. Cause: the `EvpnCommands` registry is 18 hand-written entries covering only the curated flows. **Fix = auto-derive the registry from the CLI doc's 44 extracted commands.** This is the #1 M4 task.
-- **We do not generate DUT/IXIA config files.** House pattern is per-scenario `bringUpParams.crt` + `/configurations/compass/*.cfg` + `/configurations/ixia/*.ixncfg`. The `.crt` and `.cfg` are generatable and not yet built; `.ixncfg` is a binary IxNetwork save and must come from Exaware.
+- **DUT config is generated; IXIA config cannot be.** `bringUpParams.crt` + `configurations/compass/EVPN_Base.cfg` are emitted in the house format (modelled on `cmp/tests/vpls/`). The `.ixncfg` is a binary IxNetwork save — its `.crt` row ships commented out so a missing file cannot abort bring-up. The `.cfg` omits the underlay (lab data) and its block structure is unverified against a real EVPN device.
 - **Nothing has ever been executed on hardware.** 15 of 33 steps hold empty expectations by design.
 
 ## Blocked on Exaware
@@ -42,6 +42,6 @@ Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xli
 ## Next
 
 1. Auto-derive `EvpnCommands` from the CLI doc → makes mechanical generation real (M4)
-2. Generate `bringUpParams.crt` + DUT `.cfg` per scenario
+2. Confirm the generated `.cfg` block structure against a real EVPN `show configuration`
 3. Push the branch once a ticket ID exists
 4. Start M3 (multi-router plan generation)
