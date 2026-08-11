@@ -1,0 +1,127 @@
+DEVICE-VERIFIED FINDINGS — exa-il01-ec-3021, 2026-08-11
+========================================================
+The suite was executed against the real DUT on SUT pc-3021, and Exaware's own
+framework was driven against it. This file records what the device said, and
+where it contradicted the documents.
+
+0. THE BUILD CHANGED MID-SESSION — AND THE EARLIER FINDING IS SUPERSEDED
+------------------------------------------------------------------------
+   At 18:42 the DUT ran 8.7.0 **LAB 904**, whose data model contained no EVPN
+   at all (`show ?` had no evpn node, `l2-services ?` had no evpn).
+   At 22:54 the same DUT ran 8.7.0 **LAB 22**, which HAS EVPN.
+
+   The box was re-imaged between the two probes. Both observations are true of
+   the image that was on it at the time. **The operative fact is the current
+   one: EVPN IS present**, and the "EVPN is absent, we need an image" message
+   drafted earlier must NOT be sent.
+
+1. THE EVPN COMMAND TREE, AS THE DEVICE REPORTS IT
+---------------------------------------------------
+   show evpn ?   ->  broadcast-domains | detail | mac-address-table | summary
+
+   Working, verified:
+     show evpn summary
+     show evpn detail
+     show evpn mac-address-table [name <evi>]
+     show evpn broadcast-domains
+     show bgp l2vpn evpn table evi [detail]
+     show bgp l2vpn evpn neighbors advertised-routes|received-routes [detail]
+
+   Rejected by the device:
+     show evpn global                  -> syntax error: unknown argument
+     show evpn mac address-table       -> syntax error: unknown argument
+     show evpn bum routing-table       -> syntax error
+     show bgp l2vpn evpn table evi evi-name <name> detail  -> syntax error
+
+2. THREE DOCUMENT-DERIVED DECISIONS THE DEVICE OVERTURNED
+----------------------------------------------------------
+   a) `mac address-table` (space) vs `mac-address-table` (hyphen).
+      We had resolved this in favour of the SPACE, reasoning from three
+      agreeing sources: the `clear` syntax in the same CLI doc, the VPLS family
+      in the Command Reference Guide, and Exaware's own production `Commands`
+      enum. The device rejects the space form and lists the hyphen form.
+      **The CLI-doc syntax cell we overrode was right.** Corrected.
+
+      Keep this as the standing example: device output outranks any number of
+      agreeing documents.
+
+   b) `show evpn global` does not exist. The real commands are
+      `show evpn summary` and `show evpn detail`. Corrected.
+
+   c) `import-rt` / `export-rt` are NOT direct children of the EVI.
+      `l2-services evpn <name> ?` offers only auto-discovery, interface,
+      mac-aging-time, mac-limit, service-type; the route targets live one level
+      down under `auto-discovery`. Corrected.
+
+3. REAL OUTPUT, CAPTURED
+-------------------------
+   An EVI was configured on the reserved SUT, output captured, and the EVI then
+   removed (`no l2-services evpn evi-1`, committed; `show configuration
+   l2-services` afterwards returns "No entries found"). The DUT was left as
+   found, with only its pre-existing Critical PSU alarm.
+
+   `ate capture` result: **ok=6, unsupported=5 — 6 of 11 expectations filled
+   from real hardware**, saved in evidence_captured_expectations.json with host,
+   build and originating command per entry.
+
+   show evpn detail, verbatim:
+
+     EVPN name: evi-1
+     Advertise MAC Addresses: Enabled
+     ES DF Waiting Time: 3 seconds
+     Service Type: vlan-based
+     Host MAC Address Duplicate Detection: Disabled
+       Move Interval: 180 seconds
+       Move Counter: 5
+     Freeze Time: 30 seconds
+     MAC Aging Time: 300 seconds
+     MAC Limit: 65520
+     Unknown MAC Flooding: Disabled
+     Control Word: Disabled
+
+   Two numbers worth noting against the test plan: MAC Aging Time defaults to
+   **300 s**, exactly as the CLI doc's parameter table said — that one holds.
+   MAC Limit defaults to **65520**, which is not the 250000 scale figure the
+   plan uses for FLOW-080; that figure is a configurable maximum, not a default.
+
+4. THE GENERATED .cfg BLOCK SHAPE IS CONFIRMED
+-----------------------------------------------
+   With the EVI configured, `show configuration l2-services` printed:
+
+     l2-services
+      evpn evi-1
+       service-type vlan-based
+      !
+     !
+
+   which is exactly the hierarchy and terminator placement our emitter derives
+   from flat command syntax. The UNVERIFIED marker has been removed from the
+   generated file's header.
+
+5. THE GENERATED bringUpParams.crt NOW PASSES EXAWARE'S OWN VALIDATOR
+---------------------------------------------------------------------
+   Bring-up validates this file against a stored response template
+   (`bringUpParameters_C0_00*.crt` under
+   `/auto/automation/Jsystem/ResponseTemplates/` on tate). The first generated
+   version was rejected: "Bring up parameters file format doesn't match the
+   template". Cause: explanatory `//` notes placed inside the tables shifted the
+   template's position-sensitive static blocks and merged the ping table's
+   header into a single column.
+
+   The emitter now reproduces the layout exactly, and
+   `TemplateManager.validateAgainstTemplate(...)` returns **true** for its
+   output. Prose moved to the `.cfg` header and this deliverable instead.
+
+6. HOW FAR THE SUITE ITSELF GOT
+--------------------------------
+   `TC01_EvpnVlanBasedBringUp` was executed under JUnit + JSystem against the
+   real DUT (SSH tunnelled, since the DUT subnet is only routable from the dev
+   box). Bring-up progressed through: template validation -> device topology ->
+   terminal-server login on tate -> discovery of the DUT's lab aliases (serial
+   console 10.1.10.40:2055, PDU 10.1.68.75 port 4) -> ONL-level network setup.
+
+   It did not reach the test body. Completing a bring-up needs the full lab
+   workspace (site config files, ONL images, terminal-server plumbing) that
+   lives on their runner, not in our mirror. That is an integration task with
+   Exaware, not a code defect — and it is exactly the class of problem that
+   only a real run surfaces.

@@ -29,10 +29,10 @@ public enum EvpnCommands implements ICmpCliCmd {
     CONFIGURE_L2_SERVICES_EVPN_$_AUTO_DISCOVERY("l2-services evpn %s auto-discovery", SessionMode.CLI_CONFIGURE),
 
     /** CLI doc: import-rt - import-rt route-target */
-    CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$("l2-services evpn %s import-rt %s", SessionMode.CLI_CONFIGURE),
+    CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$("l2-services evpn %s auto-discovery import-rt %s", SessionMode.CLI_CONFIGURE),
 
     /** CLI doc: export-rt - export-rt route-target */
-    CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$("l2-services evpn %s export-rt %s", SessionMode.CLI_CONFIGURE),
+    CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$("l2-services evpn %s auto-discovery export-rt %s", SessionMode.CLI_CONFIGURE),
 
     /** CLI doc: interface (VPLS/EVPN) - interface if-name */
     CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$("l2-services evpn %s interface %s", SessionMode.CLI_CONFIGURE),
@@ -54,25 +54,25 @@ public enum EvpnCommands implements ICmpCliCmd {
     CONFIGURE_L2_SERVICES_EVPN_$_UNKNOWN_MAC_FLOODING_$("l2-services evpn %s unknow-mac-flooding %s", SessionMode.CLI_CONFIGURE),
 
     /** CLI doc: show evpn global - show evpn global [name evpn-name] */
-    SHOW_EVPN_GLOBAL("show evpn global"),
+    SHOW_EVPN_SUMMARY("show evpn summary"),
 
     /** CLI doc: show evpn global - show evpn global [name evpn-name] */
-    SHOW_EVPN_GLOBAL_NAME_$("show evpn global name %s"),
+    SHOW_EVPN_DETAIL("show evpn detail"),
 
     /** CLI doc: show evpn summary - show evpn summary [name evpn-name] */
     SHOW_EVPN_SUMMARY_NAME_$("show evpn summary name %s"),
 
     /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
-    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$("show evpn mac address-table name %s"),
+    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$("show evpn mac-address-table name %s"),
 
     /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
-    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$("show evpn mac address-table name %s source %s"),
+    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$("show evpn mac-address-table name %s source %s"),
 
     /** CLI doc: show evpn bum routing-table - show evpn bum routing-table [name evpn-name [vlan-id vlan-id]] */
     SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$("show evpn bum routing-table name %s"),
 
     /** CLI doc: clear evpn mac address-table - clear evpn mac address-table [name evpn-name [source interface | mac mac-address]] */
-    CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$("clear evpn mac address-table name %s"),
+    CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$("clear evpn mac-address-table name %s"),
 
     /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
     SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL("show bgp l2vpn evpn table evi evi-name %s detail"),
@@ -260,9 +260,6 @@ public enum EvpnCommands implements ICmpCliCmd {
     /** CLI doc: evpn - evpn evpn-name [service-type {vlan-based | vlan-bundle | vlan-aware-bundle | port-based}] */
     L2_SERVICES_EVPN_$_SERVICE_TYPE_VLAN_BUNDLE("l2-services evpn %s service-type vlan-bundle", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: export-rt - export-rt route-target */
-    L2_SERVICES_EVPN_$_AUTO_DISCOVERY_EXPORT_RT_$("l2-services evpn %s auto-discovery export-rt %s", SessionMode.CLI_CONFIGURE),
-
     /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
     L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION("l2-services evpn %s host mac-address-duplicate-detection", SessionMode.CLI_CONFIGURE),
 
@@ -286,9 +283,6 @@ public enum EvpnCommands implements ICmpCliCmd {
 
     /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
     L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_DISABLE_MOVE_COUNT_$("l2-services evpn %s host mac-address-duplicate-detection disable move-count %s", SessionMode.CLI_CONFIGURE),
-
-    /** CLI doc: import-rt - import-rt route-target */
-    L2_SERVICES_EVPN_$_AUTO_DISCOVERY_IMPORT_RT_$("l2-services evpn %s auto-discovery import-rt %s", SessionMode.CLI_CONFIGURE),
 
     /** CLI doc: mac-address-static (EVPN) - mac-address-static mac-address interface interface | vpws vpws-name */
     L2_SERVICES_EVPN_$_MAC_ADDRESS_STATIC_VPWS_$("l2-services evpn %s mac-address-static vpws %s", SessionMode.CLI_CONFIGURE),
@@ -368,14 +362,17 @@ public enum EvpnCommands implements ICmpCliCmd {
     /** CLI doc: show evpn frozen mac-addresses - show evpn frozen mac-addresses [evpn-name [mac-address]] */
     SHOW_EVPN_FROZEN_MAC_ADDRESSES_$_$("show evpn frozen mac-addresses %s %s"),
 
+    /** CLI doc: show evpn global - show evpn global [name evpn-name] */
+    SHOW_EVPN_GLOBAL("show evpn global"),
+
+    /** CLI doc: show evpn global - show evpn global [name evpn-name] */
+    SHOW_EVPN_GLOBAL_NAME_$("show evpn global name %s"),
+
     /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
     SHOW_EVPN_MAC_ADDRESS_TABLE("show evpn mac-address-table"),
 
     /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
     SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_MAC_$("show evpn mac-address-table name %s mac %s"),
-
-    /** CLI doc: show evpn summary - show evpn summary [name evpn-name] */
-    SHOW_EVPN_SUMMARY("show evpn summary"),
 
     /** CLI doc: show fib evpn-ac - show fib evpn-ac */
     SHOW_FIB_EVPN_AC("show fib evpn-ac"),

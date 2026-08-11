@@ -113,12 +113,17 @@ def _bring_up(lab: LabProfile) -> TestScript:
             id="FLOW-010.S08",
             kind=StepKind.VERIFY_CLI,
             text=f"Verify {evi} is up and all three ACs are bound",
-            command="SHOW_EVPN_GLOBAL_NAME_$",
-            args=[evi],
-            expect_key="FLOW010_S08_EVPN_GLOBAL_LINES",
+            # `show evpn global` does not exist on the device: verified
+            # 2026-08-11 against 8.7.0 LAB 22, which answers "syntax error:
+            # unknown argument" and lists summary/detail/mac-address-table/
+            # broadcast-domains under `show evpn ?`.
+            command="SHOW_EVPN_DETAIL",
+            args=[],
+            expect_key="FLOW010_S08_EVPN_DETAIL_LINES",
             req_ids=_R_BRINGUP,
-            todo=("Expected lines need real `show evpn global` output from the "
-                  "DUT — the CLI doc documents the syntax, not the layout."),
+            todo=("Expected lines need real `show evpn detail` output with an "
+                  "EVI configured; on an empty device it answers "
+                  "\"No entries found\"."),
         ),
         Step(
             id="FLOW-010.S09",
@@ -128,7 +133,7 @@ def _bring_up(lab: LabProfile) -> TestScript:
             args=[evi],
             expect_key="FLOW010_S09_MAC_TABLE_EMPTY_LINES",
             req_ids=_R_BRINGUP,
-            todo="Needs real `show evpn mac address-table` output.",
+            todo="Needs real `show evpn mac-address-table` output.",
         ),
         Step(
             id="FLOW-010.S10",

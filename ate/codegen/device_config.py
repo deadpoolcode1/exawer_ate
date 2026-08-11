@@ -33,10 +33,10 @@ What is NOT emitted, deliberately:
 
 Everything that IS emitted is grounded: each configuration line is rendered
 from an `EvpnCommands` template, and those raise at generation time if they do
-not trace to the EVPN CLI doc. The *hierarchy* is derived mechanically from the
-flat command text, and is marked unverified — we have never seen `show
-configuration` from a device that runs EVPN, so its exact block structure and
-terminators are unconfirmed.
+not trace to the EVPN CLI doc. The *hierarchy* is derived mechanically from the flat command text and was
+**confirmed on hardware** on 2026-08-11: an EVI was configured on
+exa-il01-ec-3021 and `show configuration l2-services` printed exactly this
+shape, `!` terminators included.
 """
 from __future__ import annotations
 
@@ -126,10 +126,10 @@ def emit_dut_config(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         "! GENERATED from the EVPN CLI doc via EvpnCommands - every line below",
         "! renders a command template that traces to the documentation.",
         "!",
-        "! UNVERIFIED: the block structure and '!' terminators are derived",
-        "! mechanically from flat command syntax. No device that implements",
-        "! EVPN has been available to confirm them against real 'show",
-        "! configuration' output, so review before first use.",
+        "! DEVICE-VERIFIED 2026-08-11 on exa-il01-ec-3021 (8.7.0 LAB 22):",
+        "! an EVI was configured and 'show configuration l2-services' printed",
+        "! exactly this block shape, so the hierarchy and '!' terminators are",
+        "! confirmed rather than assumed.",
         "!",
         "! NOT included - the underlay. Interface addressing, MPLS/LDP and BGP",
         "! are lab data, absent from the SFS and CLI doc, and are deliberately",
@@ -155,89 +155,85 @@ def _col(*pairs: tuple[str, int]) -> str:
 
 
 def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
-    """`bringUpParams.crt` — devices, per-test config files, ping and actions."""
+    """`bringUpParams.crt` — devices, per-test config files, bindings, actions.
+
+    The layout is not cosmetic. `GetBringUpParams` validates this file against
+    a stored response template (`bringUpParameters_C0_00*.crt` under
+    `/auto/automation/Jsystem/ResponseTemplates/`), and that template is
+    position-sensitive: it pins the section comments, the blank lines between
+    them, and the six tables in order. An earlier version of this emitter put
+    explanatory `//` notes inside the tables, and bring-up rejected the whole
+    file with "format doesn't match the template" — the notes shifted the
+    static blocks and merged the ping table's header into one column.
+
+    So: no prose lives here. What would have been a comment is in the `.cfg`
+    header and the M2 README instead. Verified by running the real validator
+    over the emitted file (`TemplateManager.validateAgainstTemplate`).
+    """
     dut, ixia = "cmp1", "ixia1"
     cfg = f"/configurations/compass/{DUT_CONFIG_NAME}"
-
     out: list[str] = [
         "//full topology for suite, devices names and types:",
         "",
-        _col(("DEVICE_NAME", 16), ("CLASS", 40)),
-        "-" * 56,
-        _col((dut, 16), ("cmp.infra.CmpRouter", 40)),
-        _col((ixia, 16), ("cmp.infra.ixia.Ixia", 40)),
+        "DEVICE_NAME     CLASS",
+        "-" * 44,
+        f"{dut:<16}cmp.infra.CmpRouter",
+        f"{ixia:<16}cmp.infra.ixia.Ixia",
         "",
         "//connect devices topology for each TC",
         "",
-        _col(("TEST", 9), ("DEVICES_TOPOLOGY", 40)),
-        "-" * 49,
-        _col(("default", 9), (f"{dut}, {ixia}", 40)),
+        "TEST     DEVICES_TOPOLOGY",
+        "-" * 45,
+        f"{'default':<9}{dut}, {ixia}",
         "",
-        "//devices names and configuration files parameters: 1= override, 2 = merge",
+        "//devices names and configuration files parameters for evpn tests: "
+        "1= override, 2 = merge",
         "",
-        _col(("TEST", 10), ("DEVICE_NAME", 16), ("CONFIG_FILE_PATH", 68),
-             ("LOAD_ON_BRING_UP", 19), ("LOAD_TYPE", 14), ("TIMEOUT_SEC", 12)),
+        f"{'TEST':<10}{'DEVICE_NAME':<16}{'CONFIG_FILE_PATH':<68}"
+        f"{'LOAD_ON_BRING_UP':<19}{'LOAD_TYPE':<10}TIMEOUT_SEC",
         "-" * 139,
-        _col(("default", 10), (dut, 16), ("cleanBaseConfig", 68),
-             ("y", 19), ("1", 14), ("1900", 12)),
-        _col(("", 10), ("", 16), (cfg, 68), ("y", 19), ("2", 14), ("1900", 12)),
-        "",
-        "// The IXIA configuration is COMMENTED OUT on purpose. A .ixncfg is a",
-        "// binary IxNetwork save and cannot be generated from documents; the",
-        "// three traffic items this suite needs (AC2 and AC3 sourcing the same",
-        "// MACs, so AC2->AC3 is a pure local MAC move) must come from Exaware.",
-        "// A row here pointing at a file that does not exist aborts bring-up",
-        "// for the whole suite, so it stays commented until the file lands.",
-        f"//        {ixia}           /configurations/ixia/{_IXIA_CONFIG_NAME}",
+        f"{'default':<10}{dut:<16}{'cleanBaseConfig':<68}{'y':<19}{'1':<10}1900",
+        f"{'':<10}{'':<16}{cfg:<68}{'y':<19}{'2':<10}1900",
         "",
         "//devices ping lists, relevant for all the tests",
         "",
-        _col(("TEST", 14), ("DEVICE_NAME", 15), ("PING_IP", 22),
-             ("PING_DESCRIPTION", 46), ("PING_SUCCEES_THRESHOLD", 27),
-             ("PING_RETRY_NUMBER", 20), ("PING_VRF_NAME", 14)),
-        "-" * 158,
-        "// Left empty: the AC-side addressing is lab data we do not have.",
-        "// VPLS's equivalent table pings the IXIA vport addresses from the DUT.",
+        f"{'TEST':<14}{'DEVICE_NAME':<15}{'PING_IP':<22}{'PING_DESCRIPTION':<46}"
+        f"{'PING_SUCCEES_THRESHOLD':<27}{'PING_RETRY_NUMBER':<20}PING_VRF_NAME",
+        "-" * 156,
+        "",
         "",
         "//find and replace parameters on devices cfg files and ixia vlan's "
         "configuration, relevant for all tests",
         "",
-        _col(("TEST", 12), ("DEVICE_NAME", 15), ("TYPE", 14),
-             ("FIND_PARAM", 27), ("INTPOOL_NAME", 17), ("INTPOOL_INDEX", 14)),
+        f"{'TEST':<12}{'DEVICE_NAME':<15}{'TYPE':<14}{'FIND_PARAM':<27}"
+        f"{'INTPOOL_NAME':<17}INTPOOL_INDEX",
         "-" * 100,
     ]
-
-    first = True
     for i, _ac in enumerate(lab.acs):
-        out.append(_col(("default" if first else "", 12), (dut if first else "", 15),
-                        ("interface", 14), (f"int{i + 1}", 27),
-                        ("data1", 17), (str(i), 14)))
-        first = False
+        first = i == 0
+        out.append(f"{'default' if first else '':<12}{dut if first else '':<15}"
+                   f"{'interface':<14}{'int' + str(i + 1):<27}{'data1':<17}{i}")
     for i, _ac in enumerate(lab.acs):
-        out.append(_col(("", 12), (ixia if i == 0 else "", 15),
-                        ("interface", 14), (f"vport{i + 1}", 27),
-                        ("data1", 17), (str(i), 14)))
-
+        out.append(f"{'':<12}{ixia if i == 0 else '':<15}"
+                   f"{'interface':<14}{'vport' + str(i + 1):<27}{'data1':<17}{i}")
     out += [
         "",
         "//before after table:",
         "",
-        _col(("TEST", 10), ("DEVICE_NAME", 14), ("ID_ACT", 23),
-             ("ACTION_DESCRIPTION", 35), ("ACTION_PARAMS", 66),
-             ("DO_BEFORE_TEST", 18), ("DO_AFTER_TEST", 14)),
-        "-" * 180,
-        _col(("default", 10), ("test", 14), ("loadTestParamFile", 23),
-             ("loading suite parameters class", 35),
-             ("cmp.tests.evpn.EvpnParams", 66), ("y", 18), ("n", 14)),
-        _col(("", 10), (dut, 14), ("verifyLCs", 23),
-             ("verify LCs are card ready state", 35), ("", 66),
-             ("y", 18), ("y", 14)),
-        _col(("", 10), ("", 14), ("verifyInts", 23),
-             ("verify interfaces are up", 35), ("", 66), ("y", 18), ("n", 14)),
-        _col(("", 10), (ixia, 14), ("startProtocols", 23),
-             ("start protocols", 35), ("", 66), ("y", 18), ("n", 14)),
-        _col(("", 10), ("", 14), ("sendArpAllPorts", 23),
-             ("send arp for all ports", 35), ("", 66), ("y", 18), ("n", 14)),
+        f"{'TEST':<10}{'DEVICE_NAME':<14}{'ID_ACT':<23}{'ACTION_DESCRIPTION':<35}"
+        f"{'ACTION_PARAMS':<66}{'DO_BEFORE_TEST':<18}DO_AFTER_TEST",
+        "-" * 181,
+        f"{'default':<10}{'test':<14}{'loadTestParamFile':<23}"
+        f"{'loading suite parameters class':<35}"
+        f"{'cmp.tests.evpn.EvpnParams':<66}{'y':<18}n",
+        f"{'':<10}{dut:<14}{'verifyLCs':<23}"
+        f"{'verify LCs are card ready state':<35}{'':<66}{'y':<18}y",
+        f"{'':<10}{'':<14}{'verifyInts':<23}"
+        f"{'verify interfaces are up':<35}{'':<66}{'y':<18}n",
+        f"{'':<10}{ixia:<14}{'startProtocols':<23}"
+        f"{'start protocols':<35}{'':<66}{'y':<18}n",
+        f"{'':<10}{'':<14}{'sendArpAllPorts':<23}"
+        f"{'send arp for all ports':<35}{'':<66}{'y':<18}n",
         "",
     ]
     return JavaFile(path="cmp/tests/evpn/bringUpParams.crt",

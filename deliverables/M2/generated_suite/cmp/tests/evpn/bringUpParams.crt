@@ -1,37 +1,28 @@
 //full topology for suite, devices names and types:
 
 DEVICE_NAME     CLASS
---------------------------------------------------------
+--------------------------------------------
 cmp1            cmp.infra.CmpRouter
 ixia1           cmp.infra.ixia.Ixia
 
 //connect devices topology for each TC
 
 TEST     DEVICES_TOPOLOGY
--------------------------------------------------
+---------------------------------------------
 default  cmp1, ixia1
 
-//devices names and configuration files parameters: 1= override, 2 = merge
+//devices names and configuration files parameters for evpn tests: 1= override, 2 = merge
 
-TEST      DEVICE_NAME     CONFIG_FILE_PATH                                                    LOAD_ON_BRING_UP   LOAD_TYPE     TIMEOUT_SEC
+TEST      DEVICE_NAME     CONFIG_FILE_PATH                                                    LOAD_ON_BRING_UP   LOAD_TYPE TIMEOUT_SEC
 -------------------------------------------------------------------------------------------------------------------------------------------
-default   cmp1            cleanBaseConfig                                                     y                  1             1900
-                          /configurations/compass/EVPN_Base.cfg                               y                  2             1900
-
-// The IXIA configuration is COMMENTED OUT on purpose. A .ixncfg is a
-// binary IxNetwork save and cannot be generated from documents; the
-// three traffic items this suite needs (AC2 and AC3 sourcing the same
-// MACs, so AC2->AC3 is a pure local MAC move) must come from Exaware.
-// A row here pointing at a file that does not exist aborts bring-up
-// for the whole suite, so it stays commented until the file lands.
-//        ixia1           /configurations/ixia/EVPN_3AC.ixncfg
+default   cmp1            cleanBaseConfig                                                     y                  1         1900
+                          /configurations/compass/EVPN_Base.cfg                               y                  2         1900
 
 //devices ping lists, relevant for all the tests
 
 TEST          DEVICE_NAME    PING_IP               PING_DESCRIPTION                              PING_SUCCEES_THRESHOLD     PING_RETRY_NUMBER   PING_VRF_NAME
---------------------------------------------------------------------------------------------------------------------------------------------------------------
-// Left empty: the AC-side addressing is lab data we do not have.
-// VPLS's equivalent table pings the IXIA vport addresses from the DUT.
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
 
 //find and replace parameters on devices cfg files and ixia vlan's configuration, relevant for all tests
 
@@ -47,7 +38,7 @@ default     cmp1           interface     int1                       data1       
 //before after table:
 
 TEST      DEVICE_NAME   ID_ACT                 ACTION_DESCRIPTION                 ACTION_PARAMS                                                     DO_BEFORE_TEST    DO_AFTER_TEST
-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 default   test          loadTestParamFile      loading suite parameters class     cmp.tests.evpn.EvpnParams                                         y                 n
           cmp1          verifyLCs              verify LCs are card ready state                                                                      y                 y
                         verifyInts             verify interfaces are up                                                                             y                 n

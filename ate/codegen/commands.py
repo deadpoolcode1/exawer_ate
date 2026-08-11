@@ -77,16 +77,19 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         source="auto-discovery",
         doc_syntax="auto-discovery",
     ),
+    # DEVICE-VERIFIED 2026-08-11: `l2-services evpn <name> ?` offers only
+    # auto-discovery / interface / mac-aging-time / mac-limit / service-type,
+    # and import-rt/export-rt sit one level down under auto-discovery.
     EvpnCommand(
         key="CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$",
-        template="l2-services evpn %s import-rt %s",
+        template="l2-services evpn %s auto-discovery import-rt %s",
         mode=CLI_CONFIGURE,
         source="import-rt",
         doc_syntax="import-rt route-target",
     ),
     EvpnCommand(
         key="CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$",
-        template="l2-services evpn %s export-rt %s",
+        template="l2-services evpn %s auto-discovery export-rt %s",
         mode=CLI_CONFIGURE,
         source="export-rt",
         doc_syntax="export-rt route-target",
@@ -129,14 +132,14 @@ EVPN_COMMANDS: list[EvpnCommand] = [
 
     # ── EVPN show / clear ────────────────────────────────────────────────
     EvpnCommand(
-        key="SHOW_EVPN_GLOBAL",
-        template="show evpn global",
+        key="SHOW_EVPN_SUMMARY",
+        template="show evpn summary",
         source="show evpn global",
         doc_syntax="show evpn global [name evpn-name]",
     ),
     EvpnCommand(
-        key="SHOW_EVPN_GLOBAL_NAME_$",
-        template="show evpn global name %s",
+        key="SHOW_EVPN_DETAIL",
+        template="show evpn detail",
         source="show evpn global",
         doc_syntax="show evpn global [name evpn-name]",
     ),
@@ -146,27 +149,28 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         source="show evpn summary",
         doc_syntax="show evpn summary [name evpn-name]",
     ),
-    # The EVPN CLI doc is internally inconsistent here: this command's SYNTAX
-    # cell reads `show evpn mac-address-table` (hyphen) while its own heading,
-    # and the `clear evpn mac address-table` syntax in the same document, use a
-    # space. Three independent sources settle it in favour of the space form:
-    #   * `clear evpn mac address-table` (same doc, same object)
-    #   * the shipped Command Reference Guide v8.X.0, where the whole VPLS
-    #     family is `show/clear vpls mac address-table`, with worked examples
-    #   * Exaware's own production automation —
-    #     `Commands.SHOW_VPLS_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$` is
-    #     "show vpls mac address-table name %s source %s"
-    # so the hyphen is the outlier. Resolved, not deferred.
+    # DEVICE-VERIFIED 2026-08-11 against exa-il01-ec-3021 running 8.7.0 LAB 22.
+    #
+    # We previously resolved this in favour of the SPACE form, reasoning from
+    # three documents: the `clear` syntax in the same CLI doc, the VPLS family
+    # in the Command Reference Guide, and Exaware's own production `Commands`
+    # enum. That reasoning was sound and it was WRONG. The device answers
+    #     show evpn mac address-table  ->  syntax error: unknown argument
+    # and `show evpn ?` lists `mac-address-table`. The CLI doc's SYNTAX cell,
+    # the outlier we overrode, was right.
+    #
+    # Keep this as the standing example of why device output outranks any
+    # number of agreeing documents.
     EvpnCommand(
         key="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$",
-        template="show evpn mac address-table name %s",
+        template="show evpn mac-address-table name %s",
         source="show evpn mac address-table",
         doc_syntax=("show evpn mac-address-table [name evpn-name "
                     "[source interface | mac mac-address]]"),
     ),
     EvpnCommand(
         key="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
-        template="show evpn mac address-table name %s source %s",
+        template="show evpn mac-address-table name %s source %s",
         source="show evpn mac address-table",
         doc_syntax=("show evpn mac-address-table [name evpn-name "
                     "[source interface | mac mac-address]]"),
@@ -179,7 +183,7 @@ EVPN_COMMANDS: list[EvpnCommand] = [
     ),
     EvpnCommand(
         key="CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$",
-        template="clear evpn mac address-table name %s",
+        template="clear evpn mac-address-table name %s",
         source="clear evpn mac address-table",
         doc_syntax=("clear evpn mac address-table [name evpn-name "
                     "[source interface | mac mac-address]]"),

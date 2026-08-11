@@ -1,0 +1,138 @@
+{
+  "host": "10.3.21.1",
+  "build": "8.7.0: LAB 22",
+  "captured_at": "2026-08-11T23:01:37",
+  "results": [
+    {
+      "expect_key": "FLOW010_S08_EVPN_DETAIL_LINES",
+      "command": "show evpn detail",
+      "status": "ok",
+      "lines": [
+        "EVPN name: evi-1",
+        "Advertise MAC Addresses: Enabled",
+        "ES DF Waiting Time: 3 seconds",
+        "Service Type: vlan-based",
+        "Host MAC Address Duplicate Detection: Disabled",
+        "  Move Interval: 180 seconds",
+        "  Move Counter: 5",
+        "Freeze Time: 30 seconds",
+        "MAC Aging Time: 300 seconds",
+        "MAC Limit: 65520",
+        "Unknown MAC Flooding: Disabled",
+        "Control Word: Disabled"
+      ],
+      "raw": "show evpn detail\r\nEVPN name: evi-1\r\nAdvertise MAC Addresses: Enabled\r\nES DF Waiting Time: 3 seconds\r\nService Type: vlan-based\r\nHost MAC Address Duplicate Detection: Disabled\r\n  Move Interval: 180 seconds\r\n  Move Counter: 5\r\nFreeze Time: 30 seconds\r\nMAC Aging Time: 300 seconds\r\nMAC Limit: 65520\r\nUnknown MAC Flooding: Disabled\r\nControl Word: Disabled\r\n\r\nrouter[2026-08-11-23:01:37]#",
+      "note": ""
+    },
+    {
+      "expect_key": "FLOW010_S09_MAC_TABLE_EMPTY_LINES",
+      "command": "show evpn mac-address-table name evi-1",
+      "status": "ok",
+      "lines": [
+        "LOC:  L \u2013 local, R \u2013 remote",
+        "L-FL: D \u2013 dynamic, S \u2013 static",
+        "R-FL: N -learnt, U \u2013 Unlearnt",
+        "ACT:  S \u2013 Single-Active, A \u2013 All-Active",
+        "EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960"
+      ],
+      "raw": "show evpn mac-address-table name evi-1\r\n\r\nLOC:  L \u2013 local, R \u2013 remote\r\nL-FL: D \u2013 dynamic, S \u2013 static\r\nR-FL: N -learnt, U \u2013 Unlearnt\r\nACT:  S \u2013 Single-Active, A \u2013 All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-08-11-23:01:38]#",
+      "note": ""
+    },
+    {
+      "expect_key": "FLOW010_S10_TYPE3_ADVERTISED_LINES",
+      "command": "show bgp l2vpn evpn table evi evi-name evi-1 detail",
+      "status": "unsupported",
+      "lines": [],
+      "raw": "show bgp l2vpn evpn table evi evi-name evi-1 detail\r\n-----------------------------------------------------------^\r\nsyntax error: incomplete path\r\nrouter[2026-08-11-23:01:38]#",
+      "note": "device rejected the command: 'syntax error'"
+    },
+    {
+      "expect_key": "FLOW030_S04_AC1_MACS_LEARNT_LINES",
+      "command": "show evpn mac-address-table name evi-1 source agg-eth-1",
+      "status": "ok",
+      "lines": [
+        "LOC:  L \u2013 local, R \u2013 remote",
+        "L-FL: D \u2013 dynamic, S \u2013 static",
+        "R-FL: N -learnt, U \u2013 Unlearnt",
+        "ACT:  S \u2013 Single-Active, A \u2013 All-Active",
+        "EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960"
+      ],
+      "raw": "show evpn mac-address-table name evi-1 source agg-eth-1\r\n\r\nLOC:  L \u2013 local, R \u2013 remote\r\nL-FL: D \u2013 dynamic, S \u2013 static\r\nR-FL: N -learnt, U \u2013 Unlearnt\r\nACT:  S \u2013 Single-Active, A \u2013 All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-08-11-23:01:39]#",
+      "note": ""
+    },
+    {
+      "expect_key": "FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES",
+      "command": "show bgp l2vpn evpn table evi evi-name evi-1 detail",
+      "status": "unsupported",
+      "lines": [],
+      "raw": "show bgp l2vpn evpn table evi evi-name evi-1 detail\r\n-----------------------------------------------------------^\r\nsyntax error: incomplete path\r\nrouter[2026-08-11-23:01:39]#",
+      "note": "device rejected the command: 'syntax error'"
+    },
+    {
+      "expect_key": "FLOW030_S09_AC2_MACS_LEARNT_LINES",
+      "command": "show evpn mac-address-table name evi-1 source agg-eth-2",
+      "status": "ok",
+      "lines": [
+        "LOC:  L \u2013 local, R \u2013 remote",
+        "L-FL: D \u2013 dynamic, S \u2013 static",
+        "R-FL: N -learnt, U \u2013 Unlearnt",
+        "ACT:  S \u2013 Single-Active, A \u2013 All-Active",
+        "EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960"
+      ],
+      "raw": "show evpn mac-address-table name evi-1 source agg-eth-2\r\n\r\nLOC:  L \u2013 local, R \u2013 remote\r\nL-FL: D \u2013 dynamic, S \u2013 static\r\nR-FL: N -learnt, U \u2013 Unlearnt\r\nACT:  S \u2013 Single-Active, A \u2013 All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-08-11-23:01:40]#",
+      "note": ""
+    },
+    {
+      "expect_key": "FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES",
+      "command": "show bgp l2vpn evpn table evi evi-name evi-1 detail",
+      "status": "unsupported",
+      "lines": [],
+      "raw": "show bgp l2vpn evpn table evi evi-name evi-1 detail\r\n-----------------------------------------------------------^\r\nsyntax error: incomplete path\r\nrouter[2026-08-11-23:01:40]#",
+      "note": "device rejected the command: 'syntax error'"
+    },
+    {
+      "expect_key": "FLOW030_S15_MACS_MOVED_TO_AC3_LINES",
+      "command": "show evpn mac-address-table name evi-1 source agg-eth-3",
+      "status": "ok",
+      "lines": [
+        "LOC:  L \u2013 local, R \u2013 remote",
+        "L-FL: D \u2013 dynamic, S \u2013 static",
+        "R-FL: N -learnt, U \u2013 Unlearnt",
+        "ACT:  S \u2013 Single-Active, A \u2013 All-Active",
+        "EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960"
+      ],
+      "raw": "show evpn mac-address-table name evi-1 source agg-eth-3\r\n\r\nLOC:  L \u2013 local, R \u2013 remote\r\nL-FL: D \u2013 dynamic, S \u2013 static\r\nR-FL: N -learnt, U \u2013 Unlearnt\r\nACT:  S \u2013 Single-Active, A \u2013 All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-08-11-23:01:41]#",
+      "note": ""
+    },
+    {
+      "expect_key": "FLOW031_S04_MACS_AGED_OUT_LINES",
+      "command": "show evpn mac-address-table name evi-1",
+      "status": "ok",
+      "lines": [
+        "LOC:  L \u2013 local, R \u2013 remote",
+        "L-FL: D \u2013 dynamic, S \u2013 static",
+        "R-FL: N -learnt, U \u2013 Unlearnt",
+        "ACT:  S \u2013 Single-Active, A \u2013 All-Active",
+        "EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960"
+      ],
+      "raw": "show evpn mac-address-table name evi-1\r\n\r\nLOC:  L \u2013 local, R \u2013 remote\r\nL-FL: D \u2013 dynamic, S \u2013 static\r\nR-FL: N -learnt, U \u2013 Unlearnt\r\nACT:  S \u2013 Single-Active, A \u2013 All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-08-11-23:01:41]#",
+      "note": ""
+    },
+    {
+      "expect_key": "FLOW031_S05_TYPE2_WITHDRAWN_LINES",
+      "command": "show bgp l2vpn evpn table evi evi-name evi-1 detail",
+      "status": "unsupported",
+      "lines": [],
+      "raw": "show bgp l2vpn evpn table evi evi-name evi-1 detail\r\n-----------------------------------------------------------^\r\nsyntax error: incomplete path\r\nrouter[2026-08-11-23:01:41]#",
+      "note": "device rejected the command: 'syntax error'"
+    },
+    {
+      "expect_key": "FLOW031_S06_BUM_ROUTING_LINES",
+      "command": "show evpn bum routing-table name evi-1",
+      "status": "unsupported",
+      "lines": [],
+      "raw": "show evpn bum routing-table name evi-1\r\n---------------------------------------^\r\nsyntax error: incomplete path\r\nrouter[2026-08-11-23:01:42]#",
+      "note": "device rejected the command: 'syntax error'"
+    }
+  ]
+}

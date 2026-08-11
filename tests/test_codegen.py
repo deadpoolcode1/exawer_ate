@@ -301,7 +301,7 @@ def test_commands_are_lifted_out_of_backticks():
 def test_resolve_command_grounds_against_the_registry():
     from ate.codegen.plan_scripts import resolve_command
 
-    got = resolve_command("show evpn mac address-table name evi-1")
+    got = resolve_command("show evpn mac-address-table name evi-1")
     assert got is not None
     cmd, args = got
     assert cmd.key == "SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$"
@@ -380,7 +380,10 @@ def test_dut_config_declares_that_the_underlay_is_absent(scripts):
 
     head = emit_dut_config(scripts, SINGLE_DUT_3AC).content
     assert "NOT included - the underlay" in head
-    assert "UNVERIFIED" in head
+    # The block shape stopped being a guess on 2026-08-11: an EVI was
+    # configured on the DUT and `show configuration l2-services` printed
+    # exactly this hierarchy.
+    assert "DEVICE-VERIFIED" in head
 
 
 def test_bringup_params_layers_clean_base_then_merges(scripts):
@@ -394,15 +397,19 @@ def test_bringup_params_layers_clean_base_then_merges(scripts):
     assert merge.split()[-2] == "2", "the feature cfg must merge"
 
 
-def test_bringup_params_keeps_the_missing_ixncfg_commented(scripts):
-    """A row pointing at a missing file aborts bring-up for the whole suite."""
+def test_bringup_params_emits_no_ixia_config_row(scripts):
+    """A .crt row pointing at a missing file aborts bring-up for the whole
+    suite, and the .ixncfg is a binary IxNetwork save we cannot generate.
+
+    It is also not commented out: bring-up validates this file against a
+    position-sensitive response template, and a `//` line inside a table
+    shifts the static blocks and fails the whole file."""
     from ate.codegen.device_config import emit_bringup_params
     from ate.codegen.lab import SINGLE_DUT_3AC
 
     crt = emit_bringup_params(scripts, SINGLE_DUT_3AC).content
-    ixncfg = next(ln for ln in crt.splitlines() if ".ixncfg" in ln
-                  and "/configurations/ixia/" in ln)
-    assert ixncfg.lstrip().startswith("//")
+    assert ".ixncfg" not in crt
+    assert "/configurations/compass/EVPN_Base.cfg" in crt
 
 
 def test_bringup_params_binds_placeholders_to_the_sut_intpool(scripts):

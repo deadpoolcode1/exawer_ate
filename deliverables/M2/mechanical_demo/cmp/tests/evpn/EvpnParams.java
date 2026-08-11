@@ -41,10 +41,10 @@ public class EvpnParams implements ISuiteParams {
     public final int MAC_AGING_TIME_IN_SEC = 300;
 
     // ---- expected output ----
-    /** FLOW-010.S08 - NOT YET VALIDATED. Expected lines need real `show evpn global` output from the DUT - the CLI doc documents the syntax, not the layout. */
-    public final String[] FLOW010_S08_EVPN_GLOBAL_LINES = new String[] {};
+    /** FLOW-010.S08 - NOT YET VALIDATED. Expected lines need real `show evpn detail` output with an EVI configured; on an empty device it answers "No entries found". */
+    public final String[] FLOW010_S08_EVPN_DETAIL_LINES = new String[] {};
 
-    /** FLOW-010.S09 - NOT YET VALIDATED. Needs real `show evpn mac address-table` output. */
+    /** FLOW-010.S09 - NOT YET VALIDATED. Needs real `show evpn mac-address-table` output. */
     public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {};
 
     /** FLOW-010.S10 - NOT YET VALIDATED. Needs real output of the route table above. */
