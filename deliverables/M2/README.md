@@ -17,6 +17,32 @@ under M4 ("queue implementation for test selection") but was needed to make
 "code generation based on selected tests" real, so it ships here. State in
 `evidence_dirty_queue.txt`.
 
+## Which parts are automatic, and which are not
+
+Stated plainly, because "code generation" can be read as more than it is here.
+
+| Stage | Automatic? |
+|---|---|
+| Source documents → requirements → test plan (269 rows) | **Yes** — parsed and AI-enriched |
+| Test plan prose → typed executable steps | **Yes** — `patterns.py`, 87.7% recall, reported not spun |
+| The 33 steps behind TC01/TC02/TC03 | **No — hand-curated** (`evpn_scripts.py`) |
+| Typed steps → compiling Java | **Yes** — `java_emitter.py` |
+
+The three scoped flows were curated deliberately: they are the ones Exaware
+runs first, and step quality mattered more than reach on exactly those. The
+mechanical path is the reach — it maps the other ~30 flows (1745 atomic rows)
+onto the same `Step` IR.
+
+**The two paths are not yet joined.** `ate codegen` emits from the curated
+lists; the matcher is exercised by `ate match`, which reports recall rather than
+emitting Java. Both produce the same `Step` type, so joining them is small
+work — group matched steps by flow into a `TestScript` and pass it to the
+existing emitter — but it is not done, and until it is, the three delivered
+suites do not by themselves demonstrate the SOW's 40–50% manual-effort
+reduction. Generating a suite for an *uncurated* flow and compiling it under the
+same gate is the demonstration that would, and it is the natural first move
+into M4.
+
 ## The three suites
 
 | Test | Flow | Steps | Awaiting lab data |
