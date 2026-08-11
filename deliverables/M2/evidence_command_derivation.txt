@@ -1,0 +1,105 @@
+DERIVING THE COMMAND REGISTRY FROM THE CLI DOC
+==============================================
+Run 2026-08-11.
+
+THE PROBLEM THIS SOLVES
+-----------------------
+Mechanically generated suites grounded almost nothing: of 142 CLI snippets
+quoted across the test plan, 6 resolved to a command. The cause was not the
+pattern matcher — it was the registry. `EvpnCommands` was 18 hand-written
+entries covering exactly what the three curated flows needed, so a plan row
+naming `service-carving` or `load-balancing-mode` had no constant to bind to
+and degraded to a TODO stub.
+
+RESULT
+------
+   registry        18 curated  ->  124 total (106 derived from the CLI doc)
+   CLI-doc entries 44 commands parsed into concrete forms
+   compile         124 enum constants, javac -Werror -Xlint:all, 0 warnings
+   tests           230 pass
+
+   TCM020 (FLOW-020, all-active multi-homing + DF election), generated with no
+   hand-written step, now emits real configuration:
+
+     cmp1.configAndValidate(EvpnCommands
+         .INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT.args("0"));
+     cmp1.configAndValidate(EvpnCommands
+         .INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_IDENTIFIER_1.args("0"));
+     cmp1.configAndValidate(EvpnCommands
+         .INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_LOAD_BALANCING_MODE_ALL_ACTIVE
+         .args("0"));
+
+   9 of its 28 steps carry a grounded command. Every one traces to a syntax
+   line in the EVPN CLI doc, quoted in a Javadoc above its constant.
+
+HOW A SYNTAX LINE BECOMES A TEMPLATE
+------------------------------------
+   load-balancing-mode single-active | all-active
+       -> load-balancing-mode single-active
+       -> load-balancing-mode all-active
+
+   evpn evpn-name [service-type {vlan-based | vlan-bundle}]
+       -> evpn %s
+       -> evpn %s service-type vlan-based
+       -> evpn %s service-type vlan-bundle
+
+   show interface [loopback loop-if | agg-eth agg-id] detail
+       -> show interface detail
+       -> show interface agg-eth %s detail
+
+Four rules earn their place, because each is a way to emit CLI the device
+would reject:
+
+  * A token becomes `%s` only when the doc says it is a value. Tokens inside
+    `a | b` are enumerated keywords - `enable`, `all-active` - and stay
+    literal, even though the doc's parameter table lists them alongside real
+    placeholders.
+  * A keyword introducing a value set stays literal. `service-type
+    {vlan-based | ...}` renders `service-type vlan-based`, never
+    `%s vlan-based`. The tell is branch length: a value set has single-token
+    branches, a separate clause has multi-token ones.
+  * Inside an alternation branch the FIRST token selects and the rest are
+    operands: `agg-eth agg-id` renders `agg-eth %s`. A blanket
+    "came from an alternation, so it is literal" rule would type `agg-id` at
+    a router.
+  * A knob shared by both L2 services derives the EVPN mode only. `mac-limit`
+    lists `l2-services vpls` AND `l2-services evpn`; VPLS is out of scope for
+    this plan, and an early build bound plan rows to the VPLS constant.
+
+MODE CONTEXT ACROSS A ROW
+--------------------------
+A plan row is rarely one command:
+
+  "PE1: `interface agg-eth 0`, `ethernet-segment`, `identifier 1`,
+   `load-balancing-mode all-active`"
+
+The mode selector `0` is supplied once and every later command needs it. The
+generator now tracks mode context across a row and emits one step per grounded
+command, so the row above yields four executable steps rather than one stub.
+
+WHAT STILL DOES NOT GROUND, AND WHY
+------------------------------------
+Across the whole plan the mechanical path grounds 9 of 98 steps. The residue is
+honest and it is not a matcher problem:
+
+  * **Base-CLI commands.** `show alarms`, `show platform process | include
+    evpn`, `clear counters` are real commands documented in the Command
+    Reference Guide v8.X.0, not in the EVPN CLI doc. Extracting the CRG is the
+    next lever, and it is a larger job than this one.
+  * **Fragments.** Rows quote `show`, `bgp`, `evi-1` - not commands.
+  * **Prose rows.** "Problem: ...", "Method: ...", "Decode each captured
+    packet ..." describe intent, not a command to type.
+
+Nothing is invented to close that gap. A row that does not ground still
+degrades to a compiling TODO stub carrying its original sentence, and every
+mechanically derived step keeps a `todo` so the suite reports warnings rather
+than passes until a human reviews it.
+
+THE CURATED 18 REMAIN AUTHORITATIVE
+------------------------------------
+A derived entry that collides with a curated key or template is dropped. The
+curated set encodes decisions the document alone cannot settle - chiefly that
+`show evpn mac address-table` takes a space where one CLI-doc syntax line uses
+a hyphen. Doc quirks are preserved rather than corrected:
+`unknow-mac-flooding` (missing 'n') is emitted verbatim with a WARNING comment,
+because a consistent misspelling usually means the product has it too.

@@ -33,9 +33,9 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from ate.codegen.commands import EVPN_COMMANDS, EvpnCommand
+from ate.codegen.commands import EvpnCommand, all_commands
 from ate.codegen.lab import SINGLE_DUT_3AC, LabProfile
-from ate.codegen.patterns import match_text
+from ate.codegen.patterns import commands_in, match_text
 from ate.codegen.script_ir import Step, StepKind, TestScript
 
 __all__ = ["flow_rows_from_xlsx", "resolve_command", "scripts_from_plan"]
@@ -51,6 +51,11 @@ _NEEDS_COMMAND = {StepKind.CONFIG, StepKind.VERIFY_CLI, StepKind.VERIFY_ROUTE}
 #: that `emit_test` only declares for a paired "Snapshot ..." step. Plan prose
 #: does not reliably give us that pairing, so these always degrade.
 _ALWAYS_DEGRADE = {StepKind.VERIFY_NO_EVENT}
+
+#: A config-command tail must carry at least this many characters of literal
+#: text to be accepted as identifying one command. Keeps `load-balancing-mode
+#: %s` while rejecting `enable` / `detail`.
+_MIN_TAIL_CHARS = 8
 
 _DERIVED = ("Derived mechanically from the test plan by pattern matching. "
             "The command binding and every expected value still need review "
@@ -76,33 +81,84 @@ def _tail_templates(cmd: EvpnCommand) -> list[str]:
     backticks. Matching a tail recovers those without inventing anything: the
     text still has to match a template this registry already contains.
 
-    Only leading *literal* tokens are dropped, never a `%s`, and at least two
-    literal tokens must remain so a tail stays distinctive enough to identify
-    one command.
+    A tail never *starts* at an argument — `%s ethernet-segment ...` would
+    match any word. Distinctiveness is measured in literal characters rather
+    than token count: `load-balancing-mode %s` is one literal token but
+    unmistakable, while `enable` or `detail` are not, so the bar is
+    `_MIN_TAIL_CHARS` characters of literal text.
     """
     toks = cmd.template.split()
     out: list[str] = []
     for i in range(1, len(toks)):
-        if toks[i - 1] == "%s":          # never start a tail at an argument
-            break
         tail = toks[i:]
-        if sum(1 for t in tail if t != "%s") < 2:
-            break
+        if tail[0] == "%s":
+            continue
+        literal = "".join(t for t in tail if t != "%s")
+        if len(literal) < _MIN_TAIL_CHARS:
+            continue
         out.append(" ".join(tail))
     return out
 
 
-_TEMPLATES: list[tuple[EvpnCommand, re.Pattern[str]]] = []
-for _c in EVPN_COMMANDS:
-    if (_rx := _template_regex(_c)) is not None:
-        _TEMPLATES.append((_c, _rx))
-    if _c.mode.endswith("CLI_CONFIGURE"):
-        for _tail in _tail_templates(_c):
-            _TEMPLATES.append(
-                (_c, _template_regex(EvpnCommand(key=_c.key, template=_tail))))
-# Longest template first: `show evpn global name %s` must win over a
-# hypothetical `show evpn global`, or the more specific command never matches.
-_TEMPLATES.sort(key=lambda pair: len(pair[1].pattern), reverse=True)
+_TEMPLATE_CACHE: tuple[int, list[tuple[EvpnCommand, re.Pattern[str]]]] = (-1, [])
+_PREFIX_CACHE: tuple[int, list[re.Pattern[str]]] = (-1, [])
+
+
+def _prefixes() -> list[re.Pattern[str]]:
+    """Regexes matching every *leading portion* of every registry template.
+
+    Used to recognise a mode-entry fragment: a plan row writes `interface
+    agg-eth 0` before the commands typed inside that mode, and that fragment is
+    not a command in its own right — it is the prefix of several.
+    """
+    global _PREFIX_CACHE
+    n = len(all_commands())
+    if _PREFIX_CACHE[0] == n:
+        return _PREFIX_CACHE[1]
+    out: list[re.Pattern[str]] = []
+    seen: set[str] = set()
+    for c in all_commands():
+        toks = c.template.split()
+        for k in range(1, len(toks)):
+            head = " ".join(toks[:k])
+            if head in seen:
+                continue
+            seen.add(head)
+            parts = [re.escape(p) for p in head.split("%s")]
+            out.append(re.compile(r"(?i)" + r"(\S+)".join(parts) + r"\Z"))
+    _PREFIX_CACHE = (n, out)
+    return out
+
+
+def _is_mode_prefix(text: str) -> bool:
+    hay = " ".join(text.split())
+    return any(rx.match(hay) for rx in _prefixes())
+
+
+def _templates() -> list[tuple[EvpnCommand, re.Pattern[str]]]:
+    """Match table over the whole registry, curated and derived.
+
+    Built per call rather than at import: the derived entries are installed at
+    generation time, so a table frozen at import would only ever see the
+    curated 18 — which is exactly the gap this path was blocked on.
+    """
+    global _TEMPLATE_CACHE
+    if _TEMPLATE_CACHE[0] == len(all_commands()):
+        return _TEMPLATE_CACHE[1]
+    out: list[tuple[EvpnCommand, re.Pattern[str]]] = []
+    for c in all_commands():
+        if (rx := _template_regex(c)) is not None:
+            out.append((c, rx))
+        if c.mode.endswith("CLI_CONFIGURE"):
+            for tail in _tail_templates(c):
+                rx = _template_regex(EvpnCommand(key=c.key, template=tail))
+                if rx is not None:
+                    out.append((c, rx))
+    # Longest template first: `show evpn global name %s` must win over
+    # `show evpn global`, or the more specific command never matches.
+    out.sort(key=lambda pair: len(pair[1].pattern), reverse=True)
+    _TEMPLATE_CACHE = (len(all_commands()), out)
+    return out
 
 
 def resolve_command(text: str) -> tuple[EvpnCommand, list[str]] | None:
@@ -116,7 +172,7 @@ def resolve_command(text: str) -> tuple[EvpnCommand, list[str]] | None:
     if not text:
         return None
     hay = " ".join(text.split())
-    for cmd, rx in _TEMPLATES:
+    for cmd, rx in _templates():
         m = rx.search(hay)
         if m:
             return cmd, [g for g in m.groups()]
@@ -160,6 +216,56 @@ def flow_rows_from_xlsx(
     return out
 
 
+def _grounded_steps(row_id: str, action: str, reqs: list[str]) -> list[Step]:
+    """One step per command in the row that grounds in the registry.
+
+    A plan row is rarely one command. A bring-up row reads "PE1:
+    `interface agg-eth 0`, `ethernet-segment`, `identifier 1`,
+    `load-balancing-mode all-active`" — four commands in one sentence, and
+    `patterns.py` keeps only the first because its job is to classify the row's
+    *shape*. Emitting one step per grounded command is what turns such a row
+    into executable configuration instead of a single stub.
+
+    A command is only emitted when the row supplies every argument its
+    documented template needs; anything else is left to the caller to degrade.
+    """
+    steps: list[Step] = []
+    mode_ctx = ""
+    for snippet in commands_in(action):
+        # A row types a mode entry once and then several commands inside it:
+        # "`interface agg-eth 0`, `ethernet-segment`, `identifier 1`". Only the
+        # combination carries the selector the template needs, so resolve
+        # against the accumulated mode context first.
+        combined = f"{mode_ctx} {snippet}".strip()
+        resolved = resolve_command(combined)
+        if resolved is None or resolved[0].template.count("%s") != len(resolved[1]):
+            alone = resolve_command(snippet)
+            if alone is not None and alone[0].template.count("%s") == len(alone[1]):
+                resolved, combined = alone, snippet
+        if _is_mode_prefix(combined):
+            mode_ctx = combined
+        elif _is_mode_prefix(snippet):
+            mode_ctx = snippet
+        if resolved is None:
+            continue
+        cmd, args = resolved
+        if cmd.template.count("%s") != len(args):
+            continue
+        kind = (StepKind.CONFIG if cmd.mode.endswith("CLI_CONFIGURE")
+                else StepKind.VERIFY_CLI)
+        verb = "Configure" if kind is StepKind.CONFIG else "Run"
+        steps.append(Step(
+            id=f"{row_id}.{len(steps) + 1}",
+            kind=kind,
+            text=f"{verb} `{snippet}`"[:200],
+            command=cmd.key,
+            args=args,
+            req_ids=list(reqs),
+            todo=_DERIVED,
+        ))
+    return steps
+
+
 def _step_for(row_id: str, action: str, reqs: list[str]) -> Step | None:
     """One plan row → one emittable step, or None if it is not a step at all."""
     res = match_text(action, row_id, reqs)
@@ -191,6 +297,16 @@ def _step_for(row_id: str, action: str, reqs: list[str]) -> Step | None:
                     "so no CLI is emitted rather than inventing one."})
 
     cmd, args = resolved
+    # A tail match can identify the command while recovering fewer arguments
+    # than its template needs — `af-l2vpn evpn` matches inside
+    # `routing bgp %s vrf %s neighbor %s af-l2vpn evpn`. Emitting that would
+    # put a literal `%s` into the CLI typed at a device, so degrade instead.
+    if cmd.template.count("%s") != len(args):
+        return stub.model_copy(update={
+            "todo": f"{_DERIVED} Row matches {cmd.key}, but the plan text "
+                    f"supplies {len(args)} of the "
+                    f"{cmd.template.count('%s')} argument(s) the documented "
+                    "command needs, so no CLI is emitted."})
     # Trust the registry over the rule for CONFIG-vs-SHOW: the rule reads
     # English, the registry knows the command's real session mode.
     kind = step.kind
@@ -224,7 +340,12 @@ def scripts_from_plan(xlsx_path: str | Path,
         num = flow_id.split("-")[-1]
         steps: list[Step] = []
         for i, (action, reqs) in enumerate(rows, start=1):
-            step = _step_for(f"{flow_id}.M{i:03d}", action, reqs)
+            row_id = f"{flow_id}.M{i:03d}"
+            grounded = _grounded_steps(row_id, action, reqs)
+            if grounded:
+                steps.extend(grounded)
+                continue
+            step = _step_for(row_id, action, reqs)
             if step is not None:
                 steps.append(step)
         camel = _camel(title)

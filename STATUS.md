@@ -22,12 +22,12 @@
 | Demo: extract requirements from docs | ✅ 133 reqs → 269 plan rows |
 | Up to 3 integration-ready test plans | ✅ compile against the real framework |
 
-Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`. 223 ATE tests pass.
+Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`. 230 ATE tests pass.
 
 ## Honest limits
 
 - **The 3 delivered suites are hand-curated at step level.** The tool emits the Java; a human wrote the 33 steps.
-- **The mechanical path works but grounds almost nothing.** Plan → typed steps → compiling Java runs end to end (`TCM020`, compiles), but only 6 of 142 CLI snippets resolve to a command. Cause: the `EvpnCommands` registry is 18 hand-written entries covering only the curated flows. **Fix = auto-derive the registry from the CLI doc's 44 extracted commands.** This is the #1 M4 task.
+- **The mechanical path now writes real tests, but reaches ~10% of rows.** The registry is auto-derived from the CLI doc (18 curated → **124 total**), so `TCM020` (all-active multi-homing) emits grounded `configAndValidate` calls with no hand-written step. Across the plan it grounds 9 of 98 steps. The residue is base-CLI commands (`show alarms`, `show platform process`) documented in the **Command Reference Guide, not the EVPN CLI doc** — extracting the CRG is the next lever. Ungrounded rows still degrade to compiling TODO stubs; nothing is invented.
 - **DUT config is generated; IXIA config cannot be.** `bringUpParams.crt` + `configurations/compass/EVPN_Base.cfg` are emitted in the house format (modelled on `cmp/tests/vpls/`). The `.ixncfg` is a binary IxNetwork save — its `.crt` row ships commented out so a missing file cannot abort bring-up. The `.cfg` omits the underlay (lab data) and its block structure is unverified against a real EVPN device.
 - **Nothing has ever been executed on hardware.** 15 of 33 steps hold empty expectations by design.
 - **The device→expectations stage is built and proven, but has nothing to capture.** `ate capture` runs the suite's show commands on a real DUT and records the output. Verified on pc-3021: all 11 EVPN commands rejected (correctly writing nothing), while `show system alarm`/`show bgp summary` captured cleanly — so the mechanism works and waits only on an EVPN build.
@@ -43,7 +43,7 @@ Gate: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xli
 
 ## Next
 
-1. Auto-derive `EvpnCommands` from the CLI doc → makes mechanical generation real (M4)
+1. Extract the Command Reference Guide v8.X.0 → grounds the base-CLI commands the plan quotes (the remaining ~90% of mechanical rows)
 2. Confirm the generated `.cfg` block structure against a real EVPN `show configuration`
 3. Push the branch once a ticket ID exists
 4. Start M3 (multi-router plan generation)

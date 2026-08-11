@@ -45,7 +45,7 @@ import time
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
-from ate.codegen.commands import EVPN_COMMANDS
+from ate.codegen.commands import all_commands
 from ate.codegen.script_ir import StepKind, TestScript
 
 __all__ = ["CaptureSession", "CapturedCommand", "capture_for_scripts",
@@ -67,7 +67,9 @@ OK = "ok"
 EMPTY = "empty"
 UNSUPPORTED = "unsupported"
 
-_BY_KEY = {c.key: c for c in EVPN_COMMANDS}
+def _by_key() -> dict:
+    """Built per call: derived entries are installed at generation time."""
+    return {c.key: c for c in all_commands()}
 
 
 @dataclass
@@ -123,7 +125,7 @@ def commands_needed(scripts: list[TestScript]) -> list[tuple[str, str]]:
                 continue
             if not st.expect_key or not st.command or st.expect_key in seen:
                 continue
-            cmd = _BY_KEY.get(st.command)
+            cmd = _by_key().get(st.command)
             if cmd is None or not cmd.template:
                 continue
             try:

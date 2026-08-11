@@ -40,7 +40,7 @@ terminators are unconfirmed.
 """
 from __future__ import annotations
 
-from ate.codegen.commands import EVPN_COMMANDS
+from ate.codegen.commands import all_commands
 from ate.codegen.java_emitter import JavaFile
 from ate.codegen.lab import LabProfile
 from ate.codegen.script_ir import StepKind, TestScript
@@ -50,7 +50,9 @@ __all__ = ["DUT_CONFIG_NAME", "emit_bringup_params", "emit_dut_config"]
 DUT_CONFIG_NAME = "EVPN_Base.cfg"
 _IXIA_CONFIG_NAME = "EVPN_3AC.ixncfg"
 
-_BY_KEY = {c.key: c for c in EVPN_COMMANDS}
+def _by_key() -> dict:
+    """Built per call: derived entries are installed at generation time."""
+    return {c.key: c for c in all_commands()}
 
 
 def _rendered_config_lines(scripts: list[TestScript]) -> list[str]:
@@ -65,7 +67,7 @@ def _rendered_config_lines(scripts: list[TestScript]) -> list[str]:
         for st in sc.steps:
             if st.kind is not StepKind.CONFIG or not st.command:
                 continue
-            cmd = _BY_KEY.get(st.command)
+            cmd = _by_key().get(st.command)
             if cmd is None or not cmd.template:
                 continue
             try:

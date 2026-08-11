@@ -15,6 +15,7 @@ sources and their jars. See `.claude/skills/exaware-framework`.
 from __future__ import annotations
 
 import pytest
+import pytest
 
 from ate.codegen.commands import (
     EVPN_COMMANDS,
@@ -480,3 +481,101 @@ def test_commands_needed_renders_arguments(scripts):
     needed = dict(commands_needed(scripts))
     assert needed, "the suite must need some show output"
     assert all("%s" not in cmd for cmd in needed.values()), "unrendered template"
+
+
+@pytest.fixture(scope="session")
+def derived_registry():
+    """Registry entries derived from the real EVPN CLI doc.
+
+    Session-scoped: parsing the .docx is the slow part, and every derivation
+    test wants the same catalog.
+    """
+    from pathlib import Path as _P
+
+    from ate.codegen.command_deriver import derive_commands
+    from ate.parsers import parse
+    from ate.planner.requirements_builder import build_catalog
+
+    sfs = _P("references/EVPN/EVPN System Specification 1.00.docx")
+    cli = _P("references/EVPN/EVPN CLI 1.00.docx")
+    if not (sfs.exists() and cli.exists()):
+        pytest.skip("EVPN reference documents not available")
+    catalog = build_catalog(parse(sfs), cli_doc_path=cli)
+    derived, _notes = derive_commands(catalog.cli_commands)
+    return derived
+
+
+# ── deriving the registry from the CLI doc (command_deriver.py) ──────────
+
+
+def test_enumerated_keywords_stay_literal_not_arguments():
+    """`load-balancing-mode single-active | all-active` is one command with two
+    documented values, not a command taking a free value."""
+    from ate.codegen.command_deriver import expand_syntax
+
+    forms = expand_syntax("load-balancing-mode single-active | all-active",
+                          {"single-active", "all-active"})
+    assert "load-balancing-mode single-active" in forms
+    assert "load-balancing-mode all-active" in forms
+    assert "load-balancing-mode %s" not in forms
+
+
+def test_a_keyword_introducing_a_value_set_is_not_an_argument():
+    """`service-type {vlan-based | ...}` must keep `service-type` literal."""
+    from ate.codegen.command_deriver import expand_syntax
+
+    forms = expand_syntax(
+        "evpn evpn-name [service-type {vlan-based | vlan-bundle}]",
+        {"evpn-name", "service-type"})
+    assert "evpn %s service-type vlan-based" in forms
+    assert not any(f.startswith("evpn %s %s") for f in forms)
+
+
+def test_operands_inside_an_alternation_still_become_arguments():
+    """In `agg-eth agg-id` the first token selects, the second is a value —
+    emitting `agg-id` literally would type it at a device."""
+    from ate.codegen.command_deriver import expand_syntax
+
+    forms = expand_syntax(
+        "show interface [loopback loop-if | agg-eth agg-id] detail", set())
+    assert "show interface agg-eth %s detail" in forms
+    assert "show interface agg-eth agg-id detail" not in forms
+
+
+def test_optional_groups_expand_both_ways():
+    from ate.codegen.command_deriver import expand_syntax
+
+    forms = expand_syntax("show evpn global [name evpn-name]", {"evpn-name"})
+    assert "show evpn global" in forms
+    assert "show evpn global name %s" in forms
+
+
+def test_curated_entries_win_over_derived_ones(derived_registry):
+    """The curated 18 encode decisions the document cannot settle — chiefly
+    the `mac address-table` space."""
+    from ate.codegen.commands import EVPN_COMMANDS
+
+    curated_keys = {c.key for c in EVPN_COMMANDS}
+    curated_templates = {c.template for c in EVPN_COMMANDS}
+    assert not [d for d in derived_registry if d.key in curated_keys]
+    assert not [d for d in derived_registry if d.template in curated_templates]
+
+
+def test_derived_keys_are_valid_java_constants(derived_registry):
+    import re as _re
+
+    assert derived_registry, "the CLI doc should yield commands"
+    seen = set()
+    for d in derived_registry:
+        assert _re.fullmatch(r"[A-Za-z][A-Za-z0-9_$]*", d.key), d.key
+        assert d.key not in seen, f"duplicate constant {d.key}"
+        seen.add(d.key)
+        assert d.doc_syntax, f"{d.key} must carry its documented origin"
+
+
+def test_a_shared_knob_derives_the_evpn_mode_not_vpls(derived_registry):
+    """`mac-limit` lists both l2-services vpls and evpn; VPLS is out of scope
+    for the EVPN plan, and binding a row to the VPLS constant is a real bug."""
+    maclimit = [d for d in derived_registry if "mac-limit" in d.template]
+    assert maclimit, "mac-limit should derive"
+    assert not [d for d in maclimit if "vpls" in d.template]

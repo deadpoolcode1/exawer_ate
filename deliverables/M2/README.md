@@ -33,15 +33,30 @@ runs first, and step quality mattered more than reach on exactly those. The
 mechanical path is the reach — it maps the other ~30 flows (1745 atomic rows)
 onto the same `Step` IR.
 
-**The two paths are not yet joined.** `ate codegen` emits from the curated
-lists; the matcher is exercised by `ate match`, which reports recall rather than
-emitting Java. Both produce the same `Step` type, so joining them is small
-work — group matched steps by flow into a `TestScript` and pass it to the
-existing emitter — but it is not done, and until it is, the three delivered
-suites do not by themselves demonstrate the SOW's 40–50% manual-effort
-reduction. Generating a suite for an *uncurated* flow and compiling it under the
-same gate is the demonstration that would, and it is the natural first move
-into M4.
+**The two paths are now joined.** `ate codegen --from-plan <xlsx> --plan-flows
+FLOW-020` generates a suite for a flow nobody curated, straight from the plan,
+and it compiles under the same `-Werror -Xlint:all` gate. See
+`mechanical_demo/` — `TCM020_EvpnAllActiveMultiHomingBringUpDfElection.java`
+was written entirely by the tool.
+
+For it to emit real commands rather than stubs, the `EvpnCommands` registry is
+**auto-derived from the CLI doc**: 18 curated entries plus 106 derived from the
+document's own 44 command definitions — 124 constants, all compiling. TCM020
+now emits grounded configuration:
+
+```java
+cmp1.configAndValidate(EvpnCommands
+    .INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_LOAD_BALANCING_MODE_ALL_ACTIVE.args("0"));
+```
+
+Honest reach: 9 of TCM020's 28 steps carry a grounded command, and 9 of 98
+across six flows tried. The residue is mostly base-CLI commands (`show alarms`,
+`show platform process`) documented in the **Command Reference Guide, not the
+EVPN CLI doc** — extracting the CRG is the next lever. Ungrounded rows still
+degrade to compiling TODO stubs carrying their original sentence, and every
+mechanically derived step keeps a `todo`, so such a suite reports warnings
+rather than passes until reviewed. The derivation rules and their rationale are
+in `evidence_command_derivation.txt`.
 
 ## The three suites
 

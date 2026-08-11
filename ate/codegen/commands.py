@@ -204,6 +204,24 @@ EVPN_COMMANDS: list[EvpnCommand] = [
 ]
 
 
+#: Entries derived from the CLI doc at generation time by `command_deriver`.
+#: Kept separate from the curated list above so the curated 18 stay
+#: authoritative and reviewable: they encode decisions the document alone
+#: cannot settle, chiefly that `show evpn mac address-table` takes a space
+#: where one CLI-doc syntax line uses a hyphen.
+DERIVED_COMMANDS: list[EvpnCommand] = []
+
+
+def set_derived_commands(commands: list[EvpnCommand]) -> None:
+    """Install the derived entries. Replaces any previous derivation."""
+    DERIVED_COMMANDS[:] = list(commands)
+
+
+def all_commands() -> list[EvpnCommand]:
+    """Curated entries first, then derived ones."""
+    return list(EVPN_COMMANDS) + list(DERIVED_COMMANDS)
+
+
 class UngroundedCommandError(RuntimeError):
     """Raised when a registry entry names a CLI command the catalog lacks."""
 
@@ -217,15 +235,15 @@ def validate_grounding(cli_commands: list[CliCommand]) -> list[str]:
     command cross-check was built to eliminate.
     """
     known = {c.name for c in cli_commands}
-    missing = sorted({c.source for c in EVPN_COMMANDS
+    missing = sorted({c.source for c in all_commands()
                       if c.source and c.source not in known})
     if missing:
         raise UngroundedCommandError(
             "EvpnCommands entries reference CLI commands absent from the "
             f"extracted catalog: {missing}"
         )
-    return [f"{c.key}: {c.doc_suspect}" for c in EVPN_COMMANDS if c.doc_suspect]
+    return [f"{c.key}: {c.doc_suspect}" for c in all_commands() if c.doc_suspect]
 
 
 def command_keys() -> set[str]:
-    return {c.key for c in EVPN_COMMANDS}
+    return {c.key for c in all_commands()}

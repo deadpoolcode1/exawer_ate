@@ -78,7 +78,331 @@ public enum EvpnCommands implements ICmpCliCmd {
     SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL("show bgp l2vpn evpn table evi evi-name %s detail"),
 
     /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
-    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL("show bgp l2vpn evpn neighbors advertised-routes %s detail");
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL("show bgp l2vpn evpn neighbors advertised-routes %s detail"),
+
+    /** CLI doc: ethernet-segment - ethernet-segment */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT("interface agg-eth %s ethernet-segment", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: identifier - identifier 0 type0-value */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_IDENTIFIER_0_$("interface agg-eth %s ethernet-segment identifier 0 %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: identifier - identifier 1 */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_IDENTIFIER_1("interface agg-eth %s ethernet-segment identifier 1", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: identifier - identifier 4 */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_IDENTIFIER_4("interface agg-eth %s ethernet-segment identifier 4", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: lacp-key - lacp-key key-value */
+    INTERFACE_AGG_ETH_$_LACP_KEY_$("interface agg-eth %s lacp-key %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: lacp-system-mac - lacp-system-mac mac-address */
+    INTERFACE_AGG_ETH_$_LACP_SYSTEM_MAC_$("interface agg-eth %s lacp-system-mac %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: load-balancing-mode - load-balancing-mode single-active | all-active */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_LOAD_BALANCING_MODE_ALL_ACTIVE("interface agg-eth %s ethernet-segment load-balancing-mode all-active", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: load-balancing-mode - load-balancing-mode single-active | all-active */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_LOAD_BALANCING_MODE_SINGLE_ACTIVE("interface agg-eth %s ethernet-segment load-balancing-mode single-active", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: service-carving - service-carving default | {highest-random-weight} | {{highest-preference | lowest-preference} [preference]} */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_DEFAULT("interface agg-eth %s ethernet-segment service-carving default", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: service-carving - service-carving default | {highest-random-weight} | {{highest-preference | lowest-preference} [preference]} */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_HIGHEST_PREFERENCE("interface agg-eth %s ethernet-segment service-carving highest-preference", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: service-carving - service-carving default | {highest-random-weight} | {{highest-preference | lowest-preference} [preference]} */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_HIGHEST_RANDOM_WEIGHT("interface agg-eth %s ethernet-segment service-carving highest-random-weight", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: service-carving - service-carving default | {highest-random-weight} | {{highest-preference | lowest-preference} [preference]} */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_LOWEST_PREFERENCE("interface agg-eth %s ethernet-segment service-carving lowest-preference", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: service-carving - service-carving default | {highest-random-weight} | {{highest-preference | lowest-preference} [preference]} */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_HIGHEST_PREFERENCE_$("interface agg-eth %s ethernet-segment service-carving highest-preference %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: service-carving - service-carving default | {highest-random-weight} | {{highest-preference | lowest-preference} [preference]} */
+    INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_LOWEST_PREFERENCE_$("interface agg-eth %s ethernet-segment service-carving lowest-preference %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: show interface detail - show interface [loopback loop-if | x-eth eth-if | mgmt mgmt-if | agg-eth agg-id] detail */
+    SHOW_INTERFACE_DETAIL("show interface detail"),
+
+    /** CLI doc: show interface detail - show interface [loopback loop-if | x-eth eth-if | mgmt mgmt-if | agg-eth agg-id] detail */
+    SHOW_INTERFACE_AGG_ETH_$_DETAIL("show interface agg-eth %s detail"),
+
+    /** CLI doc: show interface detail - show interface [loopback loop-if | x-eth eth-if | mgmt mgmt-if | agg-eth agg-id] detail */
+    SHOW_INTERFACE_LOOPBACK_$_DETAIL("show interface loopback %s detail"),
+
+    /** CLI doc: show interface detail - show interface [loopback loop-if | x-eth eth-if | mgmt mgmt-if | agg-eth agg-id] detail */
+    SHOW_INTERFACE_MGMT_$_DETAIL("show interface mgmt %s detail"),
+
+    /** CLI doc: show interface detail - show interface [loopback loop-if | x-eth eth-if | mgmt mgmt-if | agg-eth agg-id] detail */
+    SHOW_INTERFACE_X_ETH_$_DETAIL("show interface x-eth %s detail"),
+
+    /** CLI doc: af-l2vpn evpn - af-l2vpn evpn */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN("routing bgp %s vrf %s neighbor %s af-l2vpn evpn", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES("show bgp l2vpn evpn neighbors advertised-routes"),
+
+    /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_RECEIVED_ROUTES("show bgp l2vpn evpn neighbors received-routes"),
+
+    /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$("show bgp l2vpn evpn neighbors advertised-routes %s"),
+
+    /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_BRIEF("show bgp l2vpn evpn neighbors advertised-routes brief"),
+
+    /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_DETAIL("show bgp l2vpn evpn neighbors advertised-routes detail"),
+
+    /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_RECEIVED_ROUTES_$("show bgp l2vpn evpn neighbors received-routes %s"),
+
+    /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_RECEIVED_ROUTES_BRIEF("show bgp l2vpn evpn neighbors received-routes brief"),
+
+    /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_NEIGHBORS_RECEIVED_ROUTES_DETAIL("show bgp l2vpn evpn neighbors received-routes detail"),
+
+    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI("show bgp l2vpn evpn table evi"),
+
+    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_BRIEF("show bgp l2vpn evpn table evi brief"),
+
+    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL("show bgp l2vpn evpn table evi detail"),
+
+    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_$("show bgp l2vpn evpn table evi evi-name %s"),
+
+    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_$_$("show bgp l2vpn evpn table evi evi-name %s %s"),
+
+    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_EVI_NAME_BRIEF("show bgp l2vpn evpn table evi evi-name evi-name brief"),
+
+    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_EVI_NAME_DETAIL("show bgp l2vpn evpn table evi evi-name evi-name detail"),
+
+    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_$_EVPN_PREFIX_BRIEF("show bgp l2vpn evpn table evi evi-name %s evpn-prefix brief"),
+
+    /** CLI doc: show bgp l2vpn evpn table ethernet-segment - show bgp table evpn ethernet-segment [evpn-prefix] [brief | detail] */
+    SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT("show bgp table evpn ethernet-segment"),
+
+    /** CLI doc: show bgp l2vpn evpn table ethernet-segment - show bgp table evpn ethernet-segment [evpn-prefix] [brief | detail] */
+    SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_$("show bgp table evpn ethernet-segment %s"),
+
+    /** CLI doc: show bgp l2vpn evpn table ethernet-segment - show bgp table evpn ethernet-segment [evpn-prefix] [brief | detail] */
+    SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_BRIEF("show bgp table evpn ethernet-segment brief"),
+
+    /** CLI doc: show bgp l2vpn evpn table ethernet-segment - show bgp table evpn ethernet-segment [evpn-prefix] [brief | detail] */
+    SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_DETAIL("show bgp table evpn ethernet-segment detail"),
+
+    /** CLI doc: show bgp l2vpn evpn table ethernet-segment - show bgp table evpn ethernet-segment [evpn-prefix] [brief | detail] */
+    SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_EVPN_PREFIX_BRIEF("show bgp table evpn ethernet-segment evpn-prefix brief"),
+
+    /** CLI doc: show bgp l2vpn evpn table ethernet-segment - show bgp table evpn ethernet-segment [evpn-prefix] [brief | detail] */
+    SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_EVPN_PREFIX_DETAIL("show bgp table evpn ethernet-segment evpn-prefix detail"),
+
+    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
+    SHOW_BGP_NEIGHBORS("show bgp neighbors"),
+
+    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
+    SHOW_BGP_NEIGHBORS_$("show bgp neighbors %s"),
+
+    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
+    SHOW_BGP_NEIGHBORS_BRIEF("show bgp neighbors brief"),
+
+    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
+    SHOW_BGP_NEIGHBORS_DETAIL("show bgp neighbors detail"),
+
+    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
+    SHOW_BGP_NEIGHBORS_$_$("show bgp neighbors %s %s"),
+
+    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
+    SHOW_BGP_NEIGHBORS_BRIEF_$("show bgp neighbors brief %s"),
+
+    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
+    SHOW_BGP_NEIGHBORS_DETAIL_$("show bgp neighbors detail %s"),
+
+    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
+    SHOW_BGP_NEIGHBORS_VRF_$("show bgp neighbors vrf %s"),
+
+    /** CLI doc: advertise-mac - Advertise-mac enable | disable */
+    L2_SERVICES_EVPN_$_ADVERTISE_MAC_DISABLE("l2-services evpn %s Advertise-mac disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: advertise-mac - Advertise-mac enable | disable */
+    L2_SERVICES_EVPN_$_ADVERTISE_MAC_ENABLE("l2-services evpn %s Advertise-mac enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: control-word (evpn) - control-word enable | disable */
+    L2_SERVICES_EVPN_$_CONTROL_WORD_DISABLE("l2-services evpn %s control-word disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: control-word (evpn) - control-word enable | disable */
+    L2_SERVICES_EVPN_$_CONTROL_WORD_ENABLE("l2-services evpn %s control-word enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: es-waiting-time - es-waiting-time seconds */
+    L2_SERVICES_EVPN_$_ES_WAITING_TIME_$("l2-services evpn %s es-waiting-time %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: evpn - evpn evpn-name [service-type {vlan-based | vlan-bundle | vlan-aware-bundle | port-based}] */
+    L2_SERVICES_EVPN_$("l2-services evpn %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: evpn - evpn evpn-name [service-type {vlan-based | vlan-bundle | vlan-aware-bundle | port-based}] */
+    L2_SERVICES_EVPN_$_SERVICE_TYPE_PORT_BASED("l2-services evpn %s service-type port-based", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: evpn - evpn evpn-name [service-type {vlan-based | vlan-bundle | vlan-aware-bundle | port-based}] */
+    L2_SERVICES_EVPN_$_SERVICE_TYPE_VLAN_AWARE_BUNDLE("l2-services evpn %s service-type vlan-aware-bundle", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: evpn - evpn evpn-name [service-type {vlan-based | vlan-bundle | vlan-aware-bundle | port-based}] */
+    L2_SERVICES_EVPN_$_SERVICE_TYPE_VLAN_BASED("l2-services evpn %s service-type vlan-based", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: evpn - evpn evpn-name [service-type {vlan-based | vlan-bundle | vlan-aware-bundle | port-based}] */
+    L2_SERVICES_EVPN_$_SERVICE_TYPE_VLAN_BUNDLE("l2-services evpn %s service-type vlan-bundle", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: export-rt - export-rt route-target */
+    L2_SERVICES_EVPN_$_AUTO_DISCOVERY_EXPORT_RT_$("l2-services evpn %s auto-discovery export-rt %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
+    L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION("l2-services evpn %s host mac-address-duplicate-detection", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
+    L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_DISABLE("l2-services evpn %s host mac-address-duplicate-detection disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
+    L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_ENABLE("l2-services evpn %s host mac-address-duplicate-detection enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
+    L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_FREEZE_TIME_$("l2-services evpn %s host mac-address-duplicate-detection freeze-time %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
+    L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_MOVE_COUNT_$("l2-services evpn %s host mac-address-duplicate-detection move-count %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
+    L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_MOVE_INTERVAL_$("l2-services evpn %s host mac-address-duplicate-detection move-interval %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
+    L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_DISABLE_FREEZE_TIME_$("l2-services evpn %s host mac-address-duplicate-detection disable freeze-time %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: host mac-address-duplication-detection - host mac-address-duplicate-detection [enable | disable] [move-interval move-interval] [move-count move-count] [freeze-time freeze-time] */
+    L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_DISABLE_MOVE_COUNT_$("l2-services evpn %s host mac-address-duplicate-detection disable move-count %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: import-rt - import-rt route-target */
+    L2_SERVICES_EVPN_$_AUTO_DISCOVERY_IMPORT_RT_$("l2-services evpn %s auto-discovery import-rt %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: mac-address-static (EVPN) - mac-address-static mac-address interface interface | vpws vpws-name */
+    L2_SERVICES_EVPN_$_MAC_ADDRESS_STATIC_VPWS_$("l2-services evpn %s mac-address-static vpws %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: mac-address-static (EVPN) - mac-address-static mac-address interface interface | vpws vpws-name */
+    L2_SERVICES_EVPN_$_MAC_ADDRESS_STATIC_MAC_ADDRESS_INTERFACE_$("l2-services evpn %s mac-address-static mac-address interface %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: mac-address-static (VPLS) - mac-address-static mac-address {interface interface | peer ip-address | vpws vpws-name} */
+    L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_INTERFACE_$("l2-services vpls %s mac-address-static %s interface %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: mac-address-static (VPLS) - mac-address-static mac-address {interface interface | peer ip-address | vpws vpws-name} */
+    L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_PEER_$("l2-services vpls %s mac-address-static %s peer %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: mac-address-static (VPLS) - mac-address-static mac-address {interface interface | peer ip-address | vpws vpws-name} */
+    L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_VPWS_$("l2-services vpls %s mac-address-static %s vpws %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: mac-limit - mac-limit limit */
+    L2_SERVICES_EVPN_$_MAC_LIMIT_$("l2-services evpn %s mac-limit %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: unknown-mac-flooding - unknow-mac-flooding enable | disable */
+    // WARNING -- verify against the DUT before first run:
+    // CLI doc spells this 'unknow-mac-flooding' (missing 'n') in the syntax
+    // line; emitted verbatim rather than silently corrected.
+    L2_SERVICES_EVPN_$_UNKNOW_MAC_FLOODING_DISABLE("l2-services evpn %s unknow-mac-flooding disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: unknown-mac-flooding - unknow-mac-flooding enable | disable */
+    // WARNING -- verify against the DUT before first run:
+    // CLI doc spells this 'unknow-mac-flooding' (missing 'n') in the syntax
+    // line; emitted verbatim rather than silently corrected.
+    L2_SERVICES_EVPN_$_UNKNOW_MAC_FLOODING_ENABLE("l2-services evpn %s unknow-mac-flooding enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: clear evpn Frozen mac-addresses - clear evpn frozen mac-addresses [evpn-name [mac-address]] */
+    CLEAR_EVPN_FROZEN_MAC_ADDRESSES("clear evpn frozen mac-addresses"),
+
+    /** CLI doc: clear evpn Frozen mac-addresses - clear evpn frozen mac-addresses [evpn-name [mac-address]] */
+    CLEAR_EVPN_FROZEN_MAC_ADDRESSES_$("clear evpn frozen mac-addresses %s"),
+
+    /** CLI doc: clear evpn Frozen mac-addresses - clear evpn frozen mac-addresses [evpn-name [mac-address]] */
+    CLEAR_EVPN_FROZEN_MAC_ADDRESSES_$_$("clear evpn frozen mac-addresses %s %s"),
+
+    /** CLI doc: clear evpn mac address-table - clear evpn mac address-table [name evpn-name [source interface | mac mac-address]] */
+    CLEAR_EVPN_MAC_ADDRESS_TABLE("clear evpn mac address-table"),
+
+    /** CLI doc: clear evpn mac address-table - clear evpn mac address-table [name evpn-name [source interface | mac mac-address]] */
+    CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$_MAC_$("clear evpn mac address-table name %s mac %s"),
+
+    /** CLI doc: clear evpn mac address-table - clear evpn mac address-table [name evpn-name [source interface | mac mac-address]] */
+    CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$("clear evpn mac address-table name %s source %s"),
+
+    /** CLI doc: show evpn broadcast-domains - show evpn broadcast-domains [name evpn-name [vlan-id vlan-id]] */
+    SHOW_EVPN_BROADCAST_DOMAINS("show evpn broadcast-domains"),
+
+    /** CLI doc: show evpn broadcast-domains - show evpn broadcast-domains [name evpn-name [vlan-id vlan-id]] */
+    SHOW_EVPN_BROADCAST_DOMAINS_NAME_$("show evpn broadcast-domains name %s"),
+
+    /** CLI doc: show evpn broadcast-domains - show evpn broadcast-domains [name evpn-name [vlan-id vlan-id]] */
+    SHOW_EVPN_BROADCAST_DOMAINS_NAME_$_VLAN_ID_$("show evpn broadcast-domains name %s vlan-id %s"),
+
+    /** CLI doc: show evpn bum routing-table - show evpn bum routing-table [name evpn-name [vlal-id vlan-id]] */
+    SHOW_EVPN_BUM_ROUTING_TABLE("show evpn bum routing-table"),
+
+    /** CLI doc: show evpn bum routing-table - show evpn bum routing-table [name evpn-name [vlal-id vlan-id]] */
+    SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$_$_$("show evpn bum routing-table name %s %s %s"),
+
+    /** CLI doc: show evpn ethernet-segments - show evpn ethernet-segments [esi es-id] */
+    SHOW_EVPN_ETHERNET_SEGMENTS("show evpn ethernet-segments"),
+
+    /** CLI doc: show evpn ethernet-segments - show evpn ethernet-segments [esi es-id] */
+    SHOW_EVPN_ETHERNET_SEGMENTS_ESI_$("show evpn ethernet-segments esi %s"),
+
+    /** CLI doc: show evpn frozen mac-addresses - show evpn frozen mac-addresses [evpn-name [mac-address]] */
+    SHOW_EVPN_FROZEN_MAC_ADDRESSES("show evpn frozen mac-addresses"),
+
+    /** CLI doc: show evpn frozen mac-addresses - show evpn frozen mac-addresses [evpn-name [mac-address]] */
+    SHOW_EVPN_FROZEN_MAC_ADDRESSES_$("show evpn frozen mac-addresses %s"),
+
+    /** CLI doc: show evpn frozen mac-addresses - show evpn frozen mac-addresses [evpn-name [mac-address]] */
+    SHOW_EVPN_FROZEN_MAC_ADDRESSES_$_$("show evpn frozen mac-addresses %s %s"),
+
+    /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
+    SHOW_EVPN_MAC_ADDRESS_TABLE("show evpn mac-address-table"),
+
+    /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
+    SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_MAC_$("show evpn mac-address-table name %s mac %s"),
+
+    /** CLI doc: show evpn summary - show evpn summary [name evpn-name] */
+    SHOW_EVPN_SUMMARY("show evpn summary"),
+
+    /** CLI doc: show fib evpn-ac - show fib evpn-ac */
+    SHOW_FIB_EVPN_AC("show fib evpn-ac"),
+
+    /** CLI doc: show fib evpn-neighbor - show fib evpn-neighbor */
+    SHOW_FIB_EVPN_NEIGHBOR("show fib evpn-neighbor"),
+
+    /** CLI doc: allow-as-in - allow-as-in <value> */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ALLOW_AS_IN_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn allow-as-in <value>", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability <value> */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability <value>", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: inbound-soft-reconfiguration - inbound-soft-reconfiguration */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_INBOUND_SOFT_RECONFIGURATION("routing bgp %s vrf %s neighbor %s af-l2vpn evpn inbound-soft-reconfiguration", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: maximum-prefix - maximum-prefix <value> */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_$_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn %s <value>", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: policy - policy <value> */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_POLICY_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn policy <value>", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: private-as - private-as <value> */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_PRIVATE_AS_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn private-as <value>", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: route-reflector-client - route-reflector-client */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ROUTE_REFLECTOR_CLIENT("routing bgp %s vrf %s neighbor %s af-l2vpn evpn route-reflector-client", SessionMode.CLI_CONFIGURE);
 
     private final String format;
     private String formattedStr;

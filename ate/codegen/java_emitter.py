@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ate.codegen.commands import EVPN_COMMANDS
+from ate.codegen.commands import all_commands
 from ate.codegen.lab import LabProfile
 from ate.codegen.script_ir import Step, StepKind, TestScript
 
@@ -123,8 +123,9 @@ def emit_commands() -> JavaFile:
         "public enum EvpnCommands implements ICmpCliCmd {",
         "",
     ]
-    for i, cmd in enumerate(EVPN_COMMANDS):
-        sep = "," if i < len(EVPN_COMMANDS) - 1 else ";"
+    registry = all_commands()
+    for i, cmd in enumerate(registry):
+        sep = "," if i < len(registry) - 1 else ";"
         lines.append(_ascii(
             f"    /** CLI doc: {cmd.source} - {cmd.doc_syntax} */"))
         if cmd.doc_suspect:

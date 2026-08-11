@@ -69,6 +69,15 @@ def generate_evpn_suite(sfs_path: str | Path,
     doc = parse(sfs_path)
     catalog = build_catalog(doc, cli_doc_path=cli_doc_path)
 
+    # Derive the rest of the registry from the CLI doc before validating, so
+    # generated code can bind commands the curated 18 never covered. Curated
+    # entries stay authoritative on any conflict.
+    from ate.codegen.command_deriver import derive_commands  # noqa: PLC0415
+    from ate.codegen.commands import set_derived_commands  # noqa: PLC0415
+
+    derived, derive_notes = derive_commands(catalog.cli_commands)
+    set_derived_commands(derived)
+
     # Raises UngroundedCommandError if any template has no CLI-doc origin.
     warnings = validate_grounding(catalog.cli_commands)
 
