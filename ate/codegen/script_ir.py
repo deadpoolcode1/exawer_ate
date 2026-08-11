@@ -43,6 +43,12 @@ class StepKind(str, Enum):
     VERIFY_ROUTE = "verify_route"
     #: Negative assertion — snapshot, act, assert nothing changed.
     VERIFY_NO_EVENT = "verify_no_event"
+    #: A step we could not express executably — carried through as a compiling
+    #: TODO that reports a warning. Used by the mechanical plan→script path
+    #: (`plan_scripts.py`) for rows whose command could not be grounded in
+    #: `EvpnCommands`. Emitting nothing would silently shrink the test; guessing
+    #: a command would type something invented at a DUT.
+    TODO_STUB = "todo_stub"
 
 
 class Step(BaseModel):

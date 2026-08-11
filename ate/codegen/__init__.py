@@ -53,8 +53,16 @@ class GenerationResult:
 def generate_evpn_suite(sfs_path: str | Path,
                         cli_doc_path: str | Path,
                         lab: LabProfile = SINGLE_DUT_3AC,
+                        plan_xlsx: str | Path | None = None,
+                        plan_flows: list[str] | None = None,
                         ) -> GenerationResult:
-    """Generate the EVPN JSystem suite for the three M2 flows."""
+    """Generate the EVPN JSystem suite for the three M2 flows.
+
+    `plan_xlsx` + `plan_flows` additionally emit *mechanically* derived suites
+    for flows nobody curated, straight from the generated test plan (see
+    `plan_scripts.py`). They share the emitted EvpnCommands/EvpnParams/
+    EvpnUtils with the curated suites, so the whole package compiles as one.
+    """
     from ate.parsers import parse  # noqa: PLC0415  (heavy import)
     from ate.planner.requirements_builder import build_catalog  # noqa: PLC0415
 
@@ -65,6 +73,9 @@ def generate_evpn_suite(sfs_path: str | Path,
     warnings = validate_grounding(catalog.cli_commands)
 
     scripts = evpn_scripts(lab)
+    if plan_xlsx and plan_flows:
+        from ate.codegen.plan_scripts import scripts_from_plan  # noqa: PLC0415
+        scripts = scripts + scripts_from_plan(plan_xlsx, plan_flows, lab)
     files = emit_all(scripts, lab)
     todos = [f"{s.id}: {s.todo}" for sc in scripts for s in sc.open_todos]
 

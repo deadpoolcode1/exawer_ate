@@ -103,6 +103,12 @@ def main(argv: list[str] | None = None) -> int:
                            "tests'); refreshes and updates the queue")
     p_cg.add_argument("--queue", default=None,
                       help="Queue file path (default: out/codegen_queue.json)")
+    p_cg.add_argument("--from-plan", default=None, metavar="XLSX",
+                      help="Generated test plan to derive additional suites "
+                           "from mechanically (no curated steps)")
+    p_cg.add_argument("--plan-flows", default="", metavar="IDS",
+                      help="Comma-separated flow IDs to derive from --from-plan, "
+                           "e.g. FLOW-020,FLOW-021. Emitted as TCM<nnn>_ classes")
 
     p_q = sub.add_parser("queue",
                          help="Dirty queue — which generated tests are "
@@ -248,7 +254,14 @@ def _cmd_codegen(args) -> int:
     from ate.codegen.commands import UngroundedCommandError  # noqa: PLC0415
 
     try:
-        result = generate_evpn_suite(args.sfs, args.cli_doc)
+        plan_flows = [f.strip() for f in (args.plan_flows or "").split(",")
+                      if f.strip()]
+        if plan_flows and not args.from_plan:
+            print("error: --plan-flows needs --from-plan <xlsx>")
+            return 1
+        result = generate_evpn_suite(args.sfs, args.cli_doc,
+                                     plan_xlsx=args.from_plan,
+                                     plan_flows=plan_flows)
     except UngroundedCommandError as e:
         print(f"error: {e}")
         return 1

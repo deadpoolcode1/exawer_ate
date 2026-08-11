@@ -292,3 +292,58 @@ def test_commands_are_lifted_out_of_backticks():
 
     got = commands_in("Issue `no ethernet-segment`; then `show evpn global`")
     assert got == ["no ethernet-segment", "show evpn global"]
+
+
+# ── mechanical plan → script path (plan_scripts.py) ──────────────────────
+
+
+def test_resolve_command_grounds_against_the_registry():
+    from ate.codegen.plan_scripts import resolve_command
+
+    got = resolve_command("show evpn mac address-table name evi-1")
+    assert got is not None
+    cmd, args = got
+    assert cmd.key == "SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$"
+    assert args == ["evi-1"]
+
+
+def test_resolve_command_matches_a_config_tail():
+    """The plan quotes config commands relative to their mode, so the literal
+    `l2-services` prefix is absent from the backticks."""
+    from ate.codegen.plan_scripts import resolve_command
+
+    got = resolve_command("evpn evi-1 service-type vlan-based")
+    assert got is not None
+    cmd, args = got
+    assert cmd.key == "CONFIGURE_L2_SERVICES_EVPN_$_SERVICE_TYPE_$"
+    assert args == ["evi-1", "vlan-based"]
+
+
+def test_unknown_command_never_invents_an_enum_constant():
+    from ate.codegen.plan_scripts import resolve_command
+
+    assert resolve_command("show platform process memory") is None
+    assert resolve_command("service-carving highest-random-weight") is None
+
+
+def test_ungrounded_rows_degrade_to_a_compiling_stub():
+    """A row whose command cannot be grounded must not emit `EvpnCommands.`."""
+    from ate.codegen.plan_scripts import _step_for
+
+    step = _step_for("FLOW-020.M001",
+                     "Configure `service-carving highest-random-weight`", [])
+    assert step is not None
+    assert step.kind is StepKind.TODO_STUB
+    assert step.command == ""
+    assert step.todo, "a degraded step must say why"
+
+
+def test_every_mechanically_derived_step_carries_a_todo():
+    """No mechanically derived step may ever look like a validated assertion."""
+    from ate.codegen.plan_scripts import _step_for
+
+    for text in ("Verify `show evpn global name evi-1` reports the EVI",
+                 "Configure `evpn evi-1 service-type vlan-based`",
+                 "Send 1 Gbps of known-unicast from AC1"):
+        step = _step_for("F.M1", text, [])
+        assert step is not None and step.todo, text
