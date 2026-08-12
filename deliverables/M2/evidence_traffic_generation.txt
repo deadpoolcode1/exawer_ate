@@ -1,0 +1,96 @@
+BUILDING IXIA TRAFFIC ITEMS IN CODE — 2026-08-12
+=================================================
+
+WHY
+---
+Our traffic steps emit
+
+    evpnUtils.setTrafficItemState(testParams.TI_AC1_TO_AC2, true);
+
+which unsuspends a traffic item that must ALREADY EXIST on the chassis. Nothing
+created one, so no frames ever flowed. EVPN learns MAC addresses from the data
+plane, so with no traffic the Type-2 advertisement, MAC-move and flooding
+assertions in TC02/TC03 could never reach a meaningful result — they would run
+and see zero.
+
+Exaware's suites get their items from a prebuilt binary `.ixncfg` (191 in their
+repo, loaded at bring-up via bringUpParams.crt). We cannot synthesise that
+format. Previously this was recorded as "blocked, waiting on Exaware". That was
+too pessimistic.
+
+WHAT WAS BUILT
+--------------
+`IxiaFunctions` exposes the whole traffic-item API over TCL, so the suite now
+stands up its own traffic. `EvpnUtils.createTrafficItems()` issues, per item:
+
+    configNewTrafficItem
+    configTrafficItemEndpoints
+    configTrafficItemStream
+    configTrafficItemFrameRate
+    applyTraffic                (once, at the end)
+
+A `TRAFFIC_CREATE` step is inserted at the head of any script that uses
+traffic; TC01 is bring-up only and does not get one. Every argument comes from
+`EvpnParams.TRAFFIC_ITEM_BUILD`, so a different rig is a params change rather
+than a code change.
+
+ARGUMENT ORDER IS VERIFIED, NOT ASSUMED
+----------------------------------------
+Checked against the proc signatures in
+`cmp-infra-project/src/main/java/cmp/infra/tcl/ixia_lib.tcl`, not merely the
+`$arg` help strings in the enum:
+
+  configNewTrafficItem        13 args  (line 2026)
+  configTrafficItemEndpoints  22 args  (line 2119) — srcVport 3rd, dstVport
+                                        10th, name 20th
+  configTrafficItemStream      8 args  (line 2169)
+  configTrafficItemFrameRate   8 args  (line 2466)
+
+All four call sites match position for position.
+
+THE LIMIT THIS EXPOSED — AND IT IS THE IMPORTANT PART
+------------------------------------------------------
+**The source MAC cannot be set from this library.** `ixia_lib.tcl` provides
+
+    proc editTrafficRawDestMacAddr {trafficItemId mac}      (line 2606)
+
+and no source equivalent; `configTrafficItemStream` takes only
+`destinationMacMode`. EVPN learns from SOURCE MACs.
+
+FLOW-030's whole point is that AC2 and AC3 emit the SAME source MAC, so moving
+traffic between them is a local MAC move on one PE rather than two distinct
+hosts appearing — which per Eyal's 2026-07-06 annotation must NOT re-advertise
+a Type-2 route. That precondition cannot be expressed with the current library.
+
+So the generated code does not pretend. It builds the items, and reports:
+
+    CompassReporter.warning(name + ": source MAC ... is NOT applied -
+        ixia_lib.tcl has no src-MAC proc. Any assertion that depends on a
+        specific source MAC is unmet until an .ixncfg or a new proc provides
+        it.");
+
+The per-item source MAC is carried in `EvpnParams` so it is ready the moment
+either arrives.
+
+THE ASK TO EXAWARE IS NOW SHARPER
+----------------------------------
+Not "please send an .ixncfg". Either:
+
+  (a) a `editTrafficRawSrcMacAddr`-style proc in `ixia_lib.tcl` — their infra
+      file, theirs to extend; we did not modify it, for the same reason we did
+      not ship the MultiCastParams JavaFX fix inside an EVPN branch; or
+  (b) the `.ixncfg` with the three items, AC2/AC3 sharing source MACs.
+
+Either one unblocks every traffic-dependent assertion in TC02 and TC03.
+
+STATUS
+------
+  240 ATE tests pass (5 new here, including one that pins AC2/AC3 sharing a
+  source MAC and one that the unsettable MAC is declared rather than implied).
+  Generated suite passes javac -Werror -Xlint:all.
+  bringUpParams.crt still passes TemplateManager.validateAgainstTemplate.
+
+  NOT executed on a chassis. Bring-up does not yet complete (it needs lab
+  workspace files on Exaware's runner), so the test body — and therefore
+  createTrafficItems() — has not run against the IXIA. The argument contract is
+  verified against the TCL source; the round trip is not.

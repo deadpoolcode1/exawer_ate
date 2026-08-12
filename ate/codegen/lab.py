@@ -44,16 +44,23 @@ class AccessCircuit:
 class TrafficItem:
     """A named IXIA traffic item.
 
-    Traffic items are **pre-built in the `.ixncfg`** loaded onto the chassis
-    (this is how `cmp/tests/vpls` works — tests suspend/unsuspend items rather
-    than constructing them). The generated code therefore references items by
-    name; it does not create them. `IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM`
-    does exist if Exaware would rather have them built in code.
+    Their suites load traffic items from a prebuilt `.ixncfg` and only
+    suspend/unsuspend them. We cannot synthesise that binary, so the generator
+    **builds the items over TCL instead**, via
+    `IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM` and friends. Same objects on the
+    chassis, no binary required, and the suite no longer depends on a file
+    somebody has to hand us.
+
+    `src_mac` is the point of the whole exercise for FLOW-030: AC2 and AC3
+    deliberately source the SAME MACs, so moving traffic from one to the other
+    is a pure local MAC move on one PE — which per Eyal's 2026-07-06
+    annotation must NOT re-advertise a Type-2 route.
     """
 
     name: str
     src: str           # AccessCircuit.name
     dst: str
+    src_mac: str = "00:00:01:00:00:01"
 
 
 class PeerSource(str, Enum):
@@ -131,9 +138,14 @@ AC1 = AccessCircuit(name="AC1", interface="agg-eth-1", vport="vport1")
 AC2 = AccessCircuit(name="AC2", interface="agg-eth-2", vport="vport2")
 AC3 = AccessCircuit(name="AC3", interface="agg-eth-3", vport="vport3")
 
-TI_AC1_TO_AC2 = TrafficItem(name="TI_AC1_TO_AC2", src="AC1", dst="AC2")
-TI_AC2_TO_AC1 = TrafficItem(name="TI_AC2_TO_AC1", src="AC2", dst="AC1")
-TI_AC3_TO_AC1 = TrafficItem(name="TI_AC3_TO_AC1", src="AC3", dst="AC1")
+TI_AC1_TO_AC2 = TrafficItem(name="TI_AC1_TO_AC2", src="AC1", dst="AC2",
+                            src_mac="00:00:01:00:00:01")
+# AC2 and AC3 share a source MAC on purpose — that is what makes
+# AC2 -> AC3 a local move rather than two distinct hosts.
+TI_AC2_TO_AC1 = TrafficItem(name="TI_AC2_TO_AC1", src="AC2", dst="AC1",
+                            src_mac="00:00:02:00:00:01")
+TI_AC3_TO_AC1 = TrafficItem(name="TI_AC3_TO_AC1", src="AC3", dst="AC1",
+                            src_mac="00:00:02:00:00:01")
 
 SINGLE_DUT_3AC = LabProfile(
     id="lab-1dut-3ac",

@@ -28,6 +28,11 @@ class StepKind(str, Enum):
 
     #: Apply CLI on the DUT and validate the commit.
     CONFIG = "config"
+    #: Build the lab's traffic items on the chassis before any are used.
+    #: Their own suites load a prebuilt .ixncfg instead; we cannot synthesise
+    #: that binary, but `IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM` builds the
+    #: same objects over TCL, so the suite can stand up its own traffic.
+    TRAFFIC_CREATE = "traffic_create"
     #: Enable / disable a single named IXIA traffic item.
     TRAFFIC_STATE = "traffic_state"
     #: Start / stop the IXIA traffic engine as a whole.

@@ -80,6 +80,57 @@ public class EvpnUtils implements loggerImp {
                         + " is not as expected. Missing lines: " + missing);
     }
 
+    /**
+     * Build the suite's traffic items on the chassis.
+     *
+     * Exaware's own suites load a prebuilt binary .ixncfg at bring-up and only
+     * suspend/unsuspend what it contains. That binary cannot be generated from
+     * documents, so this suite stands up its own traffic over TCL instead -
+     * the same chassis objects, no file to be handed.
+     *
+     * Idempotency is the chassis's business: call this once, before the first
+     * setTrafficItemState. Every argument comes from EvpnParams, so a different
+     * rig is a params change, not a code change.
+     *
+     * Argument order is VERIFIED against the proc signatures in
+     * cmp-infra-project/src/main/java/cmp/infra/tcl/ixia_lib.tcl (2026-08-12),
+     * not merely against the $arg help strings.
+     *
+     * LIMIT - the SOURCE MAC cannot be set from this library. ixia_lib.tcl
+     * offers editTrafficRawDestMacAddr and no source equivalent, and
+     * configTrafficItemStream takes only destinationMacMode. EVPN learns from
+     * SOURCE MACs, so the FLOW-030 precondition that AC2 and AC3 emit the same
+     * source MAC - which is what makes AC2 -> AC3 a local move rather than two
+     * distinct hosts - cannot be expressed here. Those items still need either
+     * a prebuilt .ixncfg or a new src-MAC proc in ixia_lib.tcl, which is
+     * Exaware's file to extend. The per-item source MAC is carried in
+     * EvpnParams so it is ready the moment either arrives.
+     */
+    public void createTrafficItems() throws Exception {
+        for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
+            String name = ti[0], srcVport = ti[1], dstVport = ti[2], srcMac = ti[3];
+            logMsg.info("Creating IXIA traffic item " + name
+                    + " (" + srcVport + " -> " + dstVport + ")");
+            CompassReporter.warning(name + ": source MAC " + srcMac
+                    + " is NOT applied - ixia_lib.tcl has no src-MAC proc. Any"
+                    + " assertion that depends on a specific source MAC is"
+                    + " unmet until an .ixncfg or a new proc provides it.");
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM.args(
+                    name, "true", "", "l2L3", "false", "false", "raw",
+                    name, "interleaved", "", "false", "false", "oneToOne"));
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_ENDPOINTS.args(
+                    name, "1", srcVport, "", "", "", "", "", "",
+                    dstVport, "", "", "", "", "", "", "", "", "", name, "", ""));
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_STREAM.args(
+                    name, "1", "goodCRC", "manual", name, "8", "auto", "false"));
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_FRAME_RATE.args(
+                    name, "stream", "1", "framesPerSecond",
+                    params.TRAFFIC_RATE_FPS, "bytes", "bitsPerSec", "false"));
+        }
+        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
+        logMsg.info("Traffic items built on the chassis");
+    }
+
     /** Enable (unsuspend) or disable (suspend) one named IXIA traffic item. */
     public void setTrafficItemState(String trafficItemName, boolean enabled)
             throws Exception {

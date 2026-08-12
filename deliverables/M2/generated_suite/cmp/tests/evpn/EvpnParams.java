@@ -33,6 +33,31 @@ public class EvpnParams implements ISuiteParams {
     public final String TI_AC2_TO_AC1 = "TI_AC2_TO_AC1";  // AC2 -> AC1
     public final String TI_AC3_TO_AC1 = "TI_AC3_TO_AC1";  // AC3 -> AC1
 
+    // ---- traffic-item build parameters ----
+    // Their suites load these from a prebuilt .ixncfg; we build
+    // them over TCL instead, so the suite needs no binary file.
+    public final String TI_AC1_TO_AC2_SRC_VPORT = "vport1";
+    public final String TI_AC1_TO_AC2_DST_VPORT = "vport2";
+    public final String TI_AC1_TO_AC2_SRC_MAC = "00:00:01:00:00:01";
+    public final String TI_AC2_TO_AC1_SRC_VPORT = "vport2";
+    public final String TI_AC2_TO_AC1_DST_VPORT = "vport1";
+    public final String TI_AC2_TO_AC1_SRC_MAC = "00:00:02:00:00:01";
+    public final String TI_AC3_TO_AC1_SRC_VPORT = "vport3";
+    public final String TI_AC3_TO_AC1_DST_VPORT = "vport1";
+    public final String TI_AC3_TO_AC1_SRC_MAC = "00:00:02:00:00:01";
+    /** TI_AC2_TO_AC1 and TI_AC3_TO_AC1 share a source MAC on purpose:
+     *  that is what makes moving between those ACs a LOCAL MAC move
+     *  on one PE, which must not re-advertise a Type-2 route. */
+
+    /** {name, srcVport, dstVport, srcMac} per item, for
+     *  EvpnUtils.createTrafficItems(). */
+    public final String[][] TRAFFIC_ITEM_BUILD = {
+        {"TI_AC1_TO_AC2", "vport1", "vport2", "00:00:01:00:00:01"},
+        {"TI_AC2_TO_AC1", "vport2", "vport1", "00:00:02:00:00:01"},
+        {"TI_AC3_TO_AC1", "vport3", "vport1", "00:00:02:00:00:01"},
+    };
+    public final String TRAFFIC_RATE_FPS = "1000";
+
     // ---- timing ----
     public final long VERIFY_TIMEOUT_IN_MSEC = 30000L;
     public final long VERIFY_INTERVAL_IN_MSEC = 5000L;

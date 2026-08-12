@@ -419,6 +419,34 @@ def _type3(lab: LabProfile) -> TestScript:
     )
 
 
+def _with_traffic_setup(script: TestScript) -> TestScript:
+    """Prepend a traffic-item build step to any script that uses traffic.
+
+    `setTrafficItemState` unsuspends an item that must already exist. Their
+    suites get those from a prebuilt .ixncfg; we build them over TCL, so the
+    build has to happen before the first use or every traffic step is a no-op
+    and every MAC-learning assertion silently sees zero.
+    """
+    uses_traffic = any(
+        st.kind in (StepKind.TRAFFIC_STATE, StepKind.TRAFFIC_START,
+                    StepKind.TRAFFIC_STOP, StepKind.VERIFY_IXIA)
+        for st in script.steps)
+    if not uses_traffic:
+        return script
+    setup = Step(
+        id=f"{script.flow_id}.S00",
+        kind=StepKind.TRAFFIC_CREATE,
+        text="Build the IXIA traffic items this test drives",
+        req_ids=[],
+        todo=("Traffic items are built over TCL rather than loaded from an "
+              ".ixncfg (argument order verified against ixia_lib.tcl). The "
+              "SOURCE MAC cannot be set from that library, so any assertion "
+              "needing AC2 and AC3 to share a source MAC is still unmet."),
+    )
+    return script.model_copy(update={"steps": [setup, *script.steps]})
+
+
 def evpn_scripts(lab: LabProfile = SINGLE_DUT_3AC) -> list[TestScript]:
     """The three M2 scripts, in dependency order."""
-    return [_bring_up(lab), _type2(lab), _type3(lab)]
+    return [_with_traffic_setup(sc)
+            for sc in (_bring_up(lab), _type2(lab), _type3(lab))]

@@ -651,3 +651,55 @@ def test_the_hyphen_regression_would_be_caught():
     _p2, expect_good = probe_for("show evpn mac-address-table name %s")
     assert expect_good == "name"
     assert "mac-address-table" in offered
+
+
+# ── building IXIA traffic items in code (no .ixncfg) ─────────────────────
+
+
+def test_traffic_using_scripts_build_their_items_first(scripts):
+    """`setTrafficItemState` unsuspends an item that must already exist. If
+    nothing builds it, every traffic step is a silent no-op."""
+    for sc in scripts:
+        uses = [s for s in sc.steps
+                if s.kind in (StepKind.TRAFFIC_STATE, StepKind.TRAFFIC_STOP,
+                              StepKind.VERIFY_IXIA)]
+        if not uses:
+            continue
+        kinds = [s.kind for s in sc.steps]
+        assert StepKind.TRAFFIC_CREATE in kinds, sc.class_name
+        assert kinds.index(StepKind.TRAFFIC_CREATE) < kinds.index(uses[0].kind)
+
+
+def test_bring_up_does_not_build_traffic_it_never_uses(scripts):
+    tc01 = next(s for s in scripts if s.flow_id == "FLOW-010")
+    assert StepKind.TRAFFIC_CREATE not in [s.kind for s in tc01.steps]
+
+
+def test_traffic_build_params_carry_vports_and_source_macs():
+    from ate.codegen.java_emitter import emit_params
+    from ate.codegen.lab import SINGLE_DUT_3AC
+
+    body = emit_params([], SINGLE_DUT_3AC).content
+    assert "TRAFFIC_ITEM_BUILD" in body
+    for ti in SINGLE_DUT_3AC.traffic_items:
+        assert ti.src_mac in body
+
+
+def test_ac2_and_ac3_share_a_source_mac():
+    """That is what makes AC2 -> AC3 a LOCAL move rather than two hosts."""
+    from ate.codegen.lab import SINGLE_DUT_3AC as lab
+
+    ac2 = next(t for t in lab.traffic_items if t.src == "AC2")
+    ac3 = next(t for t in lab.traffic_items if t.src == "AC3")
+    assert ac2.src_mac == ac3.src_mac
+
+
+def test_the_unsettable_source_mac_is_declared_not_implied():
+    """ixia_lib.tcl has editTrafficRawDestMacAddr and no source equivalent, so
+    the generated code must say the MAC is not applied rather than look like it
+    applied one."""
+    from ate.codegen.java_emitter import emit_utils
+
+    utils = emit_utils().content
+    assert "SOURCE MAC cannot be set" in utils
+    assert "CompassReporter.warning" in utils

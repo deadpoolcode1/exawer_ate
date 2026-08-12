@@ -33,6 +33,7 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Test selection | `ate queue` | ✅ dirty queue |
 | **Verify commands on a device** | `ate verify-commands` | ✅ built (read-only, by completion) |
 | **Capture real expectations** | `ate capture` | ✅ 6/11 filled from hardware |
+| Build IXIA traffic items | `ate codegen` | ✅ in code, no `.ixncfg` (src MAC still blocked) |
 
 ## M2 — SOW bullets
 
@@ -43,7 +44,7 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Demo: extract requirements from docs | ✅ 133 reqs → 269 plan rows |
 | Up to 3 integration-ready test plans | ✅ compile against the real framework |
 
-Gates: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`; `bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 230 ATE tests pass.
+Gates: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`; `bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 240 ATE tests pass.
 
 ## The device loop — why it exists
 
@@ -63,7 +64,7 @@ The DUT was also re-imaged mid-session — 8.7.0 **LAB 904** (no EVPN at all) �
 
 - **The 3 delivered suites are hand-curated at step level.** The tool emits the Java; a human wrote the 33 steps. Mechanically generated suites are prefixed `TCM<nnn>` so the two can never be confused.
 - **The mechanical path grounds ~10% of its steps.** Registry is auto-derived from the CLI doc (18 curated → **124**). The residue quotes base-CLI commands (`show alarms`, `show platform process`) documented in the **Command Reference Guide, not the EVPN CLI doc** — extracting the CRG is the next lever. Ungrounded rows degrade to compiling TODO stubs; nothing is invented.
-- **The IXIA half is unexercised.** No `.ixncfg`, so no traffic, so no MAC-move or flooding assertion has ever run.
+- **Traffic items are now built in code — but the source MAC still can't be set.** `EvpnUtils.createTrafficItems()` builds them over TCL (`configNewTrafficItem` → `…Endpoints` → `…Stream` → `…FrameRate` → `applyTraffic`), with argument order verified against `ixia_lib.tcl`'s proc signatures, so no `.ixncfg` is needed to have traffic at all. **However** that library has `editTrafficRawDestMacAddr` and *no source equivalent*, and EVPN learns from source MACs — so FLOW-030's premise that AC2 and AC3 share a source MAC cannot be expressed. The generated code reports that rather than implying it worked. Not yet run on a chassis: bring-up doesn't reach the test body.
 - **`TC01` does not complete bring-up.** It runs under JUnit+JSystem against the real DUT and reaches ONL-level setup before needing lab-workspace files that live on Exaware's runner.
 - **`ate verify-commands` has not yet had a full clean run.** The mechanism is proven — it is exactly how the three corrections above were found by hand — but the VPN session dropped before a full sweep completed. Re-run when the tunnel is up.
 
@@ -73,7 +74,7 @@ The DUT was also re-imaged mid-session — 8.7.0 **LAB 904** (no EVPN at all) �
 |---|---|---|
 | 1 | **Lab workspace for a full bring-up** (site config, ONL images, terminal-server plumbing) | `TC01` stops mid bring-up |
 | 2 | **Ticket ID** for the branch (`AUT-nnn` / `EM-nnnn`) | Blocks handover; push path solved via tate (10.1.70.200) |
-| 3 | **`.ixncfg`** with 3 traffic items, AC2/AC3 sharing MACs | Blocks every traffic assertion |
+| 3 | **A src-MAC proc in `ixia_lib.tcl`** (their infra file) *or* the `.ixncfg` — traffic itself is now built in code | Blocks only MAC-move/learning assertions |
 | 4 | **5 commands the CLI doc has and the build lacks** (`show evpn bum routing-table`, `show bgp l2vpn evpn table evi evi-name …`) | 5 expectations stay open |
 | 5 | **DUT pc-3021 has a Critical alarm** — `PSU PSU-1 is Failed` | Pre-existing; `@After` alarm checks will look flaky |
 
