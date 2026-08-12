@@ -91,39 +91,58 @@ and the `.cfg` names `int1`/`int2`/`int3` placeholders that the `.crt`'s
 find-and-replace table binds to the SUT's `data1` intPool — so one config
 serves every testbed, and it lands on pc3021's pool unchanged.
 
+**Traffic items are built in code.** `EvpnUtils.createTrafficItems()` stands up
+the three items over TCL (`configNewTrafficItem` → `…Endpoints` → `…Stream` →
+`…FrameRate` → `applyTraffic`), with argument order verified against the proc
+signatures in `ixia_lib.tcl`. So the suite needs no `.ixncfg` to have traffic at
+all — a `TRAFFIC_CREATE` step is inserted ahead of the first traffic use in any
+script that needs it.
+
+One limit remains, and the generated code states it rather than implying
+otherwise: `ixia_lib.tcl` has `editTrafficRawDestMacAddr` and **no source
+equivalent**, while EVPN learns from *source* MACs. FLOW-030's premise that AC2
+and AC3 share a source MAC therefore cannot be expressed, and each item reports
+that at run time. See `evidence_traffic_generation.txt`.
+
 Three things are deliberately **not** generated:
 
 - **The underlay** (interface addressing, MPLS/LDP, BGP) — lab data, absent
   from the SFS and CLI doc. Inventing addresses would put fiction into a file
   that gets typed at a real router; it must come from `cleanBaseConfig` or the
   site config.
-- **The `.ixncfg`** — a binary IxNetwork save, not derivable from documents.
-  Its row in the `.crt` is emitted **commented out**, because a row pointing at
-  a missing file aborts bring-up for the whole suite.
+- **The `.ixncfg`** — a binary IxNetwork save. No longer needed for traffic
+  itself (built in code, above), but still the simplest route to source-MAC
+  control. No row for it is emitted in the `.crt` at all: a row pointing at a
+  missing file aborts bring-up for the whole suite, and a `//` comment inside a
+  table breaks the template validation.
 - **The ping table** — needs AC-side addressing we do not have.
 
 The `.cfg`'s block structure and `!` terminators are derived mechanically from
-flat command syntax and are marked UNVERIFIED in the file's own header: no
-device that implements EVPN has been available to confirm them against real
-`show configuration` output.
+flat command syntax and were **confirmed on hardware** (2026-08-11): an EVI was
+configured on the DUT and `show configuration l2-services` printed exactly this
+shape. The `bringUpParams.crt` likewise passes Exaware's own
+`TemplateManager.validateAgainstTemplate`.
 
 ## Status: what is done and what is open
 
 **Done.** All four M2 bullets. The suite compiles unmodified against
 `cmp-infra-project` + `cmp-tests-project` (953 sources → 1454 classes, zero
 errors; strict `-Werror -Xlint:all` gate on the generated files: zero warnings).
-207 ATE tests pass.
+240 ATE tests pass.
 
-**Open, and deliberately so.** 15 of 33 steps carry empty expectations. They
-need real `show` output from a DUT that implements EVPN. On the reserved SUT
-pc-3021 the DUT's build (`8.7.0: LAB 904`) has **no EVPN in its data model at
-all**, so the suites cannot be executed there — see
-`lab_validation_pc3021.md`. A guessed assertion that silently passes is worse
-than an empty one, so they stay empty and visible.
+**Open, and deliberately so.** Expectations that could not be captured stay
+empty and visible — a guessed assertion that silently passes is worse than an
+explicit gap.
 
-This does not affect M2's status: the SOW asks for *integration-ready* test
-plans, and execution is an M4-and-beyond concern that depends on Exaware
-shipping an EVPN build.
+The DUT was re-imaged mid-session, from `8.7.0 LAB 904` (no EVPN in the data
+model at all) to `LAB 22`, which **has** EVPN. Running against LAB 22 filled
+**6 of 11** expectations from real hardware and overturned three
+document-derived command decisions — see `evidence_device_verified.txt`. The
+remaining 5 name commands this build does not have.
+
+`lab_validation_pc3021.md` records the LAB 904 state and is superseded on the
+EVPN question; keep it for the rig details (addresses, vports, the origin git
+repo on tate), which are unchanged.
 
 **One CLI-doc anomaly is carried through with a warning, not silently fixed:**
 `unknow-mac-flooding` (missing `n`) is spelled that way in the CLI doc's syntax

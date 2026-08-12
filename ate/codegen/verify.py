@@ -112,6 +112,26 @@ def _completions(raw: str) -> list[str]:
     return out
 
 
+def _drain(chan) -> None:
+    """Discard anything still in the channel buffer.
+
+    Without this the reader can match a prompt left over from the *previous*
+    probe and return immediately, so each result is attributed to the wrong
+    command — a silent shift that produced `l2-services evpn X ?` -> the single
+    token `port-based`, and a report full of false "missing" verdicts. A
+    verifier that lies about which commands exist is worse than no verifier.
+    """
+    import time  # noqa: PLC0415
+
+    deadline = time.time() + 3.0
+    while time.time() < deadline:
+        if chan.recv_ready():
+            chan.recv(65535)
+            deadline = time.time() + 0.4
+        else:
+            time.sleep(0.1)
+
+
 def verify_commands(host: str, user: str, password: str,
                     jump: str | None = None) -> VerifyReport:
     """Ask the device which registry commands it actually offers."""
@@ -160,8 +180,18 @@ def verify_commands(host: str, user: str, password: str,
 
     def run(batch, in_config: bool) -> None:
         for c, (parent, expect) in batch:
+            _drain(chan)
+            if in_config:
+                # A `?` completion on a config path DESCENDS into that submode
+                # — the prompt becomes (config-l2-services-evpn-X). Without
+                # returning to the top first, every later probe is evaluated
+                # relative to wherever the previous one landed and the whole
+                # sweep drifts into nonsense.
+                chan.send("top\n")
+                _read_until_prompt(chan, timeout=15)
+                _drain(chan)
             chan.send(f"{parent} ?\n")
-            raw = _read_until_prompt(chan, timeout=45)
+            raw = _read_until_prompt(chan, timeout=20)
             comps = _completions(raw)
             if comps:
                 status = SUPPORTED if expect in comps else MISSING
@@ -170,6 +200,7 @@ def verify_commands(host: str, user: str, password: str,
             report.results.append(VerifiedCommand(
                 key=c.key, template=c.template, probe=f"{parent} ?",
                 expect=expect, status=status, completions=comps[:40]))
+            print(f"  [{status:9}] {c.key[:56]}", flush=True)
 
     run(oper, False)
     if conf:
