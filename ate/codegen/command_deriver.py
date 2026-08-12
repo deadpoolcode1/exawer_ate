@@ -79,7 +79,7 @@ _TOKEN = re.compile(r"[\[\]{}|]|[^\s\[\]{}|]+")
 class _Node:
     kind: str                 # "word" | "alt" | "opt"
     word: str = ""
-    branches: list[list["_Node"]] | None = None
+    branches: list[list[_Node]] | None = None
 
 
 def _tokenize(line: str) -> list[str]:

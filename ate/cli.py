@@ -552,7 +552,7 @@ def discover_feature_inputs(folder: Path) -> dict:
 
     # Prefer .txt for each RFC; fall back to .docx then .pdf.
     rfcs: list[Path] = []
-    for stem, by_ext in sorted(rfc_by_stem.items()):
+    for _stem, by_ext in sorted(rfc_by_stem.items()):
         rfcs.append(by_ext.get(".txt") or by_ext.get(".docx") or by_ext[".pdf"])
 
     if len(cli_docs) > 1:

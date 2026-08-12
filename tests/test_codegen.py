@@ -15,7 +15,6 @@ sources and their jars. See `.claude/skills/exaware-framework`.
 from __future__ import annotations
 
 import pytest
-import pytest
 
 from ate.codegen.commands import (
     EVPN_COMMANDS,
@@ -735,3 +734,172 @@ def test_command_arity_matches_the_arguments_each_step_supplies(scripts):
             assert tmpl.count("%s") == len(st.args), (
                 f"{sc.class_name}/{st.id}: {st.command} wants "
                 f"{tmpl.count('%s')} arg(s), got {len(st.args)}")
+
+
+# ── report/session plumbing (cheap, but it is what gets shipped) ─────────
+
+
+def test_capture_session_reports_and_saves(tmp_path):
+    from ate.codegen.capture import (
+        EMPTY,
+        OK,
+        UNSUPPORTED,
+        CapturedCommand,
+        CaptureSession,
+    )
+
+    s = CaptureSession(host="10.3.21.1", build="8.7.0: LAB 22", results=[
+        CapturedCommand("A", "show a", OK, ["row"]),
+        CapturedCommand("B", "show b", EMPTY),
+        CapturedCommand("C", "show c", UNSUPPORTED),
+    ])
+    assert s.by_status() == {OK: 1, EMPTY: 1, UNSUPPORTED: 1}
+    p = s.save(tmp_path / "cap.json")
+    import json
+    back = json.loads(p.read_text())
+    assert back["build"] == "8.7.0: LAB 22"
+    assert len(back["results"]) == 3
+
+
+def test_verify_report_isolates_the_missing_commands(tmp_path):
+    from ate.codegen.verify import (
+        MISSING,
+        SUPPORTED,
+        VerifiedCommand,
+        VerifyReport,
+    )
+
+    r = VerifyReport(host="h", build="b", results=[
+        VerifiedCommand("K1", "show a b", "show a ?", "b", SUPPORTED, ["b"]),
+        VerifiedCommand("K2", "show a c", "show a ?", "c", MISSING, ["b"]),
+    ])
+    assert r.by_status() == {SUPPORTED: 1, MISSING: 1}
+    assert [m.key for m in r.missing()] == ["K2"]
+    assert r.save(tmp_path / "v.json").exists()
+
+
+def test_capture_skips_steps_nothing_would_consume(scripts):
+    """A step with no expect_key has nowhere to put captured output."""
+    from ate.codegen.capture import commands_needed
+
+    keys = {k for k, _ in commands_needed(scripts)}
+    for sc in scripts:
+        for st in sc.steps:
+            if st.kind.value in ("verify_cli", "verify_route") and not st.expect_key:
+                assert st.expect_key not in keys
+
+
+def test_plan_rows_are_attributed_only_to_flow_banners(tmp_path):
+    """A non-flow banner (an RFC or CLI section) must clear the attribution, or
+    unrelated rows get swept into the previous flow."""
+    import openpyxl
+
+    from ate.codegen.plan_scripts import flow_rows_from_xlsx
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Test Plan Topics"
+    ws.append(["Topic", "Action", "SFS / RFC Req ID"])
+    ws.append(["FLOW-010 — Bring-up", "", ""])
+    ws.append(["", "Configure the EVI", "EVPNS-REQ#30"])
+    ws.append(["RFC7432bis §7.2 — MAC/IP", "", ""])
+    ws.append(["", "This belongs to the RFC section", ""])
+    p = tmp_path / "plan.xlsx"
+    wb.save(p)
+
+    got = flow_rows_from_xlsx(p)
+    assert list(got) == ["FLOW-010"]
+    assert [a for a, _ in got["FLOW-010"][1]] == ["Configure the EVI"]
+
+
+def test_generation_result_writes_every_file(tmp_path):
+    from ate.codegen import GenerationResult
+    from ate.codegen.java_emitter import JavaFile
+
+    r = GenerationResult(files=[
+        JavaFile(path="cmp/tests/evpn/A.java", content="class A {}"),
+        JavaFile(path="cmp/tests/evpn/configurations/compass/X.cfg", content="!"),
+    ])
+    written = r.write(tmp_path)
+    assert len(written) == 2
+    assert all(w.exists() for w in written)
+
+
+# ── driving a channel, without a device ──────────────────────────────────
+
+
+class _FakeChannel:
+    """Minimal stand-in for a paramiko shell channel.
+
+    Answers each command from a scripted table and always terminates with a
+    realistic prompt, so the orchestration can be exercised offline. This is
+    the harness that would have caught the buffer-desync bug: it makes
+    "which answer belongs to which command" observable.
+    """
+
+    PROMPT = "router[2026-08-12-07:00:00]# "
+
+    def __init__(self, answers):
+        """`answers` is a LIST, consumed in call order.
+
+        Deliberately not a {command: answer} map: several steps legitimately
+        issue the SAME command (two flows both read the MAC table), so a map
+        collapses them and the test stops being able to see misattribution.
+        """
+        self.answers = list(answers)
+        self.sent = []
+        self._buf = ""
+
+    def send(self, data):
+        self.sent.append(data.strip())
+        body = self.answers.pop(0) if self.answers else ""
+        self._buf += data + body + ("\r\n" if body else "") + self.PROMPT
+
+    def recv_ready(self):
+        return bool(self._buf)
+
+    def recv(self, _n):
+        out, self._buf = self._buf, ""
+        return out.encode()
+
+    def close(self):
+        pass
+
+
+def test_capture_attributes_each_answer_to_its_own_command(scripts):
+    from ate.codegen.capture import OK, UNSUPPORTED, capture_on_channel, commands_needed
+
+    needed = commands_needed(scripts)
+    assert needed
+    answers = [(f"ROW-{i}-A\r\nROW-{i}-B" if i % 2 == 0
+                else "----^\r\nsyntax error: unknown argument")
+               for i in range(len(needed))]
+    sess = capture_on_channel(_FakeChannel(answers), scripts, host="h", build="b")
+
+    assert len(sess.results) == len(needed)
+    for i, r in enumerate(sess.results):
+        assert r.command == needed[i][1], "answer attributed to the wrong command"
+        if i % 2 == 0:
+            assert r.status == OK and r.lines == [f"ROW-{i}-A", f"ROW-{i}-B"]
+        else:
+            assert r.status == UNSUPPORTED and r.lines == []
+
+
+def test_only_the_ok_answers_reach_the_expectations(scripts):
+    from ate.codegen.capture import capture_on_channel, commands_needed
+
+    needed = commands_needed(scripts)
+    answers = ["GOOD"] + ["%  No entries found."] * (len(needed) - 1)
+    sess = capture_on_channel(_FakeChannel(answers), scripts)
+    usable = sess.usable()
+    assert list(usable.values()) == [["GOOD"]]
+    assert sess.by_status().get("empty") == len(needed) - 1
+
+
+def test_read_stops_at_the_prompt_and_strips_it():
+    from ate.codegen.capture import _read_until_prompt
+
+    chan = _FakeChannel(["LINE-1\r\nLINE-2"])
+    chan.send("show x\n")
+    raw = _read_until_prompt(chan, timeout=5)
+    assert "LINE-1" in raw and "LINE-2" in raw

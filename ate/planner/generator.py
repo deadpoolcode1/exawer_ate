@@ -347,7 +347,7 @@ def generate_plan(doc: Document | str | Path,
     # enricher and land on the main sheet as first-class rows — not as
     # placeholders on a separate "Synthesized — Review" sheet.
     claimed: set[str] = set()
-    for fl, covered in flows_with_reqs:
+    for _fl, covered in flows_with_reqs:
         for r in covered:
             claimed.add(r.req_id)
     mark_claimed(catalog, claimed)

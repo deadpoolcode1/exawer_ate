@@ -207,7 +207,7 @@ REQUIREMENTS: list[dict[str, Any]] = [
             ("pytest_prefix", "test_planner::test_extractor_dedupes_repeated_anchors"),
             ("pytest_prefix", "test_planner::test_plan_from_evpn_spec_uses_template_categories"),
             ("pytest_prefix", "test_planner::test_plan_rows_are_traced_to_a_requirement"),
-            ("pytest_prefix", "test_planner::test_plan_applies_categories_per_tag_not_uniformly"),
+            ("pytest_prefix", "test_planner::test_plan_applies_categories_per_flow_not_uniformly"),
             ("pytest_prefix", "test_planner::test_xlsx_is_written_and_readable"),
             ("pytest_prefix", "test_planner::test_xlsx_columns_match_template_schema"),
             ("pytest_prefix", "test_planner::test_xlsx_contains_evpn_anchors"),

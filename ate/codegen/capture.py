@@ -49,7 +49,7 @@ from ate.codegen.commands import all_commands
 from ate.codegen.script_ir import StepKind, TestScript
 
 __all__ = ["CaptureSession", "CapturedCommand", "capture_for_scripts",
-           "commands_needed"]
+           "capture_on_channel", "commands_needed"]
 
 #: `router[2026-08-11-18:38:07]# `, and `...(config)#` in configuration mode.
 _PROMPT = re.compile(r"\][^\r\n]*#\s*$")
@@ -179,6 +179,22 @@ def _read_until_prompt(chan, timeout: float = 60.0) -> str:
     return buf
 
 
+def capture_on_channel(chan, scripts: list[TestScript], host: str = "",
+                       build: str = "", now: str = "") -> CaptureSession:
+    """Drive an already-open shell channel. Split out from the connect path so
+    the orchestration — which command runs, how its answer is classified, what
+    becomes an expectation — is testable without a device."""
+    session = CaptureSession(host=host, build=build, captured_at=now)
+    for expect_key, command in commands_needed(scripts):
+        chan.send(command + "\n")
+        raw = _read_until_prompt(chan, timeout=120)
+        status, lines, note = _classify(raw, command)
+        session.results.append(CapturedCommand(
+            expect_key=expect_key, command=command, status=status,
+            lines=lines, raw=raw.strip()[:4000], note=note))
+    return session
+
+
 def capture_for_scripts(scripts: list[TestScript], host: str, user: str,
                         password: str, jump: str | None = None,
                         ) -> CaptureSession:
@@ -233,17 +249,9 @@ def capture_for_scripts(scripts: list[TestScript], host: str, user: str,
         if ln.strip() and "show version" not in ln and not _PROMPT.search(ln)
     )[:120]
 
-    session = CaptureSession(
-        host=host, build=build,
-        captured_at=time.strftime("%Y-%m-%dT%H:%M:%S"))
-
-    for expect_key, command in commands_needed(scripts):
-        chan.send(command + "\n")
-        raw = _read_until_prompt(chan, timeout=120)
-        status, lines, note = _classify(raw, command)
-        session.results.append(CapturedCommand(
-            expect_key=expect_key, command=command, status=status,
-            lines=lines, raw=raw.strip()[:4000], note=note))
+    session = capture_on_channel(
+        chan, scripts, host=host, build=build,
+        now=time.strftime("%Y-%m-%dT%H:%M:%S"))
 
     chan.close()
     transport.close()

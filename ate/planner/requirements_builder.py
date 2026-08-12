@@ -42,8 +42,8 @@ from ate.planner.cli_extractor import (
     extract_commands,
     mark_containers,
 )
-from ate.planner.cli_inheritance import expand as expand_inherited
 from ate.planner.cli_inheritance import deinvent as deinvent_inherited
+from ate.planner.cli_inheritance import expand as expand_inherited
 from ate.planner.extractor import extract_requirements
 from ate.planner.model import Requirement
 from ate.planner.req_classifier import classify_all

@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from ate.planner.cli_extractor import CliCommand
 from ate.planner.cli_inheritance import (
-    BGP_NEIGHBOR_AF_L2VPN_EVPN,
     INHERITANCE_TABLE,
     deinvent,
     expand,

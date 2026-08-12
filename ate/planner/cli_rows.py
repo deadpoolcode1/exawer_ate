@@ -507,7 +507,7 @@ def _numeric_bounds(p: CliParameter):
     invalid = [f"{gmin - 1} (below range)", f"{gmax + 1} (above range)"]
     # One in-gap value for disjoint specs (e.g. the 1..39 hole in 0, 40-2400).
     segments = sorted(set([(s, s) for s in singletons] + ranges))
-    for (_, hi), (nxt_lo, _) in zip(segments, segments[1:]):
+    for (_, hi), (nxt_lo, _) in zip(segments, segments[1:], strict=False):
         if nxt_lo > hi + 1:
             invalid.insert(1, f"{hi + 1} (in the disallowed gap)")
             break
@@ -1291,7 +1291,7 @@ def rows_for_show_command(cmd: CliCommand) -> list[PlanRow]:
                 [f"Issue the unscoped form `{invs[0]}`.",
                  f"Issue a scoped form `{inv_full}` to clear a single "
                  "target.",
-                 f"Re-issue the clear to confirm it is a no-op."],
+                 "Re-issue the clear to confirm it is a no-op."],
                 [f"`{paired}` confirms the targeted entries are removed.",
                  "Unrelated entries are left untouched (scope respected).",
                  "Re-issuing the clear neither errors nor changes state "

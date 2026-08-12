@@ -25,7 +25,7 @@ the class of error this project has been burned by.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from ate.planner.cli_extractor import CliCommand
 

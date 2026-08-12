@@ -1,7 +1,7 @@
 {
   "host": "10.3.21.1",
   "build": "8.7.0: LAB 22",
-  "checked_at": "2026-08-12T06:23:06",
+  "checked_at": "2026-08-12T07:08:56",
   "results": [
     {
       "key": "SHOW_EVPN_SUMMARY",
@@ -1017,13 +1017,9 @@
       "template": "no l2-services evpn %s mac-aging-time",
       "probe": "no l2-services evpn X ?",
       "expect": "mac-aging-time",
-      "status": "supported",
+      "status": "missing",
       "completions": [
-        "auto-discovery",
-        "interface",
-        "mac-aging-time",
-        "mac-limit",
-        "service-type"
+        "^"
       ]
     },
     {

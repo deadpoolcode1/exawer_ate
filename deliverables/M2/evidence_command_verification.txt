@@ -8,7 +8,9 @@ session is discarded with `abort`).
 RESULT
 ------
   OPERATIONAL (show / clear)   35 supported   31 missing   of 66   TRUSTWORTHY
-  CONFIG                        9 supported   48 missing   of 57   NOT TRUSTWORTHY
+  CONFIG                        8 supported   49 missing   of 57   NOT TRUSTWORTHY
+
+(Latest sweep 2026-08-12T07:08, 123 templates, build 8.7.0 LAB 22.)
 
 TRUST THE OPERATIONAL HALF
 ---------------------------
@@ -62,11 +64,21 @@ operational half is now sound:
      single token `port-based`, a fragment of the preceding probe. Fixed by
      draining the channel before every send.
 
-Something in the config path still perturbs the completion listing — most
-likely the candidate configuration accumulating nodes across ~57 probes in one
-session, since each `?` both lists AND descends. The fix direction is a fresh
-`configure`/`abort` cycle per probe, or reading `show configuration` instead of
-trusting completions after the first descent. Not done.
+A third fix was attempted and did NOT hold: each config probe was given its own
+`configure` / `abort` cycle. On a 4-command spot check that worked perfectly —
+`l2-services evpn X ?` returned exactly `auto-discovery, interface,
+mac-aging-time, mac-limit, service-type`. Across the full 57-probe sweep the
+same stale-fragment symptom returned: `mac-limit` reported missing, with the
+completions recorded as the single token `port-based`.
+
+The remaining suspect is `abort` itself — with pending candidate changes ConfD
+can ask for confirmation, and one unanswered prompt leaves the channel a
+response behind for everything after it. Next fix: answer that prompt, or open
+a fresh SSH session per config probe (slow, but unambiguous).
+
+Until then the config verdicts are NOT actionable. The operational half is
+unaffected — it never enters configuration mode, and its verdicts were
+confirmed by hand.
 
 WHY THIS IS REPORTED RATHER THAN QUIETLY FIXED
 -----------------------------------------------

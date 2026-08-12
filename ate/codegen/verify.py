@@ -137,9 +137,9 @@ def verify_commands(host: str, user: str, password: str,
     """Ask the device which registry commands it actually offers."""
     import time  # noqa: PLC0415
 
-    from ate.codegen.capture import _PROMPT, _read_until_prompt  # noqa: PLC0415
-
     import paramiko  # noqa: PLC0415
+
+    from ate.codegen.capture import _PROMPT, _read_until_prompt  # noqa: PLC0415
 
     sock = None
     jump_client = None
