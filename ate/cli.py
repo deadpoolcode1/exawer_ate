@@ -118,6 +118,19 @@ def main(argv: list[str] | None = None) -> int:
     p_cap.add_argument("--cli-doc",
                        default="references/EVPN/EVPN CLI 1.00.docx")
 
+    p_vc = sub.add_parser("verify-commands",
+                          help="Ask a real device which registry commands it "
+                               "actually offers (read-only, by completion)")
+    p_vc.add_argument("--host", required=True)
+    p_vc.add_argument("--user", default="admin")
+    p_vc.add_argument("--password", default="admin")
+    p_vc.add_argument("--jump", default=None, metavar="USER@HOST")
+    p_vc.add_argument("--out", default="out/verified_commands.json")
+    p_vc.add_argument("--sfs",
+                      default="references/EVPN/EVPN System Specification 1.00.docx")
+    p_vc.add_argument("--cli-doc",
+                      default="references/EVPN/EVPN CLI 1.00.docx")
+
     p_cg.add_argument("--from-plan", default=None, metavar="XLSX",
                       help="Generated test plan to derive additional suites "
                            "from mechanically (no curated steps)")
@@ -169,7 +182,42 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_match(args)
     if args.cmd == "capture":
         return _cmd_capture(args)
+    if args.cmd == "verify-commands":
+        return _cmd_verify_commands(args)
     return 2
+
+
+def _cmd_verify_commands(args) -> int:
+    """Check the registry against a device. Reports; never rewrites."""
+    from ate.codegen.command_deriver import derive_commands  # noqa: PLC0415
+    from ate.codegen.commands import set_derived_commands  # noqa: PLC0415
+    from ate.codegen.verify import verify_commands  # noqa: PLC0415
+    from ate.parsers import parse  # noqa: PLC0415
+    from ate.planner.requirements_builder import build_catalog  # noqa: PLC0415
+
+    catalog = build_catalog(parse(args.sfs), cli_doc_path=args.cli_doc)
+    derived, _ = derive_commands(catalog.cli_commands)
+    set_derived_commands(derived)
+
+    report = verify_commands(args.host, args.user, args.password, jump=args.jump)
+    print(f"host  : {report.host}")
+    print(f"build : {report.build}")
+    counts = report.by_status()
+    print("  ".join(f"{k}={v}" for k, v in sorted(counts.items())))
+    missing = report.missing()
+    if missing:
+        print(f"\n{len(missing)} command(s) the device does not offer:")
+        for m in missing:
+            print(f"  {m.key}")
+            print(f"      template : {m.template}")
+            print(f"      probe    : {m.probe}  (looking for {m.expect!r})")
+            if m.completions:
+                print(f"      offered  : {', '.join(m.completions[:8])}")
+        print("\nReported, not rewritten: which spelling is correct is a "
+              "judgement about the product, not something to guess from one "
+              "build.")
+    print(f"saved: {report.save(args.out)}")
+    return 0
 
 
 def _cmd_capture(args) -> int:

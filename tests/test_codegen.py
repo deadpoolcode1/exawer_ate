@@ -586,3 +586,68 @@ def test_a_shared_knob_derives_the_evpn_mode_not_vpls(derived_registry):
     maclimit = [d for d in derived_registry if "mac-limit" in d.template]
     assert maclimit, "mac-limit should derive"
     assert not [d for d in maclimit if "vpls" in d.template]
+
+
+# ── device verification as a pipeline stage (verify.py) ──────────────────
+
+
+def test_probe_targets_the_last_literal_token():
+    """`show evpn mac-address-table name %s` must be checked by asking the
+    parent path whether it offers `name` — not by running the command."""
+    from ate.codegen.verify import probe_for
+
+    assert probe_for("show evpn mac-address-table name %s") == (
+        "show evpn mac-address-table", "name")
+    assert probe_for("show evpn summary") == ("show evpn", "summary")
+
+
+def test_probe_substitutes_arguments_in_the_parent_path():
+    from ate.codegen.verify import probe_for
+
+    parent, expect = probe_for("l2-services evpn %s mac-limit %s")
+    assert parent == "l2-services evpn X"
+    assert expect == "mac-limit"
+
+
+def test_probe_declines_single_token_templates():
+    """Nothing to ask a parent about."""
+    from ate.codegen.verify import probe_for
+
+    assert probe_for("commit") is None
+
+
+def test_completions_are_parsed_without_the_noise_tokens():
+    from ate.codegen.verify import _completions
+
+    raw = ("show evpn ?\r\n"
+           "Description: Show EVPN information\r\n"
+           "Possible completions:\r\n"
+           "  broadcast-domains   Displays the EVPN broadcast domain\r\n"
+           "  detail              Show EVPN detail status\r\n"
+           "  mac-address-table   Show the EVPN MAC Address table\r\n"
+           "  |                   Output modifiers\r\n"
+           "  <cr>\r\n")
+    got = _completions(raw)
+    assert got == ["broadcast-domains", "detail", "mac-address-table"]
+
+
+def test_the_hyphen_regression_would_be_caught():
+    """The bug that started all this: the space form is not in the device's
+    completions, so verification must classify it MISSING."""
+    from ate.codegen.verify import MISSING, SUPPORTED, _completions, probe_for
+
+    offered = _completions(
+        "Possible completions:\r\n"
+        "  broadcast-domains   x\r\n  detail   x\r\n"
+        "  mac-address-table   x\r\n  summary   x\r\n")
+
+    _p, expect_bad = probe_for("show evpn mac address-table name %s")
+    # parent is "show evpn mac address-table", which the device rejects
+    # outright; the token we would look for is not offered under `show evpn`.
+    assert "mac" not in offered
+    status = SUPPORTED if "mac" in offered else MISSING
+    assert status == MISSING
+
+    _p2, expect_good = probe_for("show evpn mac-address-table name %s")
+    assert expect_good == "name"
+    assert "mac-address-table" in offered

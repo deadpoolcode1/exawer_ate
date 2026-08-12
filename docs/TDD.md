@@ -1,4 +1,4 @@
-# Technical Design Document — ATE / M1
+# Technical Design Document — ATE / M1–M2
 
 **Project:** AI-Assisted Test Plan & Automation Skeleton Generator (POC) — Codevalue PQ 4476 for Exaware
 **Current SOW:** `../PQ4476E.pdf`
@@ -435,3 +435,146 @@ ate/
 * **Regression baseline locked:** `tests/golden/` committed; future drift detected automatically
 
 When all four are satisfied, M1 is accepted and **15%** of the contract value is due (per PQ4476E §6). Per the Cure Period clause, Exaware may withhold the M1 invoice only if the deliverable is materially non-conforming, with written deficiencies and a reasonable Cure Period before rejection (max 2 resubmissions).
+
+---
+
+## 10. M2 architecture — code generation and the device loop (2026-08-12)
+
+Section 2 ends at the xlsx, which was the M1 deliverable. M2 continues the same
+IR downhill into Java, and adds something M1 did not have: a stage that checks
+our output against a **real device** rather than against the documents.
+
+```
+        (Section 2: documents ─▶ Requirements Builder ─▶ Plan ─▶ xlsx)
+                                        │
+                    ┌───────────────────┴───────────────────┐
+                    ▼                                       ▼
+        ┌───────────────────────┐               ┌───────────────────────┐
+        │ evpn_scripts.py       │               │ patterns.py           │
+        │ CURATED step lists    │               │ MECHANICAL matcher    │
+        │ 33 steps, 3 flows     │               │ plan prose → Step IR  │
+        │ (a human wrote these) │               │ 87.7% of rows typed   │
+        └───────────┬───────────┘               └───────────┬───────────┘
+                    │                                       │
+                    │           plan_scripts.py ◀───────────┘
+                    │           groups matched steps per flow,
+                    │           resolves each command against the
+                    │           registry, tracks mode context
+                    │                                       │
+                    └───────────────┬───────────────────────┘
+                                    ▼
+                        ┌───────────────────────────┐
+                        │      script_ir.py         │
+                        │  TestScript / Step / 10   │
+                        │  StepKinds (typed layer)  │
+                        └─────────────┬─────────────┘
+                                      │
+             commands.py  ────────────┤  registry: 18 curated
+             command_deriver.py ──────┘  + 106 derived from the CLI doc
+             (grounding is enforced: generation RAISES on an
+              ungrounded template)
+                                      ▼
+                    ┌─────────────────────────────────────┐
+                    │            java_emitter             │
+                    │  TCnn_*.java · EvpnParams ·         │
+                    │  EvpnUtils · EvpnCommands           │
+                    ├─────────────────────────────────────┤
+                    │           device_config             │
+                    │  bringUpParams.crt · EVPN_Base.cfg  │
+                    └──────────────────┬──────────────────┘
+                                       ▼
+                         ┌──────────────────────────┐
+                         │  Generated JSystem suite │
+                         └────────────┬─────────────┘
+                                      │
+      ════════════════════════════════╪════════════════════════════════
+        THE DEVICE LOOP — the M2      ▼      addition to the pipeline
+      ═════════════════════════════════════════════════════════════════
+                                      │
+        ┌─────────────────────────────┼─────────────────────────────┐
+        ▼                             ▼                             ▼
+  ate verify-commands           ate capture              javac + TemplateManager
+  "does the device offer        "what does the           "does it compile, and
+   this command?"                output look like?"       does the .crt validate?"
+        │                             │                             │
+        │  reports MISSING            │  fills EvpnParams           │  acceptance gates
+        │  templates                  │  expectations               │
+        ▼                             ▼                             ▼
+        └────────────▶  fix the registry / the steps  ◀─────────────┘
+                        (a human decides; the tool reports)
+```
+
+### 10.1 Why the device loop exists
+
+Until 2026-08-11 the pipeline's strongest claim was "every command traces to
+the documentation". That is necessary and **not sufficient**. Running against
+the DUT overturned three decisions we had reasoned to from the documents:
+
+| We had | The device says | How we got it wrong |
+|---|---|---|
+| `show evpn mac address-table` | `mac-address-table` (hyphen) | We overrode the CLI doc's syntax cell using three *other* agreeing sources — the `clear` form, the CRG's VPLS family, and Exaware's own `Commands` enum. The outlier was right. |
+| `show evpn global` | no such command; `summary` / `detail` | Documented, not implemented in this build. |
+| `l2-services evpn <n> import-rt` | lives under `auto-discovery` | The doc's mode path was one level short. |
+
+The lesson is now encoded in the source and in this document: **device output
+outranks any number of agreeing documents.** A test plan that is perfectly
+consistent with the specification and wrong about the product is worse than
+useless, because it looks authoritative.
+
+### 10.2 The three device stages
+
+| Stage | Command | Read/write | Answers |
+|---|---|---|---|
+| Command verification | `ate verify-commands` | **read-only** | Does the device offer this command? |
+| Expectation capture | `ate capture` | read-only | What does its output actually look like? |
+| Acceptance gates | `javac`, `TemplateManager` | offline | Does the generated artifact compile / validate? |
+
+`verify-commands` probes by **CLI completion**, never by execution: for
+`l2-services evpn %s mac-limit %s` it asks `l2-services evpn X ?` in
+configuration mode and looks for `mac-limit` in the completions, then discards
+the session with `abort`. Executing registry entries blind would mean running
+`clear` and configuration commands against a live device to discover whether
+they parse. The config-mode probe is the only stage that enters configuration
+mode at all, and it commits nothing.
+
+Neither stage rewrites the registry. Which spelling is correct is a judgement
+about the product across builds — the tools produce the list, a human decides.
+That matters because the DUT was re-imaged mid-session (LAB 904 → LAB 22) and
+the two images disagreed about whether EVPN existed at all.
+
+### 10.3 Two kinds of "generated", kept distinct
+
+`TCnn_*` classes come from curated step lists; `TCM<nnn>_*` classes are produced
+mechanically from the plan with no hand-written step. The prefix is deliberate:
+a reviewer must be able to tell, at a glance, which claim a file supports. The
+mechanical path currently grounds ~10% of its steps — the residue quotes
+base-CLI commands documented in the Command Reference Guide rather than the
+EVPN CLI doc, and extracting the CRG is the next lever.
+
+### 10.4 Components (M2)
+
+| Module | Responsibility |
+|---|---|
+| `ate.codegen.script_ir` | `TestScript` / `Step` / 10 `StepKind`s — the typed layer M1 lacked. `TODO_STUB` carries a row we could not express. |
+| `ate.codegen.evpn_scripts` | Hand-curated step lists for FLOW-010/030/031. |
+| `ate.codegen.patterns` | Plan prose → `Step` IR by rule. Reports recall; never fakes it. |
+| `ate.codegen.plan_scripts` | Mechanical path: plan rows → `TestScript`s, resolving commands against the registry and tracking mode context across a row. |
+| `ate.codegen.commands` | The `EvpnCommands` registry, curated + derived, and `validate_grounding` (raises). |
+| `ate.codegen.command_deriver` | CLI doc syntax lines → registry entries. Enumerated keywords stay literal; only documented values become `%s`. |
+| `ate.codegen.java_emitter` | `TestScript` → the four Java artifacts. |
+| `ate.codegen.device_config` | `bringUpParams.crt` + DUT `.cfg`, in the house format modelled on `cmp/tests/vpls/`. |
+| `ate.codegen.capture` | Real device output → `EvpnParams` expectations. Rejections and empty output never become expectations. |
+| `ate.codegen.verify` | Registry vs device, by completion. Reports; never rewrites. |
+| `ate.codegen.queue` | The dirty queue — NEW/SELECTED/GENERATED/STALE/APPROVED. |
+
+### 10.5 What the loop does not close
+
+- **Full bring-up.** `TC01` runs under JUnit+JSystem and reaches ONL-level
+  setup before needing lab-workspace files (site config, ONL images,
+  terminal-server plumbing) that live on Exaware's runner.
+- **The `.ixncfg`.** A binary IxNetwork save; not derivable from documents.
+- **Anything needing traffic.** The IXIA half of every flow is unexercised.
+
+These are integration tasks with Exaware, not code defects — and they are the
+class of problem that only a real run surfaces, which is the argument for the
+loop existing at all.
