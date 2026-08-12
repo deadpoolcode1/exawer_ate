@@ -51,8 +51,38 @@ from ate.codegen.script_ir import StepKind, TestScript
 __all__ = ["CaptureSession", "CapturedCommand", "capture_for_scripts",
            "capture_on_channel", "commands_needed"]
 
-#: `router[2026-08-11-18:38:07]# `, and `...(config)#` in configuration mode.
-_PROMPT = re.compile(r"\][^\r\n]*#\s*$")
+#: The CLI prompt, in every shape this lab produces:
+#:
+#:     router#                          pc-3080 (LAB 22)
+#:     router[2026-08-11-18:38:07]#     pc-3021 (LAB 22) — timestamp prompt on
+#:     router(config)#                  configuration mode
+#:     router[...](config)#             both at once
+#:
+#: The timestamp is a per-box CLI setting, not a property of the software. The
+#: first version of this pattern required the `]`, so on a box without the
+#: timestamp NOTHING ever matched: every read ran to its full timeout and
+#: returned a partial buffer, and `verify-commands` / `capture` hung instead of
+#: failing. Anchor on the line start and treat the bracket and the mode
+#: parenthesis as optional, so the shape of someone's prompt cannot silently
+#: decide whether the device loop works.
+_PROMPT = re.compile(
+    r"(?:^|[\r\n])[A-Za-z][\w.\-]*"     # hostname
+    r"(?:\[[^\]\r\n]*\])?"              # optional [timestamp]
+    r"(?:\([^)\r\n]*\))?"               # optional (config), (config-...)
+    r"#[ \t]*$")
+
+#: The device asking for a leaf VALUE rather than returning to the prompt.
+#: Both shapes below are verbatim from 8.7.0 LAB 22 on pc-3080:
+#:
+#:     [port-based,vlan-based]:                          enumerated leaf
+#:     (<1-250000>    maximum MAC learned (default 65520)
+#:       Currently configured):                          range leaf, multi-line
+#:
+#: The common, reliable part is a colon followed by at least one space at the
+#: very end of the buffer. Requiring the space matters: a chunk boundary can
+#: fall right after `Possible completions:` (no space, then a newline), and
+#: matching that would end the read in the middle of a listing.
+_VALUE_PROMPT = re.compile(r"[^\r\n]:[ \t]+$")
 
 #: How the CLI reports a node that is not in its data model. Matching these is
 #: what separates "the feature is absent" from "the feature answered".
@@ -68,6 +98,9 @@ _REJECTED = (
 #: device needs state (a peer, traffic, a configured EVI) before this
 #: expectation can be captured. Either way it never becomes an expectation.
 _NO_ENTRIES = ("no entries found",)
+
+#: A MAC address, in the form these tables print.
+_MAC = re.compile(r"\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\b")
 
 OK = "ok"
 EMPTY = "empty"
@@ -160,23 +193,70 @@ def _classify(raw: str, command: str) -> tuple[str, list[str], str]:
                                "— needs state (peer / traffic / configured EVI)")
     if not body:
         return EMPTY, [], "command ran but returned nothing"
+    if "mac-address-table" in command and not any(_MAC.search(ln) for ln in body):
+        # The table printed its legend and its header and no rows. Recording
+        # that as an expectation would produce an assertion that passes on any
+        # device, working or not: the legend is printed whether or not a single
+        # MAC was ever learnt. `capture` exists to refuse exactly this.
+        #
+        # Seen on pc-3080 (8.7.0 LAB 22) for the FLOW-030 learning steps: the
+        # EVI was configured, but with no traffic offered there was nothing to
+        # learn, so every row was legend.
+        return EMPTY, [], ("the MAC table printed its legend but no MAC "
+                           "addresses — nothing has been learnt yet, so there "
+                           "is no expectation here that could ever fail")
     return OK, body, ""
 
 
 def _read_until_prompt(chan, timeout: float = 60.0) -> str:
+    """Read until the device is waiting for us again.
+
+    There are TWO states that mean "waiting", and only recognising the first
+    is what made the configuration half of `verify-commands` untrustworthy:
+
+      1. the CLI prompt — the command finished;
+      2. an interactive *value* prompt — a `?` landed on a leaf and the device
+         is now asking for the value, e.g.
+
+             l2-services evpn X service-type ?
+             Possible completions:
+               vlan-based
+               port-based[vlan-based]
+             [port-based,vlan-based]:        <- waiting, and no `#` will come
+
+    Treating (2) as "still talking" burned the full timeout, returned a partial
+    buffer, and left the answer to sit in the channel until the NEXT probe read
+    it — so every later verdict described the wrong command. Stop on either.
+    """
     buf, last = "", time.time()
     while time.time() - last < timeout:
         if chan.recv_ready():
             buf += chan.recv(65535).decode("utf-8", "replace")
             last = time.time()
-            if _PROMPT.search(buf):
+            if _PROMPT.search(buf) or _VALUE_PROMPT.search(buf):
+                # Settle: a chunk boundary can land mid-line and look like a
+                # prompt ("Format: " inside a description). If more arrives,
+                # it was not the end.
                 time.sleep(0.3)
-                while chan.recv_ready():
-                    buf += chan.recv(65535).decode("utf-8", "replace")
+                if chan.recv_ready():
+                    while chan.recv_ready():
+                        buf += chan.recv(65535).decode("utf-8", "replace")
+                    if not (_PROMPT.search(buf) or _VALUE_PROMPT.search(buf)):
+                        continue
                 return buf
         else:
             time.sleep(0.15)
     return buf
+
+
+def at_value_prompt(raw: str) -> bool:
+    """Is the device sitting in an interactive value prompt?
+
+    The channel must be escaped before anything else is sent, or the next
+    command is consumed as the ANSWER to this prompt — which is both a write
+    to a live device and a silent desync.
+    """
+    return bool(raw) and not _PROMPT.search(raw) and bool(_VALUE_PROMPT.search(raw))
 
 
 def capture_on_channel(chan, scripts: list[TestScript], host: str = "",

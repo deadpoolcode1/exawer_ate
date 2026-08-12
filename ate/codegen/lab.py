@@ -36,8 +36,27 @@ class AccessCircuit:
     """One IXIA port attached to the DUT as an EVPN attachment circuit."""
 
     name: str          # logical name used in step text and Java constants
-    interface: str     # DUT interface the AC binds to
+    interface: str     # DUT PORT the circuit lives on (physical or aggregate)
     vport: str         # IXIA vport backing it
+    #: Sub-interface number the attachment circuit is created as.
+    #:
+    #: A VLAN-based EVPN service will NOT accept a physical port. The device
+    #: says so in as many words, on 8.7.0 LAB 22 (pc-3080), when the bring-up
+    #: config is committed:
+    #:
+    #:     Aborted: 'l2-services evpn evi-1 interface x-eth 0/0/8': failed,
+    #:     interface x-eth/agg-eth 0/0/8 is not a sub-interface, but the EVPN
+    #:     service-type is vlan-based.
+    #:
+    #: Neither the SFS nor the CLI doc says this; the commit does. `100`
+    #: follows the numbering Exaware's own VPLS suite uses for l2-transport
+    #: circuits (`int2.100`, `int2.101`, ... in VPLS_N1.cfg).
+    subinterface: int = 100
+
+    @property
+    def ac_interface(self) -> str:
+        """What the EVI actually binds — always the sub-interface."""
+        return f"{self.interface}.{self.subinterface}"
 
 
 @dataclass(frozen=True)
@@ -99,6 +118,12 @@ class LabProfile:
     traffic_items: list[TrafficItem]
     bgp_neighbor: str
     peer_source: PeerSource = PeerSource.NONE
+    #: intPool in the SUT file that backs the attachment circuits. The `.cfg`
+    #: binds its `int1`/`int2`/`int3` placeholders to it through
+    #: `bringUpParams.crt`, and the Java resolves interface names from it at
+    #: run time, so one suite runs on any testbed rather than on the one whose
+    #: interface names happened to be written into the profile.
+    ac_pool: str = "data1"
     #: Seconds to wait for MAC aging.
     #:
     #: Grounded, not guessed: the EVPN CLI doc's `mac-aging-time` parameter

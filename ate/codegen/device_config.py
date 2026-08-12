@@ -91,9 +91,41 @@ def _placeholderise(lines: list[str], lab: LabProfile) -> list[str]:
     out = []
     for line in lines:
         for i, ac in enumerate(lab.acs):
+            # Sub-interface first: replacing the bare port would turn
+            # `agg-eth-1.100` into `int1.100` only by luck of ordering, and
+            # into `int1` plus a stray `.100` if the port name is a prefix.
+            line = line.replace(ac.ac_interface, f"int{i + 1}.{ac.subinterface}")
             line = line.replace(ac.interface, f"int{i + 1}")
         out.append(line)
     return out
+
+
+def _attachment_circuits(lab: LabProfile) -> list[str]:
+    """Create the sub-interfaces the EVI binds, before it binds them.
+
+    A VLAN-based EVPN service rejects a physical port as an attachment
+    circuit — the commit fails with "is not a sub-interface, but the EVPN
+    service-type is vlan-based" (8.7.0 LAB 22, pc-3080). So the circuits have
+    to exist as sub-interfaces first.
+
+    The stanza shape is Exaware's own, from `cmp/tests/vpls/configurations/
+    compass/VPLS_N1.cfg`, which brings up l2-transport circuits exactly this
+    way; `l2-transport`'s values were then confirmed against the device
+    (`enable` / `disable`, defaulting to `disable`).
+    """
+    lines = ["!", "! Attachment circuits. A vlan-based EVI binds SUB-interfaces,",
+             "! never the port itself - the device rejects the commit otherwise.",
+             "!"]
+    for i, ac in enumerate(lab.acs, start=1):
+        lines += [
+            f"interface int{i}",
+            " admin-state up",
+            "!",
+            f"interface int{i}.{ac.subinterface}",
+            " l2-transport enable",
+            "!",
+        ]
+    return lines
 
 
 def _evpn_block(lines: list[str], evi: str) -> tuple[list[str], list[str]]:
@@ -131,6 +163,11 @@ def emit_dut_config(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         "! exactly this block shape, so the hierarchy and '!' terminators are",
         "! confirmed rather than assumed.",
         "!",
+        "! DEVICE-CORRECTED 2026-08-12 on exa-il01-uf-3080 (8.7.0 LAB 22):",
+        "! this file previously bound the AC ports directly and the commit was",
+        "! REJECTED - a vlan-based EVI takes sub-interfaces only. The circuits",
+        "! below are created first, then bound.",
+        "!",
         "! NOT included - the underlay. Interface addressing, MPLS/LDP and BGP",
         "! are lab data, absent from the SFS and CLI doc, and are deliberately",
         "! not invented here. They must come from cleanBaseConfig or the site",
@@ -140,7 +177,8 @@ def emit_dut_config(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         "! table in bringUpParams.crt to the SUT's 'data1' intPool.",
         "!",
     ]
-    body = block or ["! (no EVPN configuration steps in the selected scripts)"]
+    body = _attachment_circuits(lab) + (
+        block or ["! (no EVPN configuration steps in the selected scripts)"])
     tail = []
     if unplaced:
         tail = ["!", "! Not placed in the block above - review and add by hand:"]

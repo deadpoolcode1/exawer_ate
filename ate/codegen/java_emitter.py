@@ -484,7 +484,87 @@ _UTILS_BODY = '''
 '''
 
 
-def emit_utils() -> JavaFile:
+def _ac_binding_java(lab: LabProfile) -> str:
+    """Resolve attachment circuits from the SUT, and never accept a rejection.
+
+    Two lessons from running TC01 against pc-3080 (8.7.0 LAB 22):
+
+    1. The interface names in the lab profile are PLACEHOLDERS. The `.cfg`
+       always knew that — `bringUpParams.crt` binds `int1`/`int2`/`int3` to the
+       SUT's intPool — but the Java steps used the placeholder text verbatim,
+       so they sent `agg-eth-1.100` to a box whose ports are `x-eth 0/0/8`.
+       The interface has to come from the same place the `.cfg` gets it: the
+       SUT file. Then one suite runs on any testbed, which is the point.
+
+    2. Those three rejected commands did not fail the test. The device
+       answered `syntax error: "-1.100" is not a valid value`, nothing was
+       staged, the commit reported "No modifications to commit", and the
+       framework's own `configAndValidate` turns that into a WARNING. The run
+       was green while configuring nothing. A test that passes without doing
+       its work is worse than no test, so a configuration step here asserts
+       that the device accepted the command.
+    """
+    pool = lab.ac_pool
+    subif = lab.acs[0].subinterface
+    return _ascii(f'''
+    /** intPool in the SUT file that backs the attachment circuits. */
+    private static final String AC_POOL = "{pool}";
+
+    /** Sub-interface each attachment circuit is created as. */
+    private static final int AC_SUBINTERFACE = {subif};
+
+    /**
+     * The attachment circuit as THIS testbed defines it, e.g.
+     * "x-eth 0/0/8.100" — the SUT's intPool entry plus the sub-interface.
+     *
+     * A vlan-based EVI will not accept the bare port; see EVPN_Base.cfg.
+     */
+    public String acInterface(int index) throws Exception {{
+        return cmp.getIntPool(AC_POOL).getInter(index).getIntName()
+               + "." + AC_SUBINTERFACE;
+    }}
+
+    /**
+     * Run a configuration command and REQUIRE the device to accept it.
+     *
+     * `CmpRouter.configAndValidate` commits and warns when the commit had
+     * nothing to do. That is the right default for their suites, but it means
+     * a command the CLI rejected outright leaves the test green: nothing was
+     * staged, so there is nothing to commit, so there is only a warning. Here
+     * a rejected command is a failed step.
+     */
+    public void configAndVerifyAccepted(ICmpCliCmd command) throws Exception {{
+        String output = cmp.runCommandAndSwitch(command.toString(), command);
+        if (wasRejected(output)) {{
+            CompassReporter.fail("Device REJECTED '" + command.toString()
+                    + "': " + String.valueOf(output).trim());
+            throw new Exception("device rejected the command: " + command.toString());
+        }}
+        cmp.commitAndVerification(command.getCmdSessionType(),
+                GlobalParam.LOAD_CONF_FILE_TIMEOUT_DEFAULT_MSEC);
+    }}
+
+    /** Did the CLI refuse the command it was given? */
+    private boolean wasRejected(String output) {{
+        if (output == null) {{
+            return false;
+        }}
+        // Their own pattern first, then the plain reading of the same thing,
+        // so a change in the framework's regexp cannot quietly turn this
+        // assertion off.
+        if (Pattern.compile(GlobalParam.CLI_COMMAND_SYNTAX_ERROR_REGEXP)
+                   .matcher(output).find()) {{
+            return true;
+        }}
+        String low = output.toLowerCase();
+        return low.contains("syntax error")
+               || low.contains("% invalid input")
+               || low.contains("is not a valid value");
+    }}
+''')
+
+
+def emit_utils(lab: LabProfile) -> JavaFile:
     lines = [
         f"package {PACKAGE};",
         "",
@@ -494,6 +574,7 @@ def emit_utils() -> JavaFile:
         "",
         "import cmp.infra.CmpRouter;",
         "import cmp.infra.Session.ICmpCliCmd;",
+        "import cmp.infra.common.GlobalParam;",
         "import cmp.infra.ixia.Ixia;",
         "import cmp.infra.ixia.IxiaFunctions;",
         "import cmp.infra.reporter.CompassReporter;",
@@ -508,6 +589,7 @@ def emit_utils() -> JavaFile:
             ],
         ),
         "public class EvpnUtils implements loggerImp {",
+        _ac_binding_java(lab),
         _UTILS_BODY.rstrip(),
         "}",
         "",
@@ -517,6 +599,23 @@ def emit_utils() -> JavaFile:
 
 
 # ── test classes ────────────────────────────────────────────────────────────
+
+def _arg_expr(arg: str, lab: LabProfile) -> str:
+    """One step argument as Java.
+
+    Interface names are the exception to "arguments are literals". The lab
+    profile spells an attachment circuit `agg-eth-1.100`, but that is a
+    PLACEHOLDER: which port the circuit lives on is a property of the testbed,
+    and pc-3080's are `x-eth 0/0/8`. Sending the placeholder text to the device
+    is how three configuration commands came back
+    `syntax error: "-1.100" is not a valid value`. Resolve it from the SUT
+    instead, exactly as the `.cfg` does through `bringUpParams.crt`.
+    """
+    for i, ac in enumerate(lab.acs):
+        if arg == ac.ac_interface:
+            return f"evpnUtils.acInterface({i})"
+    return _jstr(arg)
+
 
 def _render_step(step: Step, lab: LabProfile) -> list[str]:
     """One IR step → its Java lines (level banner + the call)."""
@@ -529,11 +628,11 @@ def _render_step(step: Step, lab: LabProfile) -> list[str]:
     out.append("        CompassReporter.stopAndStartLevel(++level + "
                f"{_jstr('. ' + step.text)});")
 
-    args = ", ".join(_jstr(a) for a in step.args)
+    args = ", ".join(_arg_expr(a, lab) for a in step.args)
     cmd_expr = f"EvpnCommands.{step.command}" + (f".args({args})" if args else "")
 
     if step.kind is StepKind.CONFIG:
-        out.append(f"        cmp1.configAndValidate({cmd_expr});")
+        out.append(f"        evpnUtils.configAndVerifyAccepted({cmd_expr});")
     elif step.kind in (StepKind.VERIFY_CLI, StepKind.VERIFY_ROUTE):
         expect = (f"testParams.{step.expect_key}" if step.expect_key
                   else "new String[] {}")
@@ -646,6 +745,6 @@ def emit_test(script: TestScript, lab: LabProfile) -> JavaFile:
 
 
 def emit_all(scripts: list[TestScript], lab: LabProfile) -> list[JavaFile]:
-    files = [emit_commands(), emit_params(scripts, lab), emit_utils()]
+    files = [emit_commands(), emit_params(scripts, lab), emit_utils(lab)]
     files += [emit_test(s, lab) for s in scripts]
     return files

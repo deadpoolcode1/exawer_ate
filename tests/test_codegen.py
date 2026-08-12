@@ -14,6 +14,8 @@ sources and their jars. See `.claude/skills/exaware-framework`.
 """
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from ate.codegen.commands import (
@@ -699,7 +701,7 @@ def test_the_unsettable_source_mac_is_declared_not_implied():
     applied one."""
     from ate.codegen.java_emitter import emit_utils
 
-    utils = emit_utils().content
+    utils = emit_utils(SINGLE_DUT_3AC).content
     assert "SOURCE MAC cannot be set" in utils
     assert "CompassReporter.warning" in utils
 
@@ -871,7 +873,11 @@ def test_capture_attributes_each_answer_to_its_own_command(scripts):
 
     needed = commands_needed(scripts)
     assert needed
-    answers = [(f"ROW-{i}-A\r\nROW-{i}-B" if i % 2 == 0
+    # A MAC-table answer has to contain a MAC to count as captured, so give the
+    # good answers one. This test is about ATTRIBUTION - which answer lands on
+    # which command - and a row that would be rejected as vacuous would test
+    # the wrong thing.
+    answers = [(f"ROW-{i}-A 00:00:0{i % 10}:00:00:01\r\nROW-{i}-B" if i % 2 == 0
                 else "----^\r\nsyntax error: unknown argument")
                for i in range(len(needed))]
     sess = capture_on_channel(_FakeChannel(answers), scripts, host="h", build="b")
@@ -880,7 +886,8 @@ def test_capture_attributes_each_answer_to_its_own_command(scripts):
     for i, r in enumerate(sess.results):
         assert r.command == needed[i][1], "answer attributed to the wrong command"
         if i % 2 == 0:
-            assert r.status == OK and r.lines == [f"ROW-{i}-A", f"ROW-{i}-B"]
+            assert r.status == OK
+            assert r.lines == [f"ROW-{i}-A 00:00:0{i % 10}:00:00:01", f"ROW-{i}-B"]
         else:
             assert r.status == UNSUPPORTED and r.lines == []
 
@@ -896,6 +903,51 @@ def test_only_the_ok_answers_reach_the_expectations(scripts):
     assert sess.by_status().get("empty") == len(needed) - 1
 
 
+# ── an expectation that cannot fail is not an expectation ───────────────
+#
+# Verbatim from pc-3080 (8.7.0 LAB 22) with evi-1 configured and no traffic
+# offered. The command is accepted and answers; the answer is entirely legend.
+LEGEND_ONLY_MAC_TABLE = (
+    "show evpn mac-address-table name evi-1\r\n"
+    "\r\n"
+    "LOC:  L - local, R - remote\r\n"
+    "L-FL: D - dynamic, S - static\r\n"
+    "R-FL: N -learnt, U - Unlearnt\r\n"
+    "ACT:  S - Single-Active, A - All-Active\r\n"
+    "\r\n"
+    "EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\n"
+    "router# "
+)
+
+MAC_TABLE_WITH_A_ROW = (
+    "show evpn mac-address-table name evi-1\r\n"
+    "LOC:  L - local, R - remote\r\n"
+    "EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\n"
+    "L   00:00:01:00:00:01   D   x-eth 0/0/8.100\r\n"
+    "router# "
+)
+
+
+def test_a_mac_table_with_only_a_legend_is_not_an_expectation():
+    """It would assert that the legend prints — true on any device, forever."""
+    from ate.codegen.capture import EMPTY, _classify
+
+    status, lines, note = _classify(LEGEND_ONLY_MAC_TABLE,
+                                    "show evpn mac-address-table name evi-1")
+    assert status == EMPTY
+    assert lines == []
+    assert "no MAC addresses" in note
+
+
+def test_a_mac_table_with_a_real_entry_is_captured():
+    from ate.codegen.capture import OK, _classify
+
+    status, lines, _ = _classify(MAC_TABLE_WITH_A_ROW,
+                                 "show evpn mac-address-table name evi-1")
+    assert status == OK
+    assert any("00:00:01:00:00:01" in ln for ln in lines)
+
+
 def test_read_stops_at_the_prompt_and_strips_it():
     from ate.codegen.capture import _read_until_prompt
 
@@ -903,3 +955,196 @@ def test_read_stops_at_the_prompt_and_strips_it():
     chan.send("show x\n")
     raw = _read_until_prompt(chan, timeout=5)
     assert "LINE-1" in raw and "LINE-2" in raw
+
+
+# ── the prompt shape must not decide whether the device loop works ───────
+#
+# pc-3021 shows `router[<timestamp>]# `; pc-3080 shows a bare `router# `. The
+# timestamp is a per-box CLI setting. The original pattern required the `]`,
+# so on pc-3080 no read ever terminated: every probe burned its full timeout
+# and returned a partial buffer, and the sweep hung rather than failing. Both
+# shapes are real and both must terminate a read.
+
+@pytest.mark.parametrize("prompt", [
+    "router# ",
+    "router[2026-08-12-07:00:00]# ",
+    "router(config)# ",
+    "router[2026-08-12-07:00:00](config)# ",
+    "exa-il01-uf-3080# ",
+])
+def test_prompt_matches_every_shape_this_lab_produces(prompt):
+    from ate.codegen.capture import _PROMPT
+
+    assert _PROMPT.search("some output\r\n" + prompt), f"{prompt!r} not recognised"
+
+
+@pytest.mark.parametrize("prompt", ["router# ", "router[2026-08-12-07:00:00]# "])
+def test_read_terminates_against_both_prompt_shapes(prompt):
+    from ate.codegen.capture import _read_until_prompt
+
+    chan = _FakeChannel(["LINE-1\r\nLINE-2"])
+    chan.PROMPT = prompt
+    chan.send("show x\n")
+    started = time.time()
+    raw = _read_until_prompt(chan, timeout=5)
+    assert time.time() - started < 4, "read ran to timeout instead of stopping at the prompt"
+    assert "LINE-1" in raw and "LINE-2" in raw
+
+
+# ── the configuration half of verify-commands ───────────────────────────
+#
+# Every sample below is verbatim from 8.7.0 LAB 22 on pc-3080. A `?` that
+# lands on a leaf does not list-and-return: the device starts asking for the
+# VALUE, and no `#` prompt is coming. The reader used to wait out its full
+# timeout there and return a partial buffer, so the answer stayed in the
+# channel and was collected by the NEXT probe — which is how 48 configuration
+# verdicts came to describe the wrong commands.
+
+VALUE_PROMPT_ENUM = (
+    "l2-services evpn X service-type ?\r\n"
+    "Possible completions:\r\n"
+    "  vlan-based\r\n"
+    "  port-based[vlan-based]\r\n"
+    "router(config)# l2-services evpn X service-type \r\n"
+    "[port-based,vlan-based]: "
+)
+
+VALUE_PROMPT_RANGE = (
+    "l2-services evpn X mac-limit ?\r\n"
+    "Possible completions:\r\n"
+    "  <1-250000>    maximum MAC learned (default 65520)\r\n"
+    "  Currently configured[65520]\r\n"
+    "router(config)# l2-services evpn X mac-limit \r\n"
+    "(<1-250000>    maximum MAC learned (default 65520)\r\n"
+    "  Currently configured): "
+)
+
+PATH_ABSENT = (
+    "l2-services evpn X control-word ?\r\n"
+    "                     ^\r\n"
+    "% Invalid input detected at '^' marker.\r\n"
+    "syntax error: expecting \r\n"
+    "  auto-discovery - Set auto-discovery attributes\r\n"
+    "  mac-limit      - Set the limit on maximum MAC learned\r\n"
+    "router(config)# "
+)
+
+PLAIN_LISTING = (
+    "show evpn ?\r\n"
+    "Description: Show EVPN information\r\n"
+    "Possible completions:\r\n"
+    "  broadcast-domains   Displays the EVPN broadcast domain\r\n"
+    "  detail              Show EVPN detail status\r\n"
+    "  mac-address-table   Show the EVPN MAC Address table\r\n"
+    "  summary             Show EVPN summary\r\n"
+    "router# "
+)
+
+
+@pytest.mark.parametrize("raw", [VALUE_PROMPT_ENUM, VALUE_PROMPT_RANGE])
+def test_a_value_prompt_is_recognised_as_the_device_waiting(raw):
+    from ate.codegen.capture import at_value_prompt
+
+    assert at_value_prompt(raw), "would burn the timeout and desync the sweep"
+
+
+@pytest.mark.parametrize("raw", [PATH_ABSENT, PLAIN_LISTING])
+def test_a_finished_command_is_not_mistaken_for_a_value_prompt(raw):
+    from ate.codegen.capture import at_value_prompt
+
+    assert not at_value_prompt(raw)
+
+
+def test_a_leaf_default_is_stripped_from_its_completion_token():
+    """`port-based[vlan-based]` is the token plus the CURRENT value."""
+    from ate.codegen.verify import _completions
+
+    assert "port-based" in _completions(VALUE_PROMPT_ENUM)
+
+
+def test_completions_drop_the_syntax_error_caret():
+    from ate.codegen.verify import _completions
+
+    assert "^" not in _completions(PATH_ABSENT)
+
+
+@pytest.mark.parametrize("raw,expect,status", [
+    # an enumerated leaf CAN be decided by completion, both ways
+    (VALUE_PROMPT_ENUM, "port-based", "supported"),
+    (VALUE_PROMPT_ENUM, "half-duplex", "missing"),
+    # a free/range leaf cannot: `unknown` is the honest verdict, not `missing`
+    (VALUE_PROMPT_RANGE, "250000", "unknown"),
+    # the path itself is absent from this build
+    (PATH_ABSENT, "disable", "missing"),
+    # the ordinary case still works
+    (PLAIN_LISTING, "mac-address-table", "supported"),
+    (PLAIN_LISTING, "global", "missing"),
+])
+def test_verdicts_match_what_the_device_actually_said(raw, expect, status):
+    from ate.codegen.verify import _completions, _verdict
+
+    got, _note = _verdict(raw, expect, _completions(raw))
+    assert got == status
+
+
+def test_a_range_leaf_is_never_reported_missing():
+    """`mac-limit 250000` is a real command; completion cannot confirm it.
+
+    Reporting it `missing` sends someone to "fix" a correct command, which is
+    the failure mode this whole stage exists to prevent.
+    """
+    from ate.codegen.verify import MISSING, _completions, _verdict
+
+    status, note = _verdict(VALUE_PROMPT_RANGE, "250000",
+                            _completions(VALUE_PROMPT_RANGE))
+    assert status != MISSING
+    assert "free value" in note
+
+
+KEY_REJECTED = (
+    "routing bgp X vrf X neighbor X af-l2vpn ?\r\n"
+    "                       ^\r\n"
+    "% Invalid input detected at '^' marker.\r\n"
+    'syntax error: "X" is not a valid value.\r\n'
+    "router(config)# "
+)
+
+
+def test_an_unaskable_probe_is_unknown_not_missing():
+    """The placeholder was rejected as a key, so the node was never reached.
+
+    `af-l2vpn evpn` exists on this build — with a real AS number and a real
+    neighbour address the device lists `evpn` and `vpls`. Reporting `missing`
+    would send someone to fix a command that is already correct.
+    """
+    from ate.codegen.verify import MISSING, UNKNOWN, _completions, _verdict
+
+    status, note = _verdict(KEY_REJECTED, "evpn", _completions(KEY_REJECTED))
+    assert status == UNKNOWN
+    assert status != MISSING
+    assert "not a legal key" in note
+
+
+def test_angle_bracket_arguments_are_slots_not_cli_text():
+    """`<value>` is how the CLI-doc-derived entries spell an argument.
+
+    Probing for a literal `<value>` token in a completion list can only ever
+    report `missing`, on every build, for every device.
+    """
+    from ate.codegen.verify import probe_for
+
+    parent, expect = probe_for(
+        "routing bgp %s vrf %s neighbor %s af-l2vpn evpn allow-as-in <value>")
+    assert expect == "allow-as-in"
+    assert parent == "routing bgp X vrf X neighbor X af-l2vpn evpn"
+
+
+def test_prompt_does_not_swallow_output_lines():
+    """The pattern is also used to strip prompts out of captured output."""
+    from ate.codegen.capture import _PROMPT
+
+    for line in ("  mac-address-table   Show the EVPN MAC Address table",
+                 "8.7.0: LAB 22",
+                 "MAC Limit          65520",
+                 "Total entries: 3"):
+        assert not _PROMPT.search(line), f"real output line {line!r} mistaken for a prompt"
