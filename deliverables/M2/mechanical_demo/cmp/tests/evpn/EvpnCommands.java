@@ -68,14 +68,17 @@ public enum EvpnCommands implements ICmpCliCmd {
     /** CLI doc: show evpn mac address-table - show evpn mac-address-table [name evpn-name [source interface | mac mac-address]] */
     SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$("show evpn mac-address-table name %s source %s"),
 
-    /** CLI doc: show evpn bum routing-table - show evpn bum routing-table [name evpn-name [vlan-id vlan-id]] */
-    SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$("show evpn bum routing-table name %s"),
+    /** CLI doc: show evpn broadcast-domains - show evpn broadcast-domains [name evpn-name [vlan-id vlan-id]] */
+    SHOW_EVPN_BROADCAST_DOMAINS_NAME_$("show evpn broadcast-domains name %s"),
+
+    /** CLI doc: show evpn global - show evpn detail [name evpn-name]  (device: `show evpn detail ?` -> name) */
+    SHOW_EVPN_DETAIL_NAME_$("show evpn detail name %s"),
 
     /** CLI doc: clear evpn mac address-table - clear evpn mac address-table [name evpn-name [source interface | mac mac-address]] */
-    CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$("clear evpn mac-address-table name %s"),
+    CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$("clear evpn mac address-table name %s"),
 
     /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
-    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL("show bgp l2vpn evpn table evi evi-name %s detail"),
+    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL("show bgp l2vpn evpn table evi detail"),
 
     /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
     SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL("show bgp l2vpn evpn neighbors advertised-routes %s detail"),
@@ -169,9 +172,6 @@ public enum EvpnCommands implements ICmpCliCmd {
 
     /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
     SHOW_BGP_L2VPN_EVPN_TABLE_EVI_BRIEF("show bgp l2vpn evpn table evi brief"),
-
-    /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
-    SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL("show bgp l2vpn evpn table evi detail"),
 
     /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
     SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_$("show bgp l2vpn evpn table evi evi-name %s"),
@@ -336,13 +336,13 @@ public enum EvpnCommands implements ICmpCliCmd {
     SHOW_EVPN_BROADCAST_DOMAINS("show evpn broadcast-domains"),
 
     /** CLI doc: show evpn broadcast-domains - show evpn broadcast-domains [name evpn-name [vlan-id vlan-id]] */
-    SHOW_EVPN_BROADCAST_DOMAINS_NAME_$("show evpn broadcast-domains name %s"),
-
-    /** CLI doc: show evpn broadcast-domains - show evpn broadcast-domains [name evpn-name [vlan-id vlan-id]] */
     SHOW_EVPN_BROADCAST_DOMAINS_NAME_$_VLAN_ID_$("show evpn broadcast-domains name %s vlan-id %s"),
 
     /** CLI doc: show evpn bum routing-table - show evpn bum routing-table [name evpn-name [vlal-id vlan-id]] */
     SHOW_EVPN_BUM_ROUTING_TABLE("show evpn bum routing-table"),
+
+    /** CLI doc: show evpn bum routing-table - show evpn bum routing-table [name evpn-name [vlal-id vlan-id]] */
+    SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$("show evpn bum routing-table name %s"),
 
     /** CLI doc: show evpn bum routing-table - show evpn bum routing-table [name evpn-name [vlal-id vlan-id]] */
     SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$_$_$("show evpn bum routing-table name %s %s %s"),

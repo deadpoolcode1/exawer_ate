@@ -62,7 +62,7 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
 
         // FLOW-030.S05 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Verify AC1 source MACs are emitted as Type-2 routes, originated into the local EVI table (no BGP peer on this rig)");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL.args("evi-1"), testParams.FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES);
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL, testParams.FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES);
         CompassReporter.warning("FLOW-030.S05: Needs real output of the route table above.");
 
         // FLOW-030.S06 - covers RFC7432bis-section 7.2
@@ -85,7 +85,7 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
 
         // FLOW-030.S10 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Verify AC2 source MACs are also emitted as Type-2 routes, originated into the local EVI table (no BGP peer on this rig)");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL.args("evi-1"), testParams.FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES);
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL, testParams.FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES);
         CompassReporter.warning("FLOW-030.S10: Needs real output of the route table above.");
 
         // FLOW-030.S11 - covers RFC7432bis-section 7.2
@@ -99,7 +99,7 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
 
         // FLOW-030.S13 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Snapshot the advertised Type-2 routes before moving the MACs to AC3");
-        routesBefore = evpnUtils.snapshot(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL.args("evi-1"));
+        routesBefore = evpnUtils.snapshot(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL);
 
         // FLOW-030.S14 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Start traffic AC3 -> AC1 (AC3 sources the same MACs as AC2, so this is a local MAC move)");
@@ -112,7 +112,7 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
 
         // FLOW-030.S16 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Verify NO new Type-2 was triggered by the local AC2 -> AC3 move (route table unchanged vs the snapshot)");
-        evpnUtils.verifyOutputUnchanged(routesBefore, EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL.args("evi-1"), "Verify NO new Type-2 was triggered by the local AC2 -> AC3 move (route table unchanged vs the snapshot)");
+        evpnUtils.verifyOutputUnchanged(routesBefore, EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL, "Verify NO new Type-2 was triggered by the local AC2 -> AC3 move (route table unchanged vs the snapshot)");
 
         // FLOW-030.S17 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Verify AC1 -> AC2 traffic now forwards out AC3");

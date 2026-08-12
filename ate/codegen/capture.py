@@ -60,8 +60,14 @@ _REJECTED = (
     "syntax error",
     "% invalid input",
     "unknown command",
-    "no entries found",          # ran, but there is nothing — not an error
 )
+
+#: The command PARSED and ran; there is simply nothing to show yet. That is
+#: EMPTY, not UNSUPPORTED — the distinction matters because "unsupported" sends
+#: someone to fix a command that is already correct, while "empty" says the
+#: device needs state (a peer, traffic, a configured EVI) before this
+#: expectation can be captured. Either way it never becomes an expectation.
+_NO_ENTRIES = ("no entries found",)
 
 OK = "ok"
 EMPTY = "empty"
@@ -148,6 +154,10 @@ def _classify(raw: str, command: str) -> tuple[str, list[str], str]:
     for marker in _REJECTED:
         if marker in joined:
             return UNSUPPORTED, [], f"device rejected the command: {marker!r}"
+    for marker in _NO_ENTRIES:
+        if marker in joined:
+            return EMPTY, [], ("command ran but the device has no entries yet "
+                               "— needs state (peer / traffic / configured EVI)")
     if not body:
         return EMPTY, [], "command ran but returned nothing"
     return OK, body, ""

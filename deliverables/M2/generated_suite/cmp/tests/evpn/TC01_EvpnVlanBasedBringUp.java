@@ -74,7 +74,7 @@ public class TC01_EvpnVlanBasedBringUp extends CmpTestCase {
 
         // FLOW-010.S10 - covers RFC7432bis-section 7.3, RFC7432bis-section 11
         CompassReporter.stopAndStartLevel(++level + ". Verify the Type-3 IMET route for this EVI is originated into the local EVI table (no BGP peer on this rig)");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL.args("evi-1"), testParams.FLOW010_S10_TYPE3_ADVERTISED_LINES);
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL, testParams.FLOW010_S10_TYPE3_ADVERTISED_LINES);
         CompassReporter.warning("FLOW-010.S10: Needs real output of the route table above.");
 
         CompassReporter.stopLevel();

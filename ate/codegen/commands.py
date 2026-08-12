@@ -149,7 +149,17 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         source="show evpn summary",
         doc_syntax="show evpn summary [name evpn-name]",
     ),
-    # DEVICE-VERIFIED 2026-08-11 against exa-il01-ec-3021 running 8.7.0 LAB 22.
+    # DEVICE-VERIFIED 2026-08-11/12 against exa-il01-ec-3021 running 8.7.0 LAB 22.
+    #
+    # The product uses BOTH spellings, for different commands:
+    #     show  evpn mac-address-table   (hyphen)   `show evpn ?`
+    #     clear evpn mac address-table   (space)    `clear evpn ?` -> mac
+    #                                               -> address-table
+    # So the CLI doc was never self-contradictory - the two commands genuinely
+    # differ, and each cell was right about its own command. We were wrong
+    # twice: first by "resolving" the show form to the space, then by
+    # propagating that fix onto the clear form, which had been correct all
+    # along. Both are now taken from the device.
     #
     # We previously resolved this in favour of the SPACE form, reasoning from
     # three documents: the `clear` syntax in the same CLI doc, the VPLS family
@@ -175,24 +185,42 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         doc_syntax=("show evpn mac-address-table [name evpn-name "
                     "[source interface | mac mac-address]]"),
     ),
+    # DEVICE-VERIFIED: `show evpn bum routing-table` does NOT exist on LAB 22
+    # (`show evpn ?` offers broadcast-domains / detail / mac-address-table /
+    # summary). `show evpn broadcast-domains` is the command that carries the
+    # BUM information — with an EVI configured it prints "Local BUM Label" —
+    # so the BUM assertion binds to that instead of to a documented command
+    # the product does not have.
     EvpnCommand(
-        key="SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$",
-        template="show evpn bum routing-table name %s",
-        source="show evpn bum routing-table",
-        doc_syntax="show evpn bum routing-table [name evpn-name [vlan-id vlan-id]]",
+        key="SHOW_EVPN_BROADCAST_DOMAINS_NAME_$",
+        template="show evpn broadcast-domains name %s",
+        source="show evpn broadcast-domains",
+        doc_syntax="show evpn broadcast-domains [name evpn-name [vlan-id vlan-id]]",
+    ),
+    EvpnCommand(
+        key="SHOW_EVPN_DETAIL_NAME_$",
+        template="show evpn detail name %s",
+        source="show evpn global",
+        doc_syntax="show evpn detail [name evpn-name]  (device: `show evpn detail ?` -> name)",
     ),
     EvpnCommand(
         key="CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$",
-        template="clear evpn mac-address-table name %s",
+        template="clear evpn mac address-table name %s",
         source="clear evpn mac address-table",
         doc_syntax=("clear evpn mac address-table [name evpn-name "
                     "[source interface | mac mac-address]]"),
     ),
 
     # ── BGP EVPN tables ──────────────────────────────────────────────────
+    # DEVICE-VERIFIED: `show bgp l2vpn evpn table evi evi-name <name>` answers
+    # "syntax error: incomplete path" even with the EVI configured — the
+    # evi-name completion is populated from EVIs that already have BGP EVPN
+    # table entries, and on a rig with no peer there are none. The bare
+    # `detail` form works and is the right one here anyway: the assertion is
+    # that the PE ORIGINATED the route into its local EVI table.
     EvpnCommand(
-        key="SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL",
-        template="show bgp l2vpn evpn table evi evi-name %s detail",
+        key="SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL",
+        template="show bgp l2vpn evpn table evi detail",
         source="show bgp l2vpn evpn table evi",
         doc_syntax=("show bgp l2vpn evpn table evi [evi-name evi-name "
                     "[evpn-prefix]] [brief | detail]"),

@@ -703,3 +703,35 @@ def test_the_unsettable_source_mac_is_declared_not_implied():
     utils = emit_utils().content
     assert "SOURCE MAC cannot be set" in utils
     assert "CompassReporter.warning" in utils
+
+
+# ── every emitted command must exist in the registry ─────────────────────
+
+
+def test_no_step_references_a_command_outside_the_registry(scripts):
+    """A step naming a constant the registry lacks emits `EvpnCommands.FOO`
+    for a FOO that does not exist — caught by javac, but only after a full
+    framework compile. Catch it here instead."""
+    from ate.codegen.commands import command_keys
+
+    keys = command_keys()
+    for sc in scripts:
+        for st in sc.steps:
+            if st.command:
+                assert st.command in keys, f"{sc.class_name}/{st.id}: {st.command}"
+
+
+def test_command_arity_matches_the_arguments_each_step_supplies(scripts):
+    """`EvpnCommands.X.args(a)` on a two-%s template types a literal %s at a
+    device."""
+    from ate.codegen.commands import all_commands
+
+    by_key = {c.key: c for c in all_commands()}
+    for sc in scripts:
+        for st in sc.steps:
+            if not st.command:
+                continue
+            tmpl = by_key[st.command].template
+            assert tmpl.count("%s") == len(st.args), (
+                f"{sc.class_name}/{st.id}: {st.command} wants "
+                f"{tmpl.count('%s')} arg(s), got {len(st.args)}")

@@ -60,13 +60,13 @@ public class TC03_EvpnType3ImetFlooding extends CmpTestCase {
 
         // FLOW-031.S05 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Verify the AC2 MACs' Type-2 routes are withdrawn from the BGP table");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL.args("evi-1"), testParams.FLOW031_S05_TYPE2_WITHDRAWN_LINES);
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL, testParams.FLOW031_S05_TYPE2_WITHDRAWN_LINES);
         CompassReporter.warning("FLOW-031.S05: Needs real BGP EVPN table output.");
 
         // FLOW-031.S06 - covers RFC7432bis-section 7.3, RFC7432bis-section 11
         CompassReporter.stopAndStartLevel(++level + ". Verify the BUM routing table still lists the flood list");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$.args("evi-1"), testParams.FLOW031_S06_BUM_ROUTING_LINES);
-        CompassReporter.warning("FLOW-031.S06: Needs real `show evpn bum routing-table` output.");
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_BROADCAST_DOMAINS_NAME_$.args("evi-1"), testParams.FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES);
+        CompassReporter.warning("FLOW-031.S06: Needs real `show evpn broadcast-domains` output with an EVI configured; `show evpn bum routing-table` does not exist on this build.");
 
         CompassReporter.stopLevel();
     }

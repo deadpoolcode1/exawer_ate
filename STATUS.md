@@ -32,7 +32,7 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Steps → DUT config | (same) | ✅ `.crt` passes their own validator |
 | Test selection | `ate queue` | ✅ dirty queue |
 | **Verify commands on a device** | `ate verify-commands` | ✅ swept 123 templates; show/clear half trusted, config half not yet |
-| **Capture real expectations** | `ate capture` | ✅ 6/11 filled from hardware |
+| **Capture real expectations** | `ate capture` | ✅ **7 captured, 3 empty, 0 unsupported** |
 | Build IXIA traffic items | `ate codegen` | ✅ in code, no `.ixncfg` (src MAC still blocked) |
 
 ## M2 — SOW bullets
@@ -44,7 +44,7 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Demo: extract requirements from docs | ✅ 133 reqs → 269 plan rows |
 | Up to 3 integration-ready test plans | ✅ compile against the real framework |
 
-Gates: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`; `bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 240 ATE tests pass.
+Gates: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`; `bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 242 ATE tests pass.
 
 ## The device loop — why it exists
 
@@ -53,10 +53,16 @@ Added 2026-08-11 after running on SUT pc-3021. "Grounded in the documents" is ne
 | We had | The device says |
 |---|---|
 | `show evpn mac address-table` | **`mac-address-table`** (hyphen) |
+| `clear evpn mac-address-table` | **`mac address-table`** (space) — the product uses *both*, per command |
 | `show evpn global` | no such command — `summary` / `detail` |
+| `show evpn bum routing-table` | no such command — `broadcast-domains` carries the BUM label |
 | `l2-services evpn <n> import-rt` | lives under `auto-discovery` |
+| `show interface … detail` | no `detail` under `show interface` |
+| `show bgp l2vpn evpn table evi evi-name <n>` | only the bare `… table evi [detail]` works without BGP state |
 
-The first is the cautionary one: we overrode the CLI doc's syntax cell using three *other* agreeing sources, and the outlier was right. **Device output outranks any number of agreeing documents.** Detail in `deliverables/M2/evidence_device_verified.txt`.
+The first two are the cautionary pair: we overrode the CLI doc's syntax cell using three *other* agreeing sources and were wrong, then propagated that "fix" onto the `clear` form and broke it too. The doc was never self-contradictory — the product genuinely spells the two commands differently. **Device output outranks any number of agreeing documents.** Detail in `deliverables/M2/evidence_device_verified.txt`.
+
+Every command the suite uses is now confirmed present: `ate capture` reports **0 unsupported**, 7 captured, 3 empty pending traffic/BGP state.
 
 The DUT was also re-imaged mid-session — 8.7.0 **LAB 904** (no EVPN at all) → **LAB 22** (EVPN present). Any claim about the build must name the build.
 

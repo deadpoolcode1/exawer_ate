@@ -50,8 +50,8 @@ def _advertised(lab: LabProfile) -> tuple[str, list[str], str]:
         return ("SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
                 [lab.bgp_neighbor],
                 f"advertised to {lab.bgp_neighbor}")
-    return ("SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL",
-            [lab.evi_name],
+    return ("SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL",
+            [],
             "originated into the local EVI table (no BGP peer on this rig)")
 
 
@@ -387,8 +387,8 @@ def _type3(lab: LabProfile) -> TestScript:
             kind=StepKind.VERIFY_ROUTE,
             text=("Verify the AC2 MACs' Type-2 routes are withdrawn from the "
                   "BGP table"),
-            command="SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL",
-            args=[evi],
+            command="SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL",
+            args=[],
             expect_key="FLOW031_S05_TYPE2_WITHDRAWN_LINES",
             req_ids=_R_TYPE2,
             todo="Needs real BGP EVPN table output.",
@@ -397,11 +397,13 @@ def _type3(lab: LabProfile) -> TestScript:
             id="FLOW-031.S06",
             kind=StepKind.VERIFY_CLI,
             text="Verify the BUM routing table still lists the flood list",
-            command="SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$",
+            command="SHOW_EVPN_BROADCAST_DOMAINS_NAME_$",
             args=[evi],
-            expect_key="FLOW031_S06_BUM_ROUTING_LINES",
+            expect_key="FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES",
             req_ids=_R_TYPE3,
-            todo="Needs real `show evpn bum routing-table` output.",
+            todo=("Needs real `show evpn broadcast-domains` output with an EVI "
+                  "configured; `show evpn bum routing-table` does not exist "
+                  "on this build."),
         ),
     ]
     return TestScript(

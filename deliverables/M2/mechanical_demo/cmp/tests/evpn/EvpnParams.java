@@ -108,8 +108,8 @@ public class EvpnParams implements ISuiteParams {
     /** FLOW-031.S05 - NOT YET VALIDATED. Needs real BGP EVPN table output. */
     public final String[] FLOW031_S05_TYPE2_WITHDRAWN_LINES = new String[] {};
 
-    /** FLOW-031.S06 - NOT YET VALIDATED. Needs real `show evpn bum routing-table` output. */
-    public final String[] FLOW031_S06_BUM_ROUTING_LINES = new String[] {};
+    /** FLOW-031.S06 - NOT YET VALIDATED. Needs real `show evpn broadcast-domains` output with an EVI configured; `show evpn bum routing-table` does not exist on this build. */
+    public final String[] FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES = new String[] {};
 
     @Override
     public SuiteTableParams[] getSuiteParamsTableToUpdate() {

@@ -182,16 +182,23 @@ def verify_commands(host: str, user: str, password: str,
         for c, (parent, expect) in batch:
             _drain(chan)
             if in_config:
-                # A `?` completion on a config path DESCENDS into that submode
-                # — the prompt becomes (config-l2-services-evpn-X). Without
-                # returning to the top first, every later probe is evaluated
-                # relative to wherever the previous one landed and the whole
-                # sweep drifts into nonsense.
-                chan.send("top\n")
-                _read_until_prompt(chan, timeout=15)
+                # Each config probe gets its OWN configure/abort cycle.
+                #
+                # A `?` completion on a config path both LISTS and DESCENDS,
+                # and the descent creates the node in the candidate
+                # configuration. Sharing one session across ~57 probes let that
+                # candidate accumulate until the completions no longer
+                # reflected a clean device — `l2-services evpn X ?` stopped
+                # offering `mac-limit`, which the device demonstrably has.
+                # `top` alone did not fix it because the candidate persisted.
+                chan.send("configure\n")
+                _read_until_prompt(chan, timeout=20)
                 _drain(chan)
             chan.send(f"{parent} ?\n")
             raw = _read_until_prompt(chan, timeout=20)
+            if in_config:
+                chan.send("abort\n")
+                _read_until_prompt(chan, timeout=20)
             comps = _completions(raw)
             if comps:
                 status = SUPPORTED if expect in comps else MISSING
@@ -203,13 +210,7 @@ def verify_commands(host: str, user: str, password: str,
             print(f"  [{status:9}] {c.key[:56]}", flush=True)
 
     run(oper, False)
-    if conf:
-        chan.send("configure\n")
-        _read_until_prompt(chan, timeout=30)
-        run(conf, True)
-        # Discard the candidate configuration this session may have created.
-        chan.send("abort\n")
-        _read_until_prompt(chan, timeout=30)
+    run(conf, True)   # each config probe wraps itself in configure/abort
 
     chan.close()
     cli.close()
