@@ -1,0 +1,1553 @@
+{
+  "host": "10.3.21.1",
+  "build": "8.7.0: LAB 22",
+  "checked_at": "2026-08-12T06:23:06",
+  "results": [
+    {
+      "key": "SHOW_EVPN_SUMMARY",
+      "template": "show evpn summary",
+      "probe": "show evpn ?",
+      "expect": "summary",
+      "status": "supported",
+      "completions": [
+        "broadcast-domains",
+        "detail",
+        "mac-address-table",
+        "summary"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_DETAIL",
+      "template": "show evpn detail",
+      "probe": "show evpn ?",
+      "expect": "detail",
+      "status": "supported",
+      "completions": [
+        "broadcast-domains",
+        "detail",
+        "mac-address-table",
+        "summary"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_SUMMARY_NAME_$",
+      "template": "show evpn summary name %s",
+      "probe": "show evpn summary ?",
+      "expect": "name",
+      "status": "supported",
+      "completions": [
+        "name"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$",
+      "template": "show evpn mac-address-table name %s",
+      "probe": "show evpn mac-address-table ?",
+      "expect": "name",
+      "status": "supported",
+      "completions": [
+        "name"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
+      "template": "show evpn mac-address-table name %s source %s",
+      "probe": "show evpn mac-address-table name X ?",
+      "expect": "source",
+      "status": "supported",
+      "completions": [
+        "mac",
+        "source"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$",
+      "template": "show evpn bum routing-table name %s",
+      "probe": "show evpn bum routing-table ?",
+      "expect": "name",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$",
+      "template": "clear evpn mac-address-table name %s",
+      "probe": "clear evpn mac-address-table ?",
+      "expect": "name",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI_NAME_$_DETAIL",
+      "template": "show bgp l2vpn evpn table evi evi-name %s detail",
+      "probe": "show bgp l2vpn evpn table evi evi-name X ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
+      "template": "show bgp l2vpn evpn neighbors advertised-routes %s detail",
+      "probe": "show bgp l2vpn evpn neighbors advertised-routes X ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_INTERFACE_DETAIL",
+      "template": "show interface detail",
+      "probe": "show interface ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "agg-eth",
+        "average-rate",
+        "brief",
+        "description",
+        "ip",
+        "loopback",
+        "mgmt",
+        "optical-monitoring",
+        "optical-monitoring-edfa",
+        "queues-statistics",
+        "x-eth",
+        "Link",
+        "MAC",
+        "Encapsulation:",
+        "VRF",
+        "IPv4",
+        "IPv6:",
+        "ARP",
+        "Last",
+        "Rx",
+        "Total",
+        "Total",
+        "IPv4:",
+        "IPv6:",
+        "Other:",
+        "Physical",
+        "Rx",
+        "Received",
+        "Received",
+        "Ucast:",
+        "Mcast:",
+        "Bcast:",
+        "Control:",
+        "Error",
+        "CRC",
+        "Runts:",
+        "Giants:",
+        "Ignored:",
+        "Discard",
+        "Framing:"
+      ]
+    },
+    {
+      "key": "SHOW_INTERFACE_AGG_ETH_$_DETAIL",
+      "template": "show interface agg-eth %s detail",
+      "probe": "show interface agg-eth X ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_INTERFACE_LOOPBACK_$_DETAIL",
+      "template": "show interface loopback %s detail",
+      "probe": "show interface loopback X ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_INTERFACE_MGMT_$_DETAIL",
+      "template": "show interface mgmt %s detail",
+      "probe": "show interface mgmt X ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_INTERFACE_X_ETH_$_DETAIL",
+      "template": "show interface x-eth %s detail",
+      "probe": "show interface x-eth X ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES",
+      "template": "show bgp l2vpn evpn neighbors advertised-routes",
+      "probe": "show bgp l2vpn evpn neighbors ?",
+      "expect": "advertised-routes",
+      "status": "supported",
+      "completions": [
+        "advertised-routes",
+        "received-routes"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_RECEIVED_ROUTES",
+      "template": "show bgp l2vpn evpn neighbors received-routes",
+      "probe": "show bgp l2vpn evpn neighbors ?",
+      "expect": "received-routes",
+      "status": "supported",
+      "completions": [
+        "advertised-routes",
+        "received-routes"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$",
+      "template": "show bgp l2vpn evpn neighbors advertised-routes %s",
+      "probe": "show bgp l2vpn evpn neighbors ?",
+      "expect": "advertised-routes",
+      "status": "supported",
+      "completions": [
+        "advertised-routes",
+        "received-routes"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_BRIEF",
+      "template": "show bgp l2vpn evpn neighbors advertised-routes brief",
+      "probe": "show bgp l2vpn evpn neighbors advertised-routes ?",
+      "expect": "brief",
+      "status": "supported",
+      "completions": [
+        "brief",
+        "detail"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_DETAIL",
+      "template": "show bgp l2vpn evpn neighbors advertised-routes detail",
+      "probe": "show bgp l2vpn evpn neighbors advertised-routes ?",
+      "expect": "detail",
+      "status": "supported",
+      "completions": [
+        "brief",
+        "detail"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_RECEIVED_ROUTES_$",
+      "template": "show bgp l2vpn evpn neighbors received-routes %s",
+      "probe": "show bgp l2vpn evpn neighbors ?",
+      "expect": "received-routes",
+      "status": "supported",
+      "completions": [
+        "advertised-routes",
+        "received-routes"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_RECEIVED_ROUTES_BRIEF",
+      "template": "show bgp l2vpn evpn neighbors received-routes brief",
+      "probe": "show bgp l2vpn evpn neighbors received-routes ?",
+      "expect": "brief",
+      "status": "supported",
+      "completions": [
+        "brief",
+        "detail"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_NEIGHBORS_RECEIVED_ROUTES_DETAIL",
+      "template": "show bgp l2vpn evpn neighbors received-routes detail",
+      "probe": "show bgp l2vpn evpn neighbors received-routes ?",
+      "expect": "detail",
+      "status": "supported",
+      "completions": [
+        "brief",
+        "detail"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI",
+      "template": "show bgp l2vpn evpn table evi",
+      "probe": "show bgp l2vpn evpn table ?",
+      "expect": "evi",
+      "status": "supported",
+      "completions": [
+        "evi"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI_BRIEF",
+      "template": "show bgp l2vpn evpn table evi brief",
+      "probe": "show bgp l2vpn evpn table evi ?",
+      "expect": "brief",
+      "status": "supported",
+      "completions": [
+        "brief",
+        "detail",
+        "evi-name"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL",
+      "template": "show bgp l2vpn evpn table evi detail",
+      "probe": "show bgp l2vpn evpn table evi ?",
+      "expect": "detail",
+      "status": "supported",
+      "completions": [
+        "brief",
+        "detail",
+        "evi-name"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_$",
+      "template": "show bgp l2vpn evpn table evi evi-name %s",
+      "probe": "show bgp l2vpn evpn table evi ?",
+      "expect": "evi-name",
+      "status": "supported",
+      "completions": [
+        "brief",
+        "detail",
+        "evi-name"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_$_$",
+      "template": "show bgp l2vpn evpn table evi evi-name %s %s",
+      "probe": "show bgp l2vpn evpn table evi ?",
+      "expect": "evi-name",
+      "status": "supported",
+      "completions": [
+        "brief",
+        "detail",
+        "evi-name"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_EVI_NAME_BRIEF",
+      "template": "show bgp l2vpn evpn table evi evi-name evi-name brief",
+      "probe": "show bgp l2vpn evpn table evi evi-name evi-name ?",
+      "expect": "brief",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_EVI_NAME_DETAIL",
+      "template": "show bgp l2vpn evpn table evi evi-name evi-name detail",
+      "probe": "show bgp l2vpn evpn table evi evi-name evi-name ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_L2VPN_EVPN_TABLE_EVI_EVI_NAME_$_EVPN_PREFIX_BRIEF",
+      "template": "show bgp l2vpn evpn table evi evi-name %s evpn-prefix brief",
+      "probe": "show bgp l2vpn evpn table evi evi-name X evpn-prefix ?",
+      "expect": "brief",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT",
+      "template": "show bgp table evpn ethernet-segment",
+      "probe": "show bgp table evpn ?",
+      "expect": "ethernet-segment",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_$",
+      "template": "show bgp table evpn ethernet-segment %s",
+      "probe": "show bgp table evpn ?",
+      "expect": "ethernet-segment",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_BRIEF",
+      "template": "show bgp table evpn ethernet-segment brief",
+      "probe": "show bgp table evpn ethernet-segment ?",
+      "expect": "brief",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_DETAIL",
+      "template": "show bgp table evpn ethernet-segment detail",
+      "probe": "show bgp table evpn ethernet-segment ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_EVPN_PREFIX_BRIEF",
+      "template": "show bgp table evpn ethernet-segment evpn-prefix brief",
+      "probe": "show bgp table evpn ethernet-segment evpn-prefix ?",
+      "expect": "brief",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_EVPN_PREFIX_DETAIL",
+      "template": "show bgp table evpn ethernet-segment evpn-prefix detail",
+      "probe": "show bgp table evpn ethernet-segment evpn-prefix ?",
+      "expect": "detail",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_NEIGHBORS",
+      "template": "show bgp neighbors",
+      "probe": "show bgp ?",
+      "expect": "neighbors",
+      "status": "supported",
+      "completions": [
+        "auto-groups",
+        "damping",
+        "groups",
+        "l2vpn",
+        "martians",
+        "neighbors",
+        "policy",
+        "rpki",
+        "summary",
+        "table",
+        "Keepalive",
+        "Holdtime",
+        "Graceful",
+        "Restart",
+        "Stalepath",
+        "Deferral",
+        "Compare",
+        "Compare",
+        "Always",
+        "Missing",
+        "Compare",
+        "Deterministic",
+        "Router",
+        "Table",
+        "IPv4",
+        "IPv4",
+        "IPv4",
+        "IPv4",
+        "IPv6",
+        "IPv6",
+        "IPv6",
+        "L2VPN",
+        "L2VPN",
+        "Number",
+        "IPv4",
+        "IPv6"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_NEIGHBORS_$",
+      "template": "show bgp neighbors %s",
+      "probe": "show bgp ?",
+      "expect": "neighbors",
+      "status": "supported",
+      "completions": [
+        "auto-groups",
+        "damping",
+        "groups",
+        "l2vpn",
+        "martians",
+        "neighbors",
+        "policy",
+        "rpki",
+        "summary",
+        "table",
+        "Keepalive",
+        "Holdtime",
+        "Graceful",
+        "Restart",
+        "Stalepath",
+        "Deferral",
+        "Compare",
+        "Compare",
+        "Always",
+        "Missing",
+        "Compare",
+        "Deterministic",
+        "Router",
+        "Table",
+        "IPv4",
+        "IPv4",
+        "IPv4",
+        "IPv4",
+        "IPv6",
+        "IPv6",
+        "IPv6",
+        "L2VPN",
+        "L2VPN",
+        "Number",
+        "IPv4",
+        "IPv6"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_NEIGHBORS_BRIEF",
+      "template": "show bgp neighbors brief",
+      "probe": "show bgp neighbors ?",
+      "expect": "brief",
+      "status": "supported",
+      "completions": [
+        "IP",
+        "advertised-routes",
+        "brief",
+        "detail",
+        "ipv4",
+        "ipv6",
+        "l2vpn",
+        "received-prefix-filter",
+        "received-routes",
+        "vrf"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_NEIGHBORS_DETAIL",
+      "template": "show bgp neighbors detail",
+      "probe": "show bgp neighbors ?",
+      "expect": "detail",
+      "status": "supported",
+      "completions": [
+        "IP",
+        "advertised-routes",
+        "brief",
+        "detail",
+        "ipv4",
+        "ipv6",
+        "l2vpn",
+        "received-prefix-filter",
+        "received-routes",
+        "vrf"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_NEIGHBORS_$_$",
+      "template": "show bgp neighbors %s %s",
+      "probe": "show bgp ?",
+      "expect": "neighbors",
+      "status": "supported",
+      "completions": [
+        "auto-groups",
+        "damping",
+        "groups",
+        "l2vpn",
+        "martians",
+        "neighbors",
+        "policy",
+        "rpki",
+        "summary",
+        "table",
+        "Keepalive",
+        "Holdtime",
+        "Graceful",
+        "Restart",
+        "Stalepath",
+        "Deferral",
+        "Compare",
+        "Compare",
+        "Always",
+        "Missing",
+        "Compare",
+        "Deterministic",
+        "Router",
+        "Table",
+        "IPv4",
+        "IPv4",
+        "IPv4",
+        "IPv4",
+        "IPv6",
+        "IPv6",
+        "IPv6",
+        "L2VPN",
+        "L2VPN",
+        "Number",
+        "IPv4",
+        "IPv6"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_NEIGHBORS_BRIEF_$",
+      "template": "show bgp neighbors brief %s",
+      "probe": "show bgp neighbors ?",
+      "expect": "brief",
+      "status": "supported",
+      "completions": [
+        "IP",
+        "advertised-routes",
+        "brief",
+        "detail",
+        "ipv4",
+        "ipv6",
+        "l2vpn",
+        "received-prefix-filter",
+        "received-routes",
+        "vrf"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_NEIGHBORS_DETAIL_$",
+      "template": "show bgp neighbors detail %s",
+      "probe": "show bgp neighbors ?",
+      "expect": "detail",
+      "status": "supported",
+      "completions": [
+        "IP",
+        "advertised-routes",
+        "brief",
+        "detail",
+        "ipv4",
+        "ipv6",
+        "l2vpn",
+        "received-prefix-filter",
+        "received-routes",
+        "vrf"
+      ]
+    },
+    {
+      "key": "SHOW_BGP_NEIGHBORS_VRF_$",
+      "template": "show bgp neighbors vrf %s",
+      "probe": "show bgp neighbors ?",
+      "expect": "vrf",
+      "status": "supported",
+      "completions": [
+        "IP",
+        "advertised-routes",
+        "brief",
+        "detail",
+        "ipv4",
+        "ipv6",
+        "l2vpn",
+        "received-prefix-filter",
+        "received-routes",
+        "vrf"
+      ]
+    },
+    {
+      "key": "CLEAR_EVPN_FROZEN_MAC_ADDRESSES",
+      "template": "clear evpn frozen mac-addresses",
+      "probe": "clear evpn frozen ?",
+      "expect": "mac-addresses",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "CLEAR_EVPN_FROZEN_MAC_ADDRESSES_$",
+      "template": "clear evpn frozen mac-addresses %s",
+      "probe": "clear evpn frozen ?",
+      "expect": "mac-addresses",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "CLEAR_EVPN_FROZEN_MAC_ADDRESSES_$_$",
+      "template": "clear evpn frozen mac-addresses %s %s",
+      "probe": "clear evpn frozen ?",
+      "expect": "mac-addresses",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "CLEAR_EVPN_MAC_ADDRESS_TABLE",
+      "template": "clear evpn mac address-table",
+      "probe": "clear evpn mac ?",
+      "expect": "address-table",
+      "status": "supported",
+      "completions": [
+        "address-table"
+      ]
+    },
+    {
+      "key": "CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$_MAC_$",
+      "template": "clear evpn mac address-table name %s mac %s",
+      "probe": "clear evpn mac address-table name X ?",
+      "expect": "mac",
+      "status": "supported",
+      "completions": [
+        "mac",
+        "source"
+      ]
+    },
+    {
+      "key": "CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
+      "template": "clear evpn mac address-table name %s source %s",
+      "probe": "clear evpn mac address-table name X ?",
+      "expect": "source",
+      "status": "supported",
+      "completions": [
+        "mac",
+        "source"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_BROADCAST_DOMAINS",
+      "template": "show evpn broadcast-domains",
+      "probe": "show evpn ?",
+      "expect": "broadcast-domains",
+      "status": "supported",
+      "completions": [
+        "broadcast-domains",
+        "detail",
+        "mac-address-table",
+        "summary"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_BROADCAST_DOMAINS_NAME_$",
+      "template": "show evpn broadcast-domains name %s",
+      "probe": "show evpn broadcast-domains ?",
+      "expect": "name",
+      "status": "supported",
+      "completions": [
+        "name"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_BROADCAST_DOMAINS_NAME_$_VLAN_ID_$",
+      "template": "show evpn broadcast-domains name %s vlan-id %s",
+      "probe": "show evpn broadcast-domains name X ?",
+      "expect": "vlan-id",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_BUM_ROUTING_TABLE",
+      "template": "show evpn bum routing-table",
+      "probe": "show evpn bum ?",
+      "expect": "routing-table",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_BUM_ROUTING_TABLE_NAME_$_$_$",
+      "template": "show evpn bum routing-table name %s %s %s",
+      "probe": "show evpn bum routing-table ?",
+      "expect": "name",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_ETHERNET_SEGMENTS",
+      "template": "show evpn ethernet-segments",
+      "probe": "show evpn ?",
+      "expect": "ethernet-segments",
+      "status": "missing",
+      "completions": [
+        "broadcast-domains",
+        "detail",
+        "mac-address-table",
+        "summary"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_ETHERNET_SEGMENTS_ESI_$",
+      "template": "show evpn ethernet-segments esi %s",
+      "probe": "show evpn ethernet-segments ?",
+      "expect": "esi",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_FROZEN_MAC_ADDRESSES",
+      "template": "show evpn frozen mac-addresses",
+      "probe": "show evpn frozen ?",
+      "expect": "mac-addresses",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_FROZEN_MAC_ADDRESSES_$",
+      "template": "show evpn frozen mac-addresses %s",
+      "probe": "show evpn frozen ?",
+      "expect": "mac-addresses",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_FROZEN_MAC_ADDRESSES_$_$",
+      "template": "show evpn frozen mac-addresses %s %s",
+      "probe": "show evpn frozen ?",
+      "expect": "mac-addresses",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_GLOBAL",
+      "template": "show evpn global",
+      "probe": "show evpn ?",
+      "expect": "global",
+      "status": "missing",
+      "completions": [
+        "broadcast-domains",
+        "detail",
+        "mac-address-table",
+        "summary"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_GLOBAL_NAME_$",
+      "template": "show evpn global name %s",
+      "probe": "show evpn global ?",
+      "expect": "name",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_MAC_ADDRESS_TABLE",
+      "template": "show evpn mac-address-table",
+      "probe": "show evpn ?",
+      "expect": "mac-address-table",
+      "status": "supported",
+      "completions": [
+        "broadcast-domains",
+        "detail",
+        "mac-address-table",
+        "summary"
+      ]
+    },
+    {
+      "key": "SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_MAC_$",
+      "template": "show evpn mac-address-table name %s mac %s",
+      "probe": "show evpn mac-address-table name X ?",
+      "expect": "mac",
+      "status": "supported",
+      "completions": [
+        "mac",
+        "source"
+      ]
+    },
+    {
+      "key": "SHOW_FIB_EVPN_AC",
+      "template": "show fib evpn-ac",
+      "probe": "show fib ?",
+      "expect": "evpn-ac",
+      "status": "supported",
+      "completions": [
+        "adjacency",
+        "evpn-ac",
+        "evpn-neighbor",
+        "evpn-route",
+        "ipv4",
+        "ipv6",
+        "mpls",
+        "multicast",
+        "summary",
+        "vpls-ac",
+        "vpls-pw",
+        "vpws",
+        "vrf",
+        "xconnect",
+        "A",
+        "EGRESS"
+      ]
+    },
+    {
+      "key": "SHOW_FIB_EVPN_NEIGHBOR",
+      "template": "show fib evpn-neighbor",
+      "probe": "show fib ?",
+      "expect": "evpn-neighbor",
+      "status": "supported",
+      "completions": [
+        "adjacency",
+        "evpn-ac",
+        "evpn-neighbor",
+        "evpn-route",
+        "ipv4",
+        "ipv6",
+        "mpls",
+        "multicast",
+        "summary",
+        "vpls-ac",
+        "vpls-pw",
+        "vpws",
+        "vrf",
+        "xconnect",
+        "A",
+        "EGRESS"
+      ]
+    },
+    {
+      "key": "CONFIGURE_L2_SERVICES_EVPN_$_SERVICE_TYPE_$",
+      "template": "l2-services evpn %s service-type %s",
+      "probe": "l2-services evpn X ?",
+      "expect": "service-type",
+      "status": "supported",
+      "completions": [
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "CONFIGURE_NO_L2_SERVICES_EVPN_$",
+      "template": "no l2-services evpn %s",
+      "probe": "no l2-services ?",
+      "expect": "evpn",
+      "status": "supported",
+      "completions": [
+        "evpn",
+        "pw-profile",
+        "vpls",
+        "vpws",
+        "xconnect"
+      ]
+    },
+    {
+      "key": "CONFIGURE_L2_SERVICES_EVPN_$_AUTO_DISCOVERY",
+      "template": "l2-services evpn %s auto-discovery",
+      "probe": "l2-services evpn X ?",
+      "expect": "auto-discovery",
+      "status": "supported",
+      "completions": [
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$",
+      "template": "l2-services evpn %s auto-discovery import-rt %s",
+      "probe": "l2-services evpn X auto-discovery ?",
+      "expect": "import-rt",
+      "status": "supported",
+      "completions": [
+        "export-rt",
+        "import-rt"
+      ]
+    },
+    {
+      "key": "CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$",
+      "template": "l2-services evpn %s auto-discovery export-rt %s",
+      "probe": "l2-services evpn X auto-discovery ?",
+      "expect": "export-rt",
+      "status": "supported",
+      "completions": [
+        "export-rt",
+        "import-rt"
+      ]
+    },
+    {
+      "key": "CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$",
+      "template": "l2-services evpn %s interface %s",
+      "probe": "l2-services evpn X ?",
+      "expect": "interface",
+      "status": "supported",
+      "completions": [
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "CONFIGURE_L2_SERVICES_EVPN_$_MAC_AGING_TIME_$",
+      "template": "l2-services evpn %s mac-aging-time %s",
+      "probe": "l2-services evpn X ?",
+      "expect": "mac-aging-time",
+      "status": "supported",
+      "completions": [
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "CONFIGURE_NO_L2_SERVICES_EVPN_$_MAC_AGING_TIME",
+      "template": "no l2-services evpn %s mac-aging-time",
+      "probe": "no l2-services evpn X ?",
+      "expect": "mac-aging-time",
+      "status": "supported",
+      "completions": [
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "CONFIGURE_L2_SERVICES_EVPN_$_UNKNOWN_MAC_FLOODING_$",
+      "template": "l2-services evpn %s unknow-mac-flooding %s",
+      "probe": "l2-services evpn X ?",
+      "expect": "unknow-mac-flooding",
+      "status": "missing",
+      "completions": [
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT",
+      "template": "interface agg-eth %s ethernet-segment",
+      "probe": "interface agg-eth X ?",
+      "expect": "ethernet-segment",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_IDENTIFIER_0_$",
+      "template": "interface agg-eth %s ethernet-segment identifier 0 %s",
+      "probe": "interface agg-eth X ethernet-segment identifier ?",
+      "expect": "0",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_IDENTIFIER_1",
+      "template": "interface agg-eth %s ethernet-segment identifier 1",
+      "probe": "interface agg-eth X ethernet-segment identifier ?",
+      "expect": "1",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_IDENTIFIER_4",
+      "template": "interface agg-eth %s ethernet-segment identifier 4",
+      "probe": "interface agg-eth X ethernet-segment identifier ?",
+      "expect": "4",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_LACP_KEY_$",
+      "template": "interface agg-eth %s lacp-key %s",
+      "probe": "interface agg-eth X ?",
+      "expect": "lacp-key",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_LACP_SYSTEM_MAC_$",
+      "template": "interface agg-eth %s lacp-system-mac %s",
+      "probe": "interface agg-eth X ?",
+      "expect": "lacp-system-mac",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_LOAD_BALANCING_MODE_ALL_ACTIVE",
+      "template": "interface agg-eth %s ethernet-segment load-balancing-mode all-active",
+      "probe": "interface agg-eth X ethernet-segment load-balancing-mode ?",
+      "expect": "all-active",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_LOAD_BALANCING_MODE_SINGLE_ACTIVE",
+      "template": "interface agg-eth %s ethernet-segment load-balancing-mode single-active",
+      "probe": "interface agg-eth X ethernet-segment load-balancing-mode ?",
+      "expect": "single-active",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_DEFAULT",
+      "template": "interface agg-eth %s ethernet-segment service-carving default",
+      "probe": "interface agg-eth X ethernet-segment service-carving ?",
+      "expect": "default",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_HIGHEST_PREFERENCE",
+      "template": "interface agg-eth %s ethernet-segment service-carving highest-preference",
+      "probe": "interface agg-eth X ethernet-segment service-carving ?",
+      "expect": "highest-preference",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_HIGHEST_RANDOM_WEIGHT",
+      "template": "interface agg-eth %s ethernet-segment service-carving highest-random-weight",
+      "probe": "interface agg-eth X ethernet-segment service-carving ?",
+      "expect": "highest-random-weight",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_LOWEST_PREFERENCE",
+      "template": "interface agg-eth %s ethernet-segment service-carving lowest-preference",
+      "probe": "interface agg-eth X ethernet-segment service-carving ?",
+      "expect": "lowest-preference",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_HIGHEST_PREFERENCE_$",
+      "template": "interface agg-eth %s ethernet-segment service-carving highest-preference %s",
+      "probe": "interface agg-eth X ethernet-segment service-carving ?",
+      "expect": "highest-preference",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "INTERFACE_AGG_ETH_$_ETHERNET_SEGMENT_SERVICE_CARVING_LOWEST_PREFERENCE_$",
+      "template": "interface agg-eth %s ethernet-segment service-carving lowest-preference %s",
+      "probe": "interface agg-eth X ethernet-segment service-carving ?",
+      "expect": "lowest-preference",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN",
+      "template": "routing bgp %s vrf %s neighbor %s af-l2vpn evpn",
+      "probe": "routing bgp X vrf X neighbor X af-l2vpn ?",
+      "expect": "evpn",
+      "status": "missing",
+      "completions": [
+        "^"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_ADVERTISE_MAC_DISABLE",
+      "template": "l2-services evpn %s Advertise-mac disable",
+      "probe": "l2-services evpn X Advertise-mac ?",
+      "expect": "disable",
+      "status": "missing",
+      "completions": [
+        "^",
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_ADVERTISE_MAC_ENABLE",
+      "template": "l2-services evpn %s Advertise-mac enable",
+      "probe": "l2-services evpn X Advertise-mac ?",
+      "expect": "enable",
+      "status": "missing",
+      "completions": [
+        "^",
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_CONTROL_WORD_DISABLE",
+      "template": "l2-services evpn %s control-word disable",
+      "probe": "l2-services evpn X control-word ?",
+      "expect": "disable",
+      "status": "missing",
+      "completions": [
+        "^",
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_CONTROL_WORD_ENABLE",
+      "template": "l2-services evpn %s control-word enable",
+      "probe": "l2-services evpn X control-word ?",
+      "expect": "enable",
+      "status": "missing",
+      "completions": [
+        "^",
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_ES_WAITING_TIME_$",
+      "template": "l2-services evpn %s es-waiting-time %s",
+      "probe": "l2-services evpn X ?",
+      "expect": "es-waiting-time",
+      "status": "missing",
+      "completions": [
+        "auto-discovery",
+        "interface",
+        "mac-aging-time",
+        "mac-limit",
+        "service-type"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$",
+      "template": "l2-services evpn %s",
+      "probe": "l2-services ?",
+      "expect": "evpn",
+      "status": "supported",
+      "completions": [
+        "evpn",
+        "pw-profile",
+        "vpls",
+        "vpws",
+        "xconnect"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_SERVICE_TYPE_PORT_BASED",
+      "template": "l2-services evpn %s service-type port-based",
+      "probe": "l2-services evpn X service-type ?",
+      "expect": "port-based",
+      "status": "missing",
+      "completions": [
+        "vlan-based",
+        "port-based[vlan-based]"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_SERVICE_TYPE_VLAN_AWARE_BUNDLE",
+      "template": "l2-services evpn %s service-type vlan-aware-bundle",
+      "probe": "l2-services evpn X service-type ?",
+      "expect": "vlan-aware-bundle",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_SERVICE_TYPE_VLAN_BASED",
+      "template": "l2-services evpn %s service-type vlan-based",
+      "probe": "l2-services evpn X service-type ?",
+      "expect": "vlan-based",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_SERVICE_TYPE_VLAN_BUNDLE",
+      "template": "l2-services evpn %s service-type vlan-bundle",
+      "probe": "l2-services evpn X service-type ?",
+      "expect": "vlan-bundle",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION",
+      "template": "l2-services evpn %s host mac-address-duplicate-detection",
+      "probe": "l2-services evpn X host ?",
+      "expect": "mac-address-duplicate-detection",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_DISABLE",
+      "template": "l2-services evpn %s host mac-address-duplicate-detection disable",
+      "probe": "l2-services evpn X host mac-address-duplicate-detection ?",
+      "expect": "disable",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_ENABLE",
+      "template": "l2-services evpn %s host mac-address-duplicate-detection enable",
+      "probe": "l2-services evpn X host mac-address-duplicate-detection ?",
+      "expect": "enable",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_FREEZE_TIME_$",
+      "template": "l2-services evpn %s host mac-address-duplicate-detection freeze-time %s",
+      "probe": "l2-services evpn X host mac-address-duplicate-detection ?",
+      "expect": "freeze-time",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_MOVE_COUNT_$",
+      "template": "l2-services evpn %s host mac-address-duplicate-detection move-count %s",
+      "probe": "l2-services evpn X host mac-address-duplicate-detection ?",
+      "expect": "move-count",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_MOVE_INTERVAL_$",
+      "template": "l2-services evpn %s host mac-address-duplicate-detection move-interval %s",
+      "probe": "l2-services evpn X host mac-address-duplicate-detection ?",
+      "expect": "move-interval",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_DISABLE_FREEZE_TIME_$",
+      "template": "l2-services evpn %s host mac-address-duplicate-detection disable freeze-time %s",
+      "probe": "l2-services evpn X host mac-address-duplicate-detection disable ?",
+      "expect": "freeze-time",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_HOST_MAC_ADDRESS_DUPLICATE_DETECTION_DISABLE_MOVE_COUNT_$",
+      "template": "l2-services evpn %s host mac-address-duplicate-detection disable move-count %s",
+      "probe": "l2-services evpn X host mac-address-duplicate-detection disable ?",
+      "expect": "move-count",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_MAC_ADDRESS_STATIC_VPWS_$",
+      "template": "l2-services evpn %s mac-address-static vpws %s",
+      "probe": "l2-services evpn X mac-address-static ?",
+      "expect": "vpws",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_MAC_ADDRESS_STATIC_MAC_ADDRESS_INTERFACE_$",
+      "template": "l2-services evpn %s mac-address-static mac-address interface %s",
+      "probe": "l2-services evpn X mac-address-static mac-address ?",
+      "expect": "interface",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_INTERFACE_$",
+      "template": "l2-services vpls %s mac-address-static %s interface %s",
+      "probe": "l2-services vpls X mac-address-static X ?",
+      "expect": "interface",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_PEER_$",
+      "template": "l2-services vpls %s mac-address-static %s peer %s",
+      "probe": "l2-services vpls X mac-address-static X ?",
+      "expect": "peer",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_VPWS_$",
+      "template": "l2-services vpls %s mac-address-static %s vpws %s",
+      "probe": "l2-services vpls X mac-address-static X ?",
+      "expect": "vpws",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_MAC_LIMIT_$",
+      "template": "l2-services evpn %s mac-limit %s",
+      "probe": "l2-services evpn X ?",
+      "expect": "mac-limit",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_UNKNOW_MAC_FLOODING_DISABLE",
+      "template": "l2-services evpn %s unknow-mac-flooding disable",
+      "probe": "l2-services evpn X unknow-mac-flooding ?",
+      "expect": "disable",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "L2_SERVICES_EVPN_$_UNKNOW_MAC_FLOODING_ENABLE",
+      "template": "l2-services evpn %s unknow-mac-flooding enable",
+      "probe": "l2-services evpn X unknow-mac-flooding ?",
+      "expect": "enable",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ALLOW_AS_IN_VALUE",
+      "template": "routing bgp %s vrf %s neighbor %s af-l2vpn evpn allow-as-in <value>",
+      "probe": "routing bgp X vrf X neighbor X af-l2vpn evpn allow-as-in ?",
+      "expect": "<value>",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_VALUE",
+      "template": "routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability <value>",
+      "probe": "routing bgp X vrf X neighbor X af-l2vpn evpn capability ?",
+      "expect": "<value>",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_INBOUND_SOFT_RECONFIGURATION",
+      "template": "routing bgp %s vrf %s neighbor %s af-l2vpn evpn inbound-soft-reconfiguration",
+      "probe": "routing bgp X vrf X neighbor X af-l2vpn evpn ?",
+      "expect": "inbound-soft-reconfiguration",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_$_VALUE",
+      "template": "routing bgp %s vrf %s neighbor %s af-l2vpn evpn %s <value>",
+      "probe": "routing bgp X vrf X neighbor X af-l2vpn evpn X ?",
+      "expect": "<value>",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_POLICY_VALUE",
+      "template": "routing bgp %s vrf %s neighbor %s af-l2vpn evpn policy <value>",
+      "probe": "routing bgp X vrf X neighbor X af-l2vpn evpn policy ?",
+      "expect": "<value>",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_PRIVATE_AS_VALUE",
+      "template": "routing bgp %s vrf %s neighbor %s af-l2vpn evpn private-as <value>",
+      "probe": "routing bgp X vrf X neighbor X af-l2vpn evpn private-as ?",
+      "expect": "<value>",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    },
+    {
+      "key": "ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ROUTE_REFLECTOR_CLIENT",
+      "template": "routing bgp %s vrf %s neighbor %s af-l2vpn evpn route-reflector-client",
+      "probe": "routing bgp X vrf X neighbor X af-l2vpn evpn ?",
+      "expect": "route-reflector-client",
+      "status": "missing",
+      "completions": [
+        "port-based"
+      ]
+    }
+  ]
+}

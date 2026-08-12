@@ -1,0 +1,81 @@
+REGISTRY VERIFICATION SWEEP — exa-il01-ec-3021, 8.7.0 LAB 22, 2026-08-12
+=========================================================================
+    ate verify-commands --host 10.3.21.1 --jump ilan@192.168.31.226
+
+123 unique templates probed by CLI completion (read-only; the config-mode
+session is discarded with `abort`).
+
+RESULT
+------
+  OPERATIONAL (show / clear)   35 supported   31 missing   of 66   TRUSTWORTHY
+  CONFIG                        9 supported   48 missing   of 57   NOT TRUSTWORTHY
+
+TRUST THE OPERATIONAL HALF
+---------------------------
+Spot-checked against the device by hand, and the verdicts hold:
+
+  show evpn global            MISSING  — confirmed: "syntax error: unknown
+                                         argument"; `show evpn ?` offers
+                                         summary / detail / mac-address-table /
+                                         broadcast-domains
+  show interface ... detail   MISSING  — confirmed: `show interface ?` offers
+                                         agg-eth, brief, ip, loopback, mgmt,
+                                         x-eth ... and no `detail`. The CLI
+                                         doc's documented form does not exist
+                                         in this build.
+  show evpn mac-address-table SUPPORTED — the hyphen correction, now confirmed
+                                         mechanically as well as by hand
+
+Notable operational MISSING entries — CLI doc has them, this build does not:
+
+  show evpn global [name %s]
+  show evpn bum routing-table [...]
+  show evpn ethernet-segments [esi %s]
+  show evpn frozen mac-addresses [...]
+  show bgp l2vpn evpn table evi evi-name %s [detail]
+  show bgp l2vpn evpn neighbors advertised-routes %s detail
+  show bgp table evpn ethernet-segment [...]
+  show interface [agg-eth|loopback|mgmt|x-eth %s] detail
+  clear evpn frozen mac-addresses [...]
+
+That is the gap between the EVPN CLI doc and LAB 22, produced mechanically
+instead of by hand.
+
+DO NOT ACT ON THE CONFIG HALF YET
+----------------------------------
+The config-mode probes are demonstrably unreliable. `l2-services evpn %s
+mac-limit %s` is reported MISSING, yet the device itself lists `mac-limit`
+under `l2-services evpn evi-1 ?` — we read that completion by hand, and we
+configured an EVI successfully in the same session. So at least one of the 48
+"missing" config verdicts is a false negative, and none of them should be acted
+on until the probe is fixed.
+
+Two bugs were already found and fixed in this area, which is why the
+operational half is now sound:
+
+  1. Mode drift. A `?` completion on a config path DESCENDS into that submode,
+     so every later probe was evaluated from wherever the previous one landed.
+     Fixed by returning to `top` before each config probe.
+  2. Buffer desync. The reader could match a prompt left over from the previous
+     probe and return immediately, attributing responses to the wrong command.
+     The evidence was unambiguous: `l2-services evpn X ?` came back as the
+     single token `port-based`, a fragment of the preceding probe. Fixed by
+     draining the channel before every send.
+
+Something in the config path still perturbs the completion listing — most
+likely the candidate configuration accumulating nodes across ~57 probes in one
+session, since each `?` both lists AND descends. The fix direction is a fresh
+`configure`/`abort` cycle per probe, or reading `show configuration` instead of
+trusting completions after the first descent. Not done.
+
+WHY THIS IS REPORTED RATHER THAN QUIETLY FIXED
+-----------------------------------------------
+A verifier that lies about which commands exist is worse than no verifier: it
+sends someone chasing 48 non-bugs and erodes trust in the 31 real ones. Both
+sweeps that produced suspect output were discarded rather than published, and
+this file states the trust boundary explicitly.
+
+The tool reports; it never rewrites the registry. Which spelling is correct is
+a judgement about the product across builds — and this DUT was re-imaged
+mid-session, with LAB 904 and LAB 22 disagreeing about whether EVPN existed at
+all.

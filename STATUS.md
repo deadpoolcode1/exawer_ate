@@ -31,7 +31,7 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Steps → Java suite | `ate codegen` | ✅ compiles, `-Werror -Xlint:all` |
 | Steps → DUT config | (same) | ✅ `.crt` passes their own validator |
 | Test selection | `ate queue` | ✅ dirty queue |
-| **Verify commands on a device** | `ate verify-commands` | ✅ built (read-only, by completion) |
+| **Verify commands on a device** | `ate verify-commands` | ✅ swept 123 templates; show/clear half trusted, config half not yet |
 | **Capture real expectations** | `ate capture` | ✅ 6/11 filled from hardware |
 | Build IXIA traffic items | `ate codegen` | ✅ in code, no `.ixncfg` (src MAC still blocked) |
 
@@ -66,7 +66,7 @@ The DUT was also re-imaged mid-session — 8.7.0 **LAB 904** (no EVPN at all) �
 - **The mechanical path grounds ~10% of its steps.** Registry is auto-derived from the CLI doc (18 curated → **124**). The residue quotes base-CLI commands (`show alarms`, `show platform process`) documented in the **Command Reference Guide, not the EVPN CLI doc** — extracting the CRG is the next lever. Ungrounded rows degrade to compiling TODO stubs; nothing is invented.
 - **Traffic items are now built in code — but the source MAC still can't be set.** `EvpnUtils.createTrafficItems()` builds them over TCL (`configNewTrafficItem` → `…Endpoints` → `…Stream` → `…FrameRate` → `applyTraffic`), with argument order verified against `ixia_lib.tcl`'s proc signatures, so no `.ixncfg` is needed to have traffic at all. **However** that library has `editTrafficRawDestMacAddr` and *no source equivalent*, and EVPN learns from source MACs — so FLOW-030's premise that AC2 and AC3 share a source MAC cannot be expressed. The generated code reports that rather than implying it worked. Not yet run on a chassis: bring-up doesn't reach the test body.
 - **`TC01` does not complete bring-up.** It runs under JUnit+JSystem against the real DUT and reaches ONL-level setup before needing lab-workspace files that live on Exaware's runner.
-- **`ate verify-commands` has not yet had a full clean run.** The mechanism is proven — it is exactly how the three corrections above were found by hand — but the VPN session dropped before a full sweep completed. Re-run when the tunnel is up.
+- **The config half of `verify-commands` is not yet trustworthy.** A full sweep ran over 123 templates: the **show/clear half is sound** (35 supported / 31 missing, spot-checked by hand — e.g. `show interface … detail` genuinely does not exist in this build), and it produced the CLI-doc-vs-build gap mechanically. The **config half is not** — `l2-services evpn %s mac-limit %s` is reported missing while the device itself offers `mac-limit`, so at least one of those 48 verdicts is false and none should be acted on. Two causes were found and fixed (mode drift, buffer desync); a third remains, most likely the candidate config accumulating across ~57 probes in one session. Fix direction: a fresh `configure`/`abort` per probe. See `deliverables/M2/evidence_command_verification.txt`.
 
 ## Blocked on Exaware
 
@@ -75,12 +75,12 @@ The DUT was also re-imaged mid-session — 8.7.0 **LAB 904** (no EVPN at all) �
 | 1 | **Lab workspace for a full bring-up** (site config, ONL images, terminal-server plumbing) | `TC01` stops mid bring-up |
 | 2 | **Ticket ID** for the branch (`AUT-nnn` / `EM-nnnn`) | Blocks handover; push path solved via tate (10.1.70.200) |
 | 3 | **A src-MAC proc in `ixia_lib.tcl`** (their infra file) *or* the `.ixncfg` — traffic itself is now built in code | Blocks only MAC-move/learning assertions |
-| 4 | **5 commands the CLI doc has and the build lacks** (`show evpn bum routing-table`, `show bgp l2vpn evpn table evi evi-name …`) | 5 expectations stay open |
+| 4 | **31 commands the CLI doc has and LAB 22 lacks** — full list in `evidence_command_verification.txt` (`show evpn global`, `… bum routing-table`, `… ethernet-segments`, `… frozen mac-addresses`, `show bgp table evpn ethernet-segment`, `show interface … detail`) | Doc vs build; 5 expectations stay open |
 | 5 | **DUT pc-3021 has a Critical alarm** — `PSU PSU-1 is Failed` | Pre-existing; `@After` alarm checks will look flaky |
 
 ## Next
 
-1. Full `ate verify-commands` sweep, and fix every template it reports
+1. Fix config-mode probing (fresh `configure`/`abort` per probe), then act on the 31 confirmed show/clear mismatches
 2. Extract the Command Reference Guide v8.X.0 → grounds the base-CLI commands (the remaining ~90% of mechanical rows)
 3. Push the branch once a ticket ID exists
 4. Start M3 (multi-router plan generation)
