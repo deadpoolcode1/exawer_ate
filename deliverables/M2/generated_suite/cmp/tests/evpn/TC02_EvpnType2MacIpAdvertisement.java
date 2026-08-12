@@ -44,7 +44,7 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
 
         // FLOW-030.S01 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Clear the EVPN MAC address-table so learning starts clean");
-        cmp1.configAndValidate(EvpnCommands.CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$.args("evi-1"));
+        evpnUtils.configAndVerifyAccepted(EvpnCommands.CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$.args("evi-1"));
 
         // FLOW-030.S02 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Start traffic AC1 -> AC2");
@@ -56,8 +56,8 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
         CompassReporter.warning("FLOW-030.S03: Expected per-port rx rows depend on the .ixncfg port naming and offered rate.");
 
         // FLOW-030.S04 - covers RFC7432bis-section 7.2
-        CompassReporter.stopAndStartLevel(++level + ". Verify AC1 source MACs are learnt on agg-eth-1");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", "agg-eth-1"), testParams.FLOW030_S04_AC1_MACS_LEARNT_LINES);
+        CompassReporter.stopAndStartLevel(++level + ". Verify AC1 source MACs are learnt on agg-eth-1.100");
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", evpnUtils.acInterface(0)), testParams.FLOW030_S04_AC1_MACS_LEARNT_LINES);
         CompassReporter.warning("FLOW-030.S04: Needs real MAC-table output plus the AC1 source-MAC range.");
 
         // FLOW-030.S05 - covers RFC7432bis-section 7.2
@@ -76,11 +76,11 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
 
         // FLOW-030.S08 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Verify AC1 source MACs are still intact in the MAC table");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", "agg-eth-1"), testParams.FLOW030_S04_AC1_MACS_LEARNT_LINES);
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", evpnUtils.acInterface(0)), testParams.FLOW030_S04_AC1_MACS_LEARNT_LINES);
 
         // FLOW-030.S09 - covers RFC7432bis-section 7.2
-        CompassReporter.stopAndStartLevel(++level + ". Verify AC2 source MACs are learnt on agg-eth-2");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", "agg-eth-2"), testParams.FLOW030_S09_AC2_MACS_LEARNT_LINES);
+        CompassReporter.stopAndStartLevel(++level + ". Verify AC2 source MACs are learnt on agg-eth-2.100");
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", evpnUtils.acInterface(1)), testParams.FLOW030_S09_AC2_MACS_LEARNT_LINES);
         CompassReporter.warning("FLOW-030.S09: Needs real MAC-table output plus the AC2 source-MAC range.");
 
         // FLOW-030.S10 - covers RFC7432bis-section 7.2
@@ -106,8 +106,8 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
         evpnUtils.setTrafficItemState(testParams.TI_AC3_TO_AC1, true);
 
         // FLOW-030.S15 - covers RFC7432bis-section 7.2
-        CompassReporter.stopAndStartLevel(++level + ". Verify the AC2 MACs have shifted to agg-eth-3");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", "agg-eth-3"), testParams.FLOW030_S15_MACS_MOVED_TO_AC3_LINES);
+        CompassReporter.stopAndStartLevel(++level + ". Verify the AC2 MACs have shifted to agg-eth-3.100");
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", evpnUtils.acInterface(2)), testParams.FLOW030_S15_MACS_MOVED_TO_AC3_LINES);
         CompassReporter.warning("FLOW-030.S15: Needs real MAC-table output.");
 
         // FLOW-030.S16 - covers RFC7432bis-section 7.2

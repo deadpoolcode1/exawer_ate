@@ -36,31 +36,31 @@ public class TC01_EvpnVlanBasedBringUp extends CmpTestCase {
 
         // FLOW-010.S01 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
         CompassReporter.stopAndStartLevel(++level + ". Create EVPN instance evi-1 with service-type vlan-based");
-        cmp1.configAndValidate(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_SERVICE_TYPE_$.args("evi-1", "vlan-based"));
+        evpnUtils.configAndVerifyAccepted(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_SERVICE_TYPE_$.args("evi-1", "vlan-based"));
 
         // FLOW-010.S02 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
         CompassReporter.stopAndStartLevel(++level + ". Enable auto-discovery on evi-1");
-        cmp1.configAndValidate(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_AUTO_DISCOVERY.args("evi-1"));
+        evpnUtils.configAndVerifyAccepted(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_AUTO_DISCOVERY.args("evi-1"));
 
         // FLOW-010.S03 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
         CompassReporter.stopAndStartLevel(++level + ". Set import-rt / export-rt on evi-1");
-        cmp1.configAndValidate(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$.args("evi-1", "65000:1"));
+        evpnUtils.configAndVerifyAccepted(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$.args("evi-1", "65000:1"));
 
         // FLOW-010.S04 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
         CompassReporter.stopAndStartLevel(++level + ". Set export-rt on evi-1");
-        cmp1.configAndValidate(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$.args("evi-1", "65000:1"));
+        evpnUtils.configAndVerifyAccepted(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$.args("evi-1", "65000:1"));
 
         // FLOW-010.S05 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
-        CompassReporter.stopAndStartLevel(++level + ". Bind access circuit AC1 (agg-eth-1) to evi-1");
-        cmp1.configAndValidate(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$.args("evi-1", "agg-eth-1"));
+        CompassReporter.stopAndStartLevel(++level + ". Bind access circuit AC1 (agg-eth-1.100) to evi-1");
+        evpnUtils.configAndVerifyAccepted(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$.args("evi-1", evpnUtils.acInterface(0)));
 
         // FLOW-010.S06 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
-        CompassReporter.stopAndStartLevel(++level + ". Bind access circuit AC2 (agg-eth-2) to evi-1");
-        cmp1.configAndValidate(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$.args("evi-1", "agg-eth-2"));
+        CompassReporter.stopAndStartLevel(++level + ". Bind access circuit AC2 (agg-eth-2.100) to evi-1");
+        evpnUtils.configAndVerifyAccepted(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$.args("evi-1", evpnUtils.acInterface(1)));
 
         // FLOW-010.S07 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
-        CompassReporter.stopAndStartLevel(++level + ". Bind access circuit AC3 (agg-eth-3) to evi-1");
-        cmp1.configAndValidate(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$.args("evi-1", "agg-eth-3"));
+        CompassReporter.stopAndStartLevel(++level + ". Bind access circuit AC3 (agg-eth-3.100) to evi-1");
+        evpnUtils.configAndVerifyAccepted(EvpnCommands.CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$.args("evi-1", evpnUtils.acInterface(2)));
 
         // FLOW-010.S08 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
         CompassReporter.stopAndStartLevel(++level + ". Verify evi-1 is up and all three ACs are bound");

@@ -5,6 +5,11 @@ mapped to the artifact that satisfies it, plus the evidence behind each claim.
 
 ## SOW M2 deliverables → artifacts
 
+> **Latest run:** SUT **pc-3080** (`exa-il01-uf-3080`, 10.3.80.1), software
+> **8.7.0 LAB 22**, application build `feature/dev64_evpn_23Jul2026`.
+> `TC01_EvpnVlanBasedBringUp` passes end to end — `OK (1 test)`.
+> Start with `evidence_tc01_run_pc3080.txt`, then `lab_validation_pc3080.md`.
+
 | SOW M2 deliverable | Artifact | Evidence |
 |---|---|---|
 | Code generation based on selected tests by Exaware | `generated_suite/cmp/tests/evpn/` (6 files) — driven by `ate codegen --selected-only`, which emits only what the queue marks SELECTED | `evidence_codegen_summary.txt` |
@@ -89,7 +94,14 @@ Both follow the house conventions: `cleanBaseConfig` loads first with
 LOAD_TYPE 1 (override) and the feature `.cfg` merges over it with LOAD_TYPE 2,
 and the `.cfg` names `int1`/`int2`/`int3` placeholders that the `.crt`'s
 find-and-replace table binds to the SUT's `data1` intPool — so one config
-serves every testbed, and it lands on pc3021's pool unchanged.
+serves every testbed. That claim is no longer theoretical: the same files ran
+unchanged on pc-3021 (`edgeCore`) and on pc-3080 (`UfiSpace`), where the
+placeholders resolved to `x-eth 0/0/8`, `0/0/18` and `0/0/26`.
+
+The **Java** now resolves attachment-circuit names from that same intPool at
+run time, rather than using the lab profile's placeholder text. It did not, and
+that sent `agg-eth-1.100` to a box whose ports are `x-eth 0/0/8` — see
+`evidence_tc01_run_pc3080.txt`.
 
 **Traffic items are built in code.** `EvpnUtils.createTrafficItems()` stands up
 the three items over TCL (`configNewTrafficItem` → `…Endpoints` → `…Stream` →
@@ -109,7 +121,9 @@ Three things are deliberately **not** generated:
 - **The underlay** (interface addressing, MPLS/LDP, BGP) — lab data, absent
   from the SFS and CLI doc. Inventing addresses would put fiction into a file
   that gets typed at a real router; it must come from `cleanBaseConfig` or the
-  site config.
+  site config. The attachment-circuit **sub-interfaces** are the one exception,
+  and they are not underlay: a vlan-based EVI refuses to bind anything else, so
+  `interface intN.100 / l2-transport enable` is part of the service under test.
 - **The `.ixncfg`** — a binary IxNetwork save. No longer needed for traffic
   itself (built in code, above), but still the simplest route to source-MAC
   control. No row for it is emitted in the `.crt` at all: a row pointing at a
@@ -120,29 +134,53 @@ Three things are deliberately **not** generated:
 The `.cfg`'s block structure and `!` terminators are derived mechanically from
 flat command syntax and were **confirmed on hardware** (2026-08-11): an EVI was
 configured on the DUT and `show configuration l2-services` printed exactly this
-shape. The `bringUpParams.crt` likewise passes Exaware's own
-`TemplateManager.validateAgainstTemplate`.
+shape. It has since been loaded onto a device for real — pc-3080 accepted the
+whole file and committed it.
+
+The `bringUpParams.crt` passes Exaware's own
+`TemplateManager.validateAgainstTemplate` (matching `bringUpParameters_C0_002`),
+both standalone and inside the live bring-up. The check is not vacuous: adding
+a single `//` line inside one of its tables makes the same validator reject the
+file.
 
 ## Status: what is done and what is open
 
 **Done.** All four M2 bullets. The suite compiles unmodified against
 `cmp-infra-project` + `cmp-tests-project` (953 sources → 1454 classes, zero
 errors; strict `-Werror -Xlint:all` gate on the generated files: zero warnings).
-240 ATE tests pass.
+275 ATE tests pass.
+
+**TC01 now runs green on real hardware.** On SUT **pc-3080**
+(`exa-il01-uf-3080`, 8.7.0 LAB 22) `TC01_EvpnVlanBasedBringUp` completes under
+JUnit + JSystem — `OK (1 test)`, exit 0 — including the full bring-up that
+pc-3021 could not reach. `show evpn detail` on the DUT afterwards lists the EVI
+with its three attachment circuits bound. See `evidence_tc01_run_pc3080.txt`
+and `lab_validation_pc3080.md`.
+
+Two defects were found by that run, and both mattered more than the pass:
+
+- A vlan-based EVI **rejects a physical port** as an attachment circuit; it
+  needs a sub-interface. The generated `.cfg` now creates them, following the
+  stanza Exaware's own VPLS suite uses.
+- Before the fix, three configuration commands were **rejected by the device
+  and the test still passed** — the CLI staged nothing, so the commit had
+  nothing to do, so the framework logged a warning. Generated configuration
+  steps now assert acceptance themselves, and a negative control (an
+  out-of-range sub-interface) confirms the assertion fails when it should.
 
 **Open, and deliberately so.** Expectations that could not be captured stay
 empty and visible — a guessed assertion that silently passes is worse than an
-explicit gap.
+explicit gap. Usable expectations are **2 of 11**, down from 7, because five of
+those seven turned out to be the MAC table's legend with no MAC addresses in
+it. `capture` now rejects those. The suite asserts less and means more;
+`evidence_capture_pc3080.txt` shows one in full.
 
-The DUT was re-imaged mid-session, from `8.7.0 LAB 904` (no EVPN in the data
-model at all) to `LAB 22`, which **has** EVPN. Running against LAB 22 filled
-**6 of 11** expectations from real hardware and overturned three
-document-derived command decisions — see `evidence_device_verified.txt`. The
-remaining 5 name commands this build does not have.
-
+Earlier history, kept because the build matters in every claim: pc-3021 was
+re-imaged mid-session from `8.7.0 LAB 904` (no EVPN in the data model at all)
+to `LAB 22`, which **has** EVPN, and running against it overturned three
+document-derived command decisions — `evidence_device_verified.txt`.
 `lab_validation_pc3021.md` records the LAB 904 state and is superseded on the
-EVPN question; keep it for the rig details (addresses, vports, the origin git
-repo on tate), which are unchanged.
+EVPN question; keep it for that rig's details.
 
 **One CLI-doc anomaly is carried through with a warning, not silently fixed:**
 `unknow-mac-flooding` (missing `n`) is spelled that way in the CLI doc's syntax
@@ -157,7 +195,7 @@ ate codegen -o <out>                     # emit the Java suite
 ate codegen --selected-only              # only what the queue marks SELECTED
 ate queue status                         # dirty-queue state
 ate match plans/EVPN_test_plan_with_RFCs.xlsx
-env -u PYTHONPATH .venv/bin/python -m pytest tests/ -q    # 207 tests
+env -u PYTHONPATH .venv/bin/python -m pytest tests/ -q    # 275 tests
 ```
 
 The compile gate is not reproducible from this repo alone — it needs a mirror

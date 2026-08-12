@@ -6,6 +6,7 @@ import java.util.regex.Pattern;
 
 import cmp.infra.CmpRouter;
 import cmp.infra.Session.ICmpCliCmd;
+import cmp.infra.common.GlobalParam;
 import cmp.infra.ixia.Ixia;
 import cmp.infra.ixia.IxiaFunctions;
 import cmp.infra.reporter.CompassReporter;
@@ -21,6 +22,62 @@ import cmp.infra.reporter.loggerImp;
  * doc and RFC 7432bis.
  */
 public class EvpnUtils implements loggerImp {
+
+    /** intPool in the SUT file that backs the attachment circuits. */
+    private static final String AC_POOL = "data1";
+
+    /** Sub-interface each attachment circuit is created as. */
+    private static final int AC_SUBINTERFACE = 100;
+
+    /**
+     * The attachment circuit as THIS testbed defines it, e.g.
+     * "x-eth 0/0/8.100" - the SUT's intPool entry plus the sub-interface.
+     *
+     * A vlan-based EVI will not accept the bare port; see EVPN_Base.cfg.
+     */
+    public String acInterface(int index) throws Exception {
+        return cmp.getIntPool(AC_POOL).getInter(index).getIntName()
+               + "." + AC_SUBINTERFACE;
+    }
+
+    /**
+     * Run a configuration command and REQUIRE the device to accept it.
+     *
+     * `CmpRouter.configAndValidate` commits and warns when the commit had
+     * nothing to do. That is the right default for their suites, but it means
+     * a command the CLI rejected outright leaves the test green: nothing was
+     * staged, so there is nothing to commit, so there is only a warning. Here
+     * a rejected command is a failed step.
+     */
+    public void configAndVerifyAccepted(ICmpCliCmd command) throws Exception {
+        String output = cmp.runCommandAndSwitch(command.toString(), command);
+        if (wasRejected(output)) {
+            CompassReporter.fail("Device REJECTED '" + command.toString()
+                    + "': " + String.valueOf(output).trim());
+            throw new Exception("device rejected the command: " + command.toString());
+        }
+        cmp.commitAndVerification(command.getCmdSessionType(),
+                GlobalParam.LOAD_CONF_FILE_TIMEOUT_DEFAULT_MSEC);
+    }
+
+    /** Did the CLI refuse the command it was given? */
+    private boolean wasRejected(String output) {
+        if (output == null) {
+            return false;
+        }
+        // Their own pattern first, then the plain reading of the same thing,
+        // so a change in the framework's regexp cannot quietly turn this
+        // assertion off.
+        if (Pattern.compile(GlobalParam.CLI_COMMAND_SYNTAX_ERROR_REGEXP)
+                   .matcher(output).find()) {
+            return true;
+        }
+        String low = output.toLowerCase();
+        return low.contains("syntax error")
+               || low.contains("% invalid input")
+               || low.contains("is not a valid value");
+    }
+
 
     private final EvpnParams params;
     private final CmpRouter cmp;

@@ -1,0 +1,160 @@
+TC01 RUNS GREEN ON REAL HARDWARE — and the run is worth trusting
+================================================================================
+SUT pc-3080 / exa-il01-uf-3080, 10.3.80.1
+Software 8.7.0 LAB 22, application build feature/dev64_evpn_23Jul2026@43f66a385b
+Run 2026-08-12/13, JUnit + JSystem, from the CodeValue dev box over the VPN.
+
+The previous milestone run (pc-3021) stopped part-way through bring-up because
+it needed lab-workspace files that live on Exaware's runner. On pc-3080 the
+whole thing completes:
+
+    Tests run: 1,  Failures: 0
+    OK (1 test)
+    exit status 0
+
+That includes, in order: bringUpParams.crt validated against the stored
+response template, device topology, terminal-server login, ONL-level setup,
+disk checks, cleanBaseConfig loaded (LOAD_TYPE 1), EVPN_Base.cfg merged over it
+(LOAD_TYPE 2), six successful commits, IXIA server connected (10.1.90.80),
+protocols started, ARP sent on all ports, then the ten test steps, then the
+@After checks (no watchdog reboot, alarm history clean, no core files).
+
+
+1. WHY THE FIRST ATTEMPT FAILED, AND WHAT THE DEVICE TAUGHT US
+--------------------------------------------------------------------------------
+The first run on this SUT failed at the commit:
+
+    Aborted: 'l2-services evpn evi-1 interface x-eth 0/0/8': failed,
+    interface x-eth/agg-eth 0/0/8 is not a sub-interface, but the EVPN
+    service-type is vlan-based.
+
+Neither the SFS nor the EVPN CLI doc says this. A VLAN-based EVI will not
+accept a physical or aggregate port as an attachment circuit; the circuit has
+to be a sub-interface. The generator now creates them first:
+
+    interface int1
+     admin-state up
+    !
+    interface int1.100
+     l2-transport enable
+    !
+
+and binds `int1.100` to the EVI. The stanza is not invented: it is the shape
+Exaware's own VPLS suite uses for l2-transport circuits
+(cmp/tests/vpls/configurations/compass/VPLS_N1.cfg), and `l2-transport`'s legal
+values were then confirmed against the device — `enable` / `disable`, default
+`disable`.
+
+After the fix, the device reports the service exactly as intended:
+
+    show evpn detail
+    EVPN name: evi-1
+    Service Type: vlan-based
+    Export-rt: 65000:1
+    Import-rt: 65000:1
+    MAC Aging Time: 300 seconds
+    MAC Limit: 65520
+    Local Interfaces:
+    INTERFACE        ESI    ES LABEL
+    ---------------------------------
+    x-eth0/0/8.100   -      -
+    x-eth0/0/18.100  -      -
+    x-eth0/0/26.100  -      -
+
+
+2. THE MORE IMPORTANT FINDING: THE RUN WAS GREEN WHILE DOING NOTHING
+--------------------------------------------------------------------------------
+On the run before last, three configuration steps were REJECTED by the device
+and the test still passed:
+
+    l2-services evpn evi-1 interface agg-eth-1.100
+    ------------------------------------------------^
+    syntax error: "-1.100" is not a valid value.
+    ...
+    Warning: cmp1: Commit result (% No modifications to commit.).
+
+    Tests run: 1,  Failures: 0        <-- green, having configured nothing
+
+Two separate defects, both ours, both fixed.
+
+(a) The interface name was a PLACEHOLDER used as if it were real.
+    `agg-eth-1` is the lab profile's stand-in. The .cfg always knew that —
+    bringUpParams.crt binds int1/int2/int3 to the SUT's data1 intPool — but the
+    Java steps sent the placeholder text verbatim, to a box whose ports are
+    `x-eth 0/0/8`. The Java now resolves the interface from the same place the
+    .cfg does:
+
+        cmp.getIntPool("data1").getInter(index).getIntName() + "." + 100
+
+    so the suite runs on any testbed rather than on the one whose interface
+    names happened to be typed into the profile. The log now shows
+    `l2-services evpn evi-1 interface x-eth 0/0/8.100`.
+
+(b) A rejected command could not fail the test.
+    CmpRouter.configAndValidate runs the command and then commits. When the CLI
+    rejects a command nothing is staged, so the commit has nothing to do, so the
+    framework reports a WARNING — correct for its own suites, fatal for ours.
+    Generated configuration steps now assert acceptance themselves
+    (EvpnUtils.configAndVerifyAccepted), using Exaware's own
+    GlobalParam.CLI_COMMAND_SYNTAX_ERROR_REGEXP plus a plain reading of the same
+    thing, so a change to that regexp cannot quietly switch the check off.
+
+
+3. NEGATIVE CONTROL — THE ASSERTION HAS TEETH
+--------------------------------------------------------------------------------
+A check that has never been seen to fail is not evidence. The suite was rebuilt
+with one constant changed, AC_SUBINTERFACE 100 -> 9999, which is outside the
+device's documented sub-interface range [1-4094], and re-run against the same
+DUT:
+
+    l2-services evpn evi-1 interface x-eth 0/0/8.9999
+    syntax error: "0/0/8.9999" is not a valid value.
+    Fail: Device REJECTED 'l2-services evpn evi-1 interface x-eth 0/0/8.9999'
+    java.lang.Exception: device rejected the command: ...
+    Tests run: 1,  Failures: 1
+    exit status 1
+
+Same rejection as before the fix. Before: green. After: red. That is the
+difference the fix makes.
+
+
+4. WHAT IS STILL NOT ASSERTED, AND WHY THE PASS IS NARROWER THAN IT LOOKS
+--------------------------------------------------------------------------------
+TC01 passing means: every configuration step was accepted and committed by the
+device, and the bring-up and tear-down completed. It does NOT mean every
+verification step asserted something.
+
+Of the eleven expected-output tables the three suites need, **2** are captured
+and usable; the other 9 report a warning and assert nothing. That is down from
+7 in the previous milestone, and the drop is a correction, not a regression —
+see evidence_capture_pc3080.txt. Five of those seven were the MAC table's
+legend with no MAC addresses in it: an assertion that would have passed on any
+device, working or not.
+
+The blocker is unchanged and is not ours: with no source-MAC control on the
+IXIA there is no traffic that EVPN can learn from, so there is nothing for the
+MAC-table and Type-2 steps to assert.
+
+
+5. HOW IT WAS RUN
+--------------------------------------------------------------------------------
+JSystem's SSH terminal is constructed as `new SSH(host, user, password)` — the
+three-argument form — so the CLI port is hardcoded to 22 and setPort is ignored
+on that path. From a laptop that forces an iptables DNAT onto a loopback alias,
+which needs root. The dev box routes to 10.3.80.1 directly, so the JVM was run
+there instead and the hack disappeared. A portable JDK 17 was unpacked inside
+ilan's own home directory; nothing was installed system-wide, and no Exaware
+source was modified.
+
+    ~/ate-run/            jdk17/ classes/ libs/ extlibs/ run/
+                          cmp-tests-project/src/cmp/tests/evpn/   (.crt, .cfg)
+                          cmp-infra-project/src/main/java/...      (tcl, cfg out)
+    cd ~/ate-run/run && java -cp <jars>:../classes \
+        org.junit.runner.JUnitCore cmp.tests.evpn.TC01_EvpnVlanBasedBringUp
+
+Four environment facts worth recording for the next run, all discovered the
+hard way: JSystem resolves the SUT file under `tests.dir`/sut, not `sut.dir`;
+it rewrites jsystem.properties on startup; the config writer needs
+`<workspace>/cmp-infra-project/src/main/java/cmp/infra/config/exawareCfg/
+exaSystem/` and `run/tempfiles/` to exist; and JDK 17 needs the JAXB jars added
+back for the JUnit reporter.

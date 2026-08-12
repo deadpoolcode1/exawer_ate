@@ -21,7 +21,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 
-OUT = "/home/ilan/Desktop/Exaware_M2_handover_2026-08-12/M2_Handover.docx"
+OUT = "/home/ilan/Desktop/Exaware_M2_handover_2026-08-13/M2_Handover.docx"
 #: Keep in step with deliverables/M2/ — every claim below has an evidence file.
 ACCENT = RGBColor(0x1F, 0x4E, 0x79)
 MUTED = RGBColor(0x59, 0x59, 0x59)
@@ -91,7 +91,7 @@ r.font.color.rgb = ACCENT
 s = doc.add_paragraph()
 s.alignment = WD_ALIGN_PARAGRAPH.CENTER
 r = s.add_run("Dirty Queue & Code Generation · SOW PQ4476E\n"
-              "CodeValue → Exaware · 12 August 2026")
+              "CodeValue → Exaware · 13 August 2026")
 r.font.size = Pt(10)
 r.font.color.rgb = MUTED
 
@@ -119,24 +119,61 @@ r.font.color.rgb = MUTED
 # ── verified ────────────────────────────────────────────────────────────
 h(doc, "Verified on your hardware")
 p = doc.add_paragraph()
-r = p.add_run("SUT pc-3021 / exa-il01-ec-3021, software 8.7.0 LAB 22.")
+r = p.add_run("SUT pc-3080 / exa-il01-uf-3080, software 8.7.0 LAB 22, "
+              "application build feature/dev64_evpn_23Jul2026.")
 r.font.size = Pt(10)
 bullets(doc, [
-    ("Compiles against your framework — ",
-     "953 sources → 1454 classes, zero errors; the generated files pass "
+    ("TC01 runs green, end to end - ",
+     "TC01_EvpnVlanBasedBringUp completes under JUnit + JSystem against the DUT: "
+     "OK (1 test), exit 0. That includes the full bring-up, which is where the "
+     "previous milestone stopped. Afterwards show evpn detail lists evi-1 with its "
+     "three attachment circuits bound."),
+    ("Compiles against your framework - ",
+     "953 sources -> 1454 classes, zero errors; the generated files pass "
      "javac --release 8 -Werror -Xlint:all with zero warnings."),
-    ("bringUpParams.crt passes your own validator — ",
-     "TemplateManager.validateAgainstTemplate returns true (bringUpParameters_C0_002)."),
-    ("The .cfg block shape is confirmed — ",
-     "an EVI was configured and show configuration l2-services printed exactly "
-     "the hierarchy the generator emits."),
-    ("7 of 10 expected-output tables captured from the live device — ",
-     "0 commands unsupported; the remaining 3 need traffic or a BGP peer before "
-     "there is anything to capture."),
-    ("TC01 executed under JUnit + JSystem — ",
-     "reached template validation, device topology, terminal-server login and "
-     "ONL-level setup before needing lab-workspace files that live on your runner."),
+    ("bringUpParams.crt passes your own validator - ",
+     "TemplateManager.validateAgainstTemplate returns true (bringUpParameters_C0_002), "
+     "standalone and inside the live bring-up. Adding one // line inside a table makes "
+     "the same validator reject it, so the check is not vacuous."),
+    ("One .cfg, two different platforms - ",
+     "the same generated files ran unchanged on pc-3021 (edgeCore) and pc-3080 "
+     "(UfiSpace); the int1/int2/int3 placeholders resolved to x-eth 0/0/8, 0/0/18 "
+     "and 0/0/26 from your SUT file."),
+    ("Every command the suite issues exists on this build - ",
+     "ate capture reports 0 unsupported."),
 ])
+
+h(doc, "Two defects the run found, which matter more than the pass", size=11,
+  space_before=10)
+bullets(doc, [
+    ("A vlan-based EVI will not bind a port - ",
+     "the commit is rejected: \"interface x-eth 0/0/8 is not a sub-interface, but the "
+     "EVPN service-type is vlan-based\". This is in neither the SFS nor the CLI doc. "
+     "The generator now creates the attachment circuits as sub-interfaces first, using "
+     "the same stanza your VPLS suite uses."),
+    ("A rejected command could not fail the test - ",
+     "three configuration commands were refused by the CLI and the run stayed green: "
+     "nothing was staged, so the commit had nothing to do, so configAndValidate logged "
+     "a warning. Generated configuration steps now assert acceptance themselves. A "
+     "negative control - an out-of-range sub-interface - turns the same run red, so we "
+     "know the assertion works."),
+])
+
+h(doc, "One number went down on purpose", size=11, space_before=10)
+p = doc.add_paragraph()
+r = p.add_run("Usable captured expectations are 2 of 11, where the last hand-over said 7. "
+              "Five of those seven were the MAC table's legend with no MAC address in it - "
+              "an assertion that passes on any device, working or broken, and could never "
+              "detect a regression. ate capture now refuses them and says why. The suite "
+              "asserts less and means more; 02_evidence/evidence_capture_pc3080.txt shows "
+              "one of the five in full.")
+r.font.size = Pt(10.5)
+p = doc.add_paragraph()
+r = p.add_run("The cause is not the device and not the commands - every command the suite "
+              "issues exists here. It is that there is no traffic to learn from, which is "
+              "the source-MAC item below.")
+r.font.size = Pt(9.5)
+r.font.color.rgb = MUTED
 
 # ── doc corrections ─────────────────────────────────────────────────────
 h(doc, "Corrections your EVPN CLI documentation may want")
@@ -145,8 +182,25 @@ r = p.add_run("Found by running against LAB 22, not by reading.")
 r.font.size = Pt(9.5)
 r.font.color.rgb = MUTED
 table(doc,
-      ["EVPN CLI 1.00 says", "LAB 22 does"],
-      [["show evpn global", "Does not exist — show evpn summary / show evpn detail"],
+      ["The documents say", "8.7.0 LAB 22 does"],
+      [["A vlan-based EVI binds the AC interface",
+        "It rejects a port outright: the AC must be a sub-interface "
+        "(x-eth 0/0/8.100, l2-transport enable)"],
+       ["l2-services evpn <name> has control-word, host "
+        "mac-address-duplicate-detection, Advertise-mac, unknow-mac-flooding, "
+        "es-waiting-time",
+        "The node offers five children only: auto-discovery, interface, "
+        "mac-aging-time, mac-limit, service-type"],
+       ["interface agg-eth <n> ethernet-segment / lacp-key / lacp-system-mac",
+        "No ethernet-segment node under an interface at all - the EVPN "
+        "multi-homing configuration is absent from this build"],
+       ["service-type accepts vlan-aware-bundle / vlan-bundle",
+        "Only port-based and vlan-based"],
+       ["mac-limit default 250000",
+        "Range <1-250000>, default 65520 - 250000 is the configurable maximum"],
+       ["af-l2vpn evpn under BGP",
+        "Only under a neighbour or neighbour-group, and only in vrf default"],
+       ["show evpn global", "Does not exist — show evpn summary / show evpn detail"],
        ["show evpn bum routing-table",
         "Does not exist — show evpn broadcast-domains carries the BUM label"],
        ["show evpn mac-address-table (hyphen)\nclear evpn mac address-table (space)",
@@ -168,15 +222,27 @@ bullets(doc, [
      "MACs — so the local MAC-move case (AC2 and AC3 emitting the same source MAC) "
      "cannot be expressed. A src-MAC proc, or an .ixncfg with the three items, "
      "unblocks TC02 and TC03."),
-    ("Lab-workspace files — ", "site config, ONL images and terminal-server plumbing, "
-     "for a complete bring-up."),
+    ("A BGP EVPN peer for this DUT — ", "the four \"show bgp l2vpn evpn table evi "
+     "detail\" expectations have nothing to show until a peer exists."),
+    ("Confirmation on the absent EVI knobs — ", "control-word, host "
+     "mac-address-duplicate-detection, Advertise-mac, unknow-mac-flooding and the "
+     "interface ethernet-segment tree are in the CLI doc and not in LAB 22. Either "
+     "the document is ahead of the build or the build is missing them; we report it "
+     "rather than guess."),
 ])
+
+p = doc.add_paragraph()
+p.paragraph_format.space_before = Pt(4)
+r = p.add_run("Closed since the last hand-over: lab-workspace files are no longer "
+              "needed - the bring-up completes on pc-3080.")
+r.font.size = Pt(9.5)
+r.font.color.rgb = MUTED
 
 h(doc, "Two things for your attention, neither ours to change", size=11, space_before=10)
 bullets(doc, [
     ("exa-il01-ec-3021 has a standing Critical alarm — ", "PSU PSU-1 is Failed. "
-     "Pre-existing, and CmpTestCase's @After alarm check will make any suite on this "
-     "rig look flaky."),
+     "Pre-existing, and CmpTestCase's @After alarm check will make any suite on that "
+     "rig look flaky. pc-3080 is clean: its raised-alarm history is empty."),
     ("cmp/tests/multiCast/MultiCastParams.java — ", "carries a stray "
      "\"import com.sun.javafx.collections.MappingChange;\", an unused IDE auto-import "
      "that only compiled because Oracle JDK 8 shipped JavaFX internals. It fails on "
@@ -210,27 +276,43 @@ r.font.color.rgb = MUTED
 # ── report ──────────────────────────────────────────────────────────────
 h(doc, "Reading the test report")
 p = doc.add_paragraph()
-r = p.add_run("363 checks — 332 pass, 5 fail, 26 skip.")
+r = p.add_run("389 checks — 358 pass, 5 fail, 26 skip.")
 r.bold = True
 r.font.size = Pt(10.5)
 p = doc.add_paragraph()
-r = p.add_run("All five failures are code-coverage thresholds (70%) on modules added "
-              "late in this milestone: the CLI wiring and the three device-facing "
-              "modules, whose network paths are exercised against real hardware rather "
-              "than in unit tests. There are no functional test failures and no lint "
-              "issues. We are reporting them rather than adjusting the threshold to "
-              "hide them.")
+r = p.add_run("All five failures are code-coverage thresholds (70%) on the CLI wiring "
+              "and the device-facing modules, whose network paths are exercised against "
+              "real hardware rather than in unit tests. verify.py is the lowest of them "
+              "because this round added the session-recovery code that made the "
+              "configuration sweep trustworthy. There are no functional test failures "
+              "and no lint issues. We are reporting them rather than adjusting the "
+              "threshold to hide them.")
 r.font.size = Pt(10.5)
 
-h(doc, "One limit we want to be explicit about", size=11)
+h(doc, "The command sweep — now trustworthy in both halves", size=11)
 p = doc.add_paragraph()
-r = p.add_run("A mechanical sweep of all 123 command templates is included "
-              "(02_evidence/evidence_command_verification.txt). Its show/clear half is "
-              "sound and hand-checked — that is where the documentation corrections "
-              "above come from. Its configuration-mode half is not yet trustworthy: it "
-              "reports commands missing that the device demonstrably offers, and it is "
-              "marked as such. Please do not act on the configuration verdicts.")
+r = p.add_run("The previous hand-over shipped a sweep of all 123 command templates and "
+              "asked you not to act on its configuration-mode half, because it reported "
+              "commands missing that the device demonstrably offers. That is fixed and the "
+              "cause is understood: a \"?\" on a leaf does not list and return - the CLI "
+              "opens an interactive prompt for the value, no prompt character follows, and "
+              "the answer was left in the channel for the next probe to collect. Every "
+              "later verdict then described the wrong command.")
 r.font.size = Pt(10.5)
+p = doc.add_paragraph()
+r = p.add_run("The sweep now recognises that state, escapes it with Ctrl-C without ever "
+              "answering it (this stage is read-only), and proves the channel is back at "
+              "its prompt after every probe - this run needed zero recoveries. Twenty "
+              "verdicts spanning both halves were then established by hand at the CLI and "
+              "compared: 20 of 20 agree. Result: 48 supported, 67 missing, 8 unknown "
+              "(02_evidence/evidence_command_verification.txt).")
+r.font.size = Pt(10.5)
+p = doc.add_paragraph()
+r = p.add_run("\"Missing\" means this build does not offer the command - not that your "
+              "documentation is wrong. The largest block is the EVPN multi-homing "
+              "configuration, which LAB 22 does not expose at all.")
+r.font.size = Pt(9.5)
+r.font.color.rgb = MUTED
 
 p = doc.add_paragraph()
 p.paragraph_format.space_before = Pt(14)

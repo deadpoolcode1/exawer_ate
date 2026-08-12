@@ -1,93 +1,145 @@
-REGISTRY VERIFICATION SWEEP — exa-il01-ec-3021, 8.7.0 LAB 22, 2026-08-12
-=========================================================================
-    ate verify-commands --host 10.3.21.1 --jump ilan@192.168.31.226
+DOES THE DEVICE ACTUALLY OFFER THESE COMMANDS?
+================================================================================
+    ate verify-commands --host 10.3.80.1 --jump ilan@192.168.31.226
 
-123 unique templates probed by CLI completion (read-only; the config-mode
-session is discarded with `abort`).
+SUT pc-3080 / exa-il01-uf-3080, 8.7.0 LAB 22, swept 2026-08-13.
+All 123 command templates in the EvpnCommands registry, probed by CLI
+COMPLETION — never by execution. Running registry entries blind would mean
+firing `clear` and configuration commands at a live device to find out whether
+they parse, which is not an acceptable way to answer the question.
 
-RESULT
-------
-  OPERATIONAL (show / clear)   35 supported   31 missing   of 66   TRUSTWORTHY
-  CONFIG                        8 supported   49 missing   of 57   NOT TRUSTWORTHY
+    supported = 48      missing = 67      unknown = 8      channel recoveries = 0
 
-(Latest sweep 2026-08-12T07:08, 123 templates, build 8.7.0 LAB 22.)
+**Both halves of this report are now trustworthy.** The previous hand-over said
+plainly that the configuration half was not, and asked you not to act on it.
+That is fixed, the cause is understood, and the fix is checked against the
+device by hand — see sections 2 and 3.
 
-TRUST THE OPERATIONAL HALF
----------------------------
-Spot-checked against the device by hand, and the verdicts hold:
 
-  show evpn global            MISSING  — confirmed: "syntax error: unknown
-                                         argument"; `show evpn ?` offers
-                                         summary / detail / mac-address-table /
-                                         broadcast-domains
-  show interface ... detail   MISSING  — confirmed: `show interface ?` offers
-                                         agg-eth, brief, ip, loopback, mgmt,
-                                         x-eth ... and no `detail`. The CLI
-                                         doc's documented form does not exist
-                                         in this build.
-  show evpn mac-address-table SUPPORTED — the hyphen correction, now confirmed
-                                         mechanically as well as by hand
+1. WHAT "MISSING" MEANS, AND WHAT IT DOES NOT
+--------------------------------------------------------------------------------
+`missing` means this build does not offer the command. It does NOT mean the
+CLI documentation is wrong — a document may simply be ahead of the build. The
+tool reports; which spelling is right is a judgement about the product and
+belongs to someone who can see both the device and the specification.
 
-Notable operational MISSING entries — CLI doc has them, this build does not:
+Three verdicts, deliberately distinct:
 
-  show evpn global [name %s]
-  show evpn bum routing-table [...]
-  show evpn ethernet-segments [esi %s]
-  show evpn frozen mac-addresses [...]
-  show bgp l2vpn evpn table evi evi-name %s [detail]
-  show bgp l2vpn evpn neighbors advertised-routes %s detail
-  show bgp table evpn ethernet-segment [...]
-  show interface [agg-eth|loopback|mgmt|x-eth %s] detail
-  clear evpn frozen mac-addresses [...]
+    supported   the parent path lists the token
+    missing     the path or the token is genuinely absent from this build
+    unknown     the sweep COULD NOT ASK - see section 3
 
-That is the gap between the EVPN CLI doc and LAB 22, produced mechanically
-instead of by hand.
+The registry is never rewritten from a sweep.
 
-DO NOT ACT ON THE CONFIG HALF YET
-----------------------------------
-The config-mode probes are demonstrably unreliable. `l2-services evpn %s
-mac-limit %s` is reported MISSING, yet the device itself lists `mac-limit`
-under `l2-services evpn evi-1 ?` — we read that completion by hand, and we
-configured an EVI successfully in the same session. So at least one of the 48
-"missing" config verdicts is a false negative, and none of them should be acted
-on until the probe is fixed.
 
-Two bugs were already found and fixed in this area, which is why the
-operational half is now sound:
+2. THE BUG THAT MADE THE CONFIGURATION HALF LIE
+--------------------------------------------------------------------------------
+A `?` on a *leaf* does not list-and-return. The device starts asking for the
+VALUE, and no prompt is coming:
 
-  1. Mode drift. A `?` completion on a config path DESCENDS into that submode,
-     so every later probe was evaluated from wherever the previous one landed.
-     Fixed by returning to `top` before each config probe.
-  2. Buffer desync. The reader could match a prompt left over from the previous
-     probe and return immediately, attributing responses to the wrong command.
-     The evidence was unambiguous: `l2-services evpn X ?` came back as the
-     single token `port-based`, a fragment of the preceding probe. Fixed by
-     draining the channel before every send.
+    l2-services evpn X service-type ?
+    Possible completions:
+      vlan-based
+      port-based[vlan-based]
+    [port-based,vlan-based]:            <- the device is waiting
 
-A third fix was attempted and did NOT hold: each config probe was given its own
-`configure` / `abort` cycle. On a 4-command spot check that worked perfectly —
-`l2-services evpn X ?` returned exactly `auto-discovery, interface,
-mac-aging-time, mac-limit, service-type`. Across the full 57-probe sweep the
-same stale-fragment symptom returned: `mac-limit` reported missing, with the
-completions recorded as the single token `port-based`.
+Range leaves do the same, over several lines:
 
-The remaining suspect is `abort` itself — with pending candidate changes ConfD
-can ask for confirmation, and one unanswered prompt leaves the channel a
-response behind for everything after it. Next fix: answer that prompt, or open
-a fresh SSH session per config probe (slow, but unambiguous).
+    l2-services evpn X mac-limit ?
+    (<1-250000>    maximum MAC learned (default 65520)
+      Currently configured):
 
-Until then the config verdicts are NOT actionable. The operational half is
-unaffected — it never enters configuration mode, and its verdicts were
-confirmed by hand.
+The reader did not recognise that as "waiting", so it burned its full timeout
+and returned a partial buffer — and the device's answer stayed in the channel
+until the NEXT probe collected it. From that point on every verdict described
+the wrong command. That is why `l2-services evpn %s mac-limit %s` was once
+reported missing on a device that demonstrably has `mac-limit`.
 
-WHY THIS IS REPORTED RATHER THAN QUIETLY FIXED
------------------------------------------------
-A verifier that lies about which commands exist is worse than no verifier: it
-sends someone chasing 48 non-bugs and erodes trust in the 31 real ones. Both
-sweeps that produced suspect output were discarded rather than published, and
-this file states the trust boundary explicitly.
+Three fixes:
 
-The tool reports; it never rewrites the registry. Which spelling is correct is
-a judgement about the product across builds — and this DUT was re-imaged
-mid-session, with LAB 904 and LAB 22 disagreeing about whether EVPN existed at
-all.
+  * the value prompt is recognised as a waiting state;
+  * it is escaped with Ctrl-C, which the device answers `Error: user aborted`.
+    The prompt is NEVER answered — answering is a write to a live device, and
+    this stage is read-only;
+  * after every probe the sweep proves the channel is back at its prompt, and
+    re-opens the shell if it is not. This run needed **0** recoveries.
+
+Two smaller reading errors were fixed at the same time:
+
+  * the device appends a leaf's current value to its own name with no
+    separator, so `port-based[vlan-based]` IS the token `port-based`. Compared
+    raw it never matched, and a correct command read as missing.
+  * templates that spell an argument `<value>` instead of `%s` were being
+    probed for a literal token `<value>`, which no device will ever offer. Those
+    five could only ever report missing, on any build.
+
+
+3. "UNKNOWN" — THE PROBES THAT CANNOT BE ASKED (8)
+--------------------------------------------------------------------------------
+All eight are the BGP EVPN address-family templates:
+
+    routing bgp %s vrf %s neighbor %s af-l2vpn evpn ...
+
+The sweep substitutes a placeholder for each argument, and the device rejects
+it as a key before the path is ever walked:
+
+    routing bgp X vrf X neighbor X af-l2vpn ?
+    syntax error: "X" is not a valid value.
+
+`af-l2vpn evpn` **does exist** on this build — with a real AS number and a real
+neighbour address the device offers `evpn` and `vpls`:
+
+    routing bgp 100 vrf default neighbor 1.1.1.1 af-l2vpn ?
+    Possible completions:
+      evpn
+      vpls
+
+Reporting those as `missing` would send someone to fix commands that are
+correct, so they are reported as unaskable instead. Worth noting from the same
+probe: `af-l2vpn` appears **only under a neighbour or neighbour-group, and only
+in `vrf default`** — it is not a VRF-level node, and a non-default VRF does not
+offer it.
+
+
+4. THE VERDICTS WERE CHECKED BY HAND
+--------------------------------------------------------------------------------
+A sweep that grades itself is not evidence. Twenty verdicts spanning both
+halves were established independently, by driving the CLI by hand, and then
+compared with what the tool reported:
+
+    20 of 20 agree.
+
+Including the ones that previously went wrong: `mac-limit`, `service-type`,
+`auto-discovery`, `interface` and `mac-aging-time` all supported;
+`unknow-mac-flooding` and `es-waiting-time` missing; `vlan-bundle` and
+`vlan-aware-bundle` missing; `import-rt` / `export-rt` supported under
+`auto-discovery`; `ethernet-segment` and `lacp-key` missing under an interface;
+the four `show evpn` sub-commands supported; and the BGP af-l2vpn probe
+unknown.
+
+
+5. WHAT THIS BUILD DOES NOT HAVE, THAT THE DOCUMENTS DESCRIBE
+--------------------------------------------------------------------------------
+The EVI node offers exactly five children:
+
+    l2-services evpn <name> ?
+      auto-discovery   interface   mac-aging-time   mac-limit   service-type
+
+so `control-word`, `host mac-address-duplicate-detection`, `Advertise-mac`,
+`unknow-mac-flooding` and `es-waiting-time` are **not configurable here**. They
+are not imaginary — `show evpn detail` displays the state of several of them —
+so they read as status this build exposes without a configuration knob.
+
+`interface agg-eth <n> ?` offers no `ethernet-segment` node at all, and no
+`lacp-key` / `lacp-system-mac`: the EVPN multi-homing configuration is absent
+from LAB 22. That is the largest single block of `missing` verdicts.
+
+`service-type` accepts `port-based` and `vlan-based` only.
+
+Carried over from pc-3021 and unchanged: `show evpn global`,
+`show evpn bum routing-table`, `show evpn ethernet-segments`,
+`show evpn frozen mac-addresses`, `show bgp table evpn ethernet-segment` and
+`show interface ... detail` do not exist on this build.
+
+The full machine-readable result, with the completions the device offered for
+every probe, is `evidence_verified_commands.json`.

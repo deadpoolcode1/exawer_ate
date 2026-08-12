@@ -1,0 +1,96 @@
+CAPTURED EXPECTATIONS — pc-3080, and why the usable count went DOWN
+================================================================================
+Run 2026-08-13 against SUT pc-3080, DUT exa-il01-uf-3080 (10.3.80.1),
+8.7.0 LAB 22, through the CodeValue dev box.
+
+    ate capture --host 10.3.80.1 --jump ilan@192.168.31.226
+
+Captured with evi-1 configured and up on the DUT (TC01 had just run), so these
+are the answers of a device that genuinely has the service, not of an empty box.
+
+
+1. RESULT
+--------------------------------------------------------------------------------
+    ok = 2      empty = 9      unsupported = 0      usable = 2 of 11
+
+    [OK   ] FLOW010_S08_EVPN_DETAIL_LINES          show evpn detail
+    [OK   ] FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES show evpn broadcast-domains name evi-1
+    [EMPTY] FLOW010_S09_MAC_TABLE_EMPTY_LINES      show evpn mac-address-table name evi-1
+    [EMPTY] FLOW010_S10_TYPE3_ADVERTISED_LINES     show bgp l2vpn evpn table evi detail
+    [EMPTY] FLOW030_S04_AC1_MACS_LEARNT_LINES      ... source <AC1>
+    [EMPTY] FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES show bgp l2vpn evpn table evi detail
+    [EMPTY] FLOW030_S09_AC2_MACS_LEARNT_LINES      ... source <AC2>
+    [EMPTY] FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES show bgp l2vpn evpn table evi detail
+    [EMPTY] FLOW030_S15_MACS_MOVED_TO_AC3_LINES    ... source <AC3>
+    [EMPTY] FLOW031_S04_MACS_AGED_OUT_LINES        show evpn mac-address-table name evi-1
+    [EMPTY] FLOW031_S05_TYPE2_WITHDRAWN_LINES      show bgp l2vpn evpn table evi detail
+
+**0 unsupported.** Every command the suite issues exists on this build. That is
+the number that says the registry is right.
+
+
+2. THE COUNT DROPPED FROM 7 TO 2, AND THAT IS THE POINT
+--------------------------------------------------------------------------------
+The first capture run on this DUT reported 7 usable expectations, the same as
+the previous milestone. Five of them were worthless, and `capture` was the thing
+that should have caught it. Here is one, in full, exactly as recorded:
+
+    FLOW030_S04_AC1_MACS_LEARNT_LINES   (status: ok)
+    show evpn mac-address-table name evi-1 source agg-eth-1.100
+        'LOC:  L - local, R - remote'
+        'L-FL: D - dynamic, S - static'
+        'R-FL: N -learnt, U - Unlearnt'
+        'ACT:  S - Single-Active, A - All-Active'
+        'EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960'
+
+That is the table's legend and header. There is not a single MAC address in it.
+The step it belongs to is called "Verify AC1 source MACs are learnt". An
+assertion built from those lines passes whenever the device prints its legend —
+which is always, on a working device and a broken one alike. It could never
+fail, so it could never detect a regression.
+
+`capture` already refused to record a rejection or an explicit "no entries
+found" as an expectation. It now also refuses a MAC table that contains no MAC
+address, and says why:
+
+    the MAC table printed its legend but no MAC addresses - nothing has been
+    learnt yet, so there is no expectation here that could ever fail
+
+Nine steps now report a warning instead of a false assertion. The suite asserts
+less and means more.
+
+
+3. WHY THE MAC TABLES ARE EMPTY
+--------------------------------------------------------------------------------
+Not a device problem and not a command problem — there is no traffic. EVPN
+learns from SOURCE MACs, and `ixia_lib.tcl` exposes
+`editTrafficRawDestMacAddr` with no source equivalent. Until there is a
+src-MAC proc or an .ixncfg carrying the three traffic items, nothing is offered
+for the DUT to learn, so the MAC-table and Type-2 rows have nothing to show.
+
+The four `show bgp l2vpn evpn table evi detail` rows are empty for the matching
+reason on the control plane: no BGP EVPN peer is wired to this DUT, so no
+Type-2 or Type-3 route is originated or received.
+
+Both are recorded as EMPTY — "needs state" — rather than UNSUPPORTED, because
+the distinction matters: UNSUPPORTED sends someone to fix a command that is
+already correct.
+
+
+4. WHAT THE TWO USABLE CAPTURES ARE WORTH
+--------------------------------------------------------------------------------
+`show evpn detail` and `show evpn broadcast-domains name evi-1` return real,
+state-dependent content on a configured EVI — the service type, the route
+targets, the aging time, the MAC limit, and the three bound interfaces. They
+would change if the service were misconfigured, so they can fail, so they are
+worth asserting.
+
+Real defaults read off this build, for the record:
+
+    MAC Aging Time    300 seconds     (the CLI doc is right)
+    MAC Limit         65520           (range <1-250000>; 250000 is the
+                                       configurable maximum, not the default)
+    Advertise MAC     Enabled
+    ES DF Waiting     3 seconds
+    Control Word      Disabled
+    Unknown MAC Flooding  Disabled

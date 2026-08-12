@@ -1,7 +1,7 @@
 # ATE — Project Status
 
 **SOW:** PQ4476E — AI-Assisted Test Plan & Automation Skeleton Generator (10 weeks, 5 milestones)
-**Updated:** 2026-08-12
+**Updated:** 2026-08-13
 
 ## Milestones
 
@@ -31,8 +31,9 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Steps → Java suite | `ate codegen` | ✅ compiles, `-Werror -Xlint:all` |
 | Steps → DUT config | (same) | ✅ `.crt` passes their own validator |
 | Test selection | `ate queue` | ✅ dirty queue |
-| **Verify commands on a device** | `ate verify-commands` | ✅ swept 123 templates; show/clear half trusted, config half not yet |
-| **Capture real expectations** | `ate capture` | ✅ **7 captured, 3 empty, 0 unsupported** |
+| **Verify commands on a device** | `ate verify-commands` | ✅ 123 templates; **both halves now trustworthy** |
+| **Capture real expectations** | `ate capture` | ✅ **2 usable, 9 empty, 0 unsupported** |
+| **Run the suite on the DUT** | `javac` + JUnit/JSystem | ✅ **TC01 green on pc-3080** |
 | Build IXIA traffic items | `ate codegen` | ✅ in code, no `.ixncfg` (src MAC still blocked) |
 
 ## M2 — SOW bullets
@@ -44,49 +45,90 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Demo: extract requirements from docs | ✅ 133 reqs → 269 plan rows |
 | Up to 3 integration-ready test plans | ✅ compile against the real framework |
 
-Gates: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`; `bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 242 ATE tests pass.
+Gates: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`;
+`bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 275 ATE tests pass.
 
 ## The device loop — why it exists
 
-Added 2026-08-11 after running on SUT pc-3021. "Grounded in the documents" is necessary and **not sufficient**: the device overturned three decisions we had reasoned to from the specs.
+"Grounded in the documents" is necessary and **not sufficient**. Two SUTs have
+now overturned decisions we had reasoned to from the specs.
 
 | We had | The device says |
 |---|---|
 | `show evpn mac address-table` | **`mac-address-table`** (hyphen) |
 | `clear evpn mac-address-table` | **`mac address-table`** (space) — the product uses *both*, per command |
 | `show evpn global` | no such command — `summary` / `detail` |
-| `show evpn bum routing-table` | no such command — `broadcast-domains` carries the BUM label |
 | `l2-services evpn <n> import-rt` | lives under `auto-discovery` |
-| `show interface … detail` | no `detail` under `show interface` |
-| `show bgp l2vpn evpn table evi evi-name <n>` | only the bare `… table evi [detail]` works without BGP state |
+| A vlan-based EVI binds the AC port | **it refuses** — the AC must be a sub-interface |
+| `l2-services evpn <n>` has ~9 knobs | **five**: `auto-discovery`, `interface`, `mac-aging-time`, `mac-limit`, `service-type` |
+| `interface … ethernet-segment …` | no `ethernet-segment` node at all on LAB 22 |
+| `mac-limit` default 250000 | range `<1-250000>`, **default 65520** |
 
-The first two are the cautionary pair: we overrode the CLI doc's syntax cell using three *other* agreeing sources and were wrong, then propagated that "fix" onto the `clear` form and broke it too. The doc was never self-contradictory — the product genuinely spells the two commands differently. **Device output outranks any number of agreeing documents.** Detail in `deliverables/M2/evidence_device_verified.txt`.
+**Device output outranks any number of agreeing documents.** Detail in
+`deliverables/M2/evidence_device_verified.txt` and `lab_validation_pc3080.md`.
 
-Every command the suite uses is now confirmed present: `ate capture` reports **0 unsupported**, 7 captured, 3 empty pending traffic/BGP state.
+Any claim about the build must name the build: pc-3021 was re-imaged mid-session
+(LAB 904 → LAB 22), and pc-3080 runs LAB 22 / `feature/dev64_evpn_23Jul2026`.
 
-The DUT was also re-imaged mid-session — 8.7.0 **LAB 904** (no EVPN at all) → **LAB 22** (EVPN present). Any claim about the build must name the build.
+## TC01 runs green on hardware — and what that is worth
+
+On **pc-3080** (`exa-il01-uf-3080`), `TC01_EvpnVlanBasedBringUp` completes under
+JUnit + JSystem: `OK (1 test)`, exit 0, full bring-up included. Afterwards the
+DUT shows `evi-1` with its three attachment circuits bound.
+
+Two defects that run exposed matter more than the pass:
+
+1. A vlan-based EVI rejects a port as an attachment circuit. Now generated as
+   sub-interfaces, following the stanza Exaware's own VPLS suite uses.
+2. **Three configuration commands were rejected by the device and the test
+   still passed** — nothing was staged, so the commit had nothing to do, so the
+   framework logged a warning. Generated config steps now assert acceptance
+   themselves; a negative control (out-of-range sub-interface) turns the run red.
+
+`deliverables/M2/evidence_tc01_run_pc3080.txt`.
 
 ## Honest limits
 
-- **The 3 delivered suites are hand-curated at step level.** The tool emits the Java; a human wrote the 33 steps. Mechanically generated suites are prefixed `TCM<nnn>` so the two can never be confused.
-- **The mechanical path grounds ~10% of its steps.** Registry is auto-derived from the CLI doc (18 curated → **124**). The residue quotes base-CLI commands (`show alarms`, `show platform process`) documented in the **Command Reference Guide, not the EVPN CLI doc** — extracting the CRG is the next lever. Ungrounded rows degrade to compiling TODO stubs; nothing is invented.
-- **Traffic items are now built in code — but the source MAC still can't be set.** `EvpnUtils.createTrafficItems()` builds them over TCL (`configNewTrafficItem` → `…Endpoints` → `…Stream` → `…FrameRate` → `applyTraffic`), with argument order verified against `ixia_lib.tcl`'s proc signatures, so no `.ixncfg` is needed to have traffic at all. **However** that library has `editTrafficRawDestMacAddr` and *no source equivalent*, and EVPN learns from source MACs — so FLOW-030's premise that AC2 and AC3 share a source MAC cannot be expressed. The generated code reports that rather than implying it worked. Not yet run on a chassis: bring-up doesn't reach the test body.
-- **`TC01` does not complete bring-up.** It runs under JUnit+JSystem against the real DUT and reaches ONL-level setup before needing lab-workspace files that live on Exaware's runner.
-- **The config half of `verify-commands` is not yet trustworthy.** A full sweep ran over 123 templates: the **show/clear half is sound** (35 supported / 31 missing, spot-checked by hand — e.g. `show interface … detail` genuinely does not exist in this build), and it produced the CLI-doc-vs-build gap mechanically. The **config half is not** — `l2-services evpn %s mac-limit %s` is reported missing while the device itself offers `mac-limit`, so at least one of those 48 verdicts is false and none should be acted on. Three fixes so far (mode drift, buffer desync, per-probe `configure`/`abort`); the last works on a 4-command spot check but not across a 57-probe sweep. Remaining suspect: `abort` prompting for confirmation with pending changes, leaving the channel one response behind. Next: answer that prompt or use a fresh SSH session per config probe. See `deliverables/M2/evidence_command_verification.txt`.
+- **A green TC01 is narrower than it sounds.** It means every configuration step
+  was accepted and committed and the bring-up completed. It does **not** mean
+  the verification steps asserted anything: **2 of 11** expectations are
+  captured and usable, the other 9 report a warning.
+- **Usable expectations dropped from 7 to 2, and that is a correction.** Five of
+  the previous seven were the MAC table's legend with no MAC address in it — an
+  assertion that passes on any device, working or broken. `capture` now refuses
+  them.
+- **The 3 delivered suites are hand-curated at step level.** The tool emits the
+  Java; a human wrote the 33 steps. Mechanically generated suites are prefixed
+  `TCM<nnn>` so the two can never be confused.
+- **The mechanical path grounds ~10% of its steps.** Registry auto-derived from
+  the CLI doc (18 curated → 124). The residue quotes base-CLI commands
+  documented in the **Command Reference Guide, not the EVPN CLI doc** —
+  extracting the CRG is the next lever. Ungrounded rows degrade to compiling
+  TODO stubs; nothing is invented.
+- **Traffic items are built in code — the source MAC still cannot be set.**
+  `ixia_lib.tcl` has `editTrafficRawDestMacAddr` and no source equivalent, and
+  EVPN learns from source MACs, so FLOW-030's premise that AC2 and AC3 share a
+  source MAC cannot be expressed. With no traffic there is nothing to learn,
+  which is why the MAC-table expectations stay empty.
+- **`verify-commands` is now trustworthy in both halves, after a real bug.** A
+  `?` on a leaf drops the CLI into an interactive *value* prompt; the reader
+  waited out its timeout and the answer was collected by the *next* probe, so
+  later verdicts described the wrong command. Fixed by recognising the value
+  prompt, escaping it with Ctrl-C (never answering — that would be a write), and
+  proving the channel is resynced after every probe. Verdicts were then
+  spot-checked by hand against the device.
 
 ## Blocked on Exaware
 
 | # | Item | Impact |
 |---|---|---|
-| 1 | **Lab workspace for a full bring-up** (site config, ONL images, terminal-server plumbing) | `TC01` stops mid bring-up |
-| 2 | **Ticket ID** for the branch (`AUT-nnn` / `EM-nnnn`) | Blocks handover; push path solved via tate (10.1.70.200) |
-| 3 | **A src-MAC proc in `ixia_lib.tcl`** (their infra file) *or* the `.ixncfg` — traffic itself is now built in code | Blocks only MAC-move/learning assertions |
-| 4 | **31 commands the CLI doc has and LAB 22 lacks** — full list in `evidence_command_verification.txt` (`show evpn global`, `… bum routing-table`, `… ethernet-segments`, `… frozen mac-addresses`, `show bgp table evpn ethernet-segment`, `show interface … detail`) | Doc vs build; 5 expectations stay open |
-| 5 | **DUT pc-3021 has a Critical alarm** — `PSU PSU-1 is Failed` | Pre-existing; `@After` alarm checks will look flaky |
+| 1 | **A src-MAC proc in `ixia_lib.tcl`** (their infra file) *or* the `.ixncfg` | No traffic to learn from → 9 of 11 expectations stay empty; blocks the MAC-move assertions |
+| 2 | **A BGP EVPN peer** for the DUT | The four `show bgp l2vpn evpn table evi detail` expectations have nothing to show |
+| 3 | **Ticket ID** for the branch (`AUT-nnn` / `EM-nnnn`) | Blocks handover under its real name; push path solved via tate (10.1.70.200) |
+| 4 | **Confirmation on the EVI knobs and multi-homing config absent from LAB 22** | Either the CLI doc is ahead of the build or the build lacks them — we report, we do not guess |
 
 ## Next
 
-1. Fix config-mode probing (fresh `configure`/`abort` per probe), then act on the 31 confirmed show/clear mismatches
-2. Extract the Command Reference Guide v8.X.0 → grounds the base-CLI commands (the remaining ~90% of mechanical rows)
-3. Push the branch once a ticket ID exists
-4. Start M3 (multi-router plan generation)
+1. Extract the Command Reference Guide v8.X.0 → grounds the base-CLI commands (the remaining ~90% of mechanical rows)
+2. Push the branch once a ticket ID exists
+3. Start M3 (multi-router plan generation)
