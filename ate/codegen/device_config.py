@@ -268,11 +268,21 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         f"{'verify LCs are card ready state':<35}{'':<66}{'y':<18}y",
         f"{'':<10}{'':<14}{'verifyInts':<23}"
         f"{'verify interfaces are up':<35}{'':<66}{'y':<18}n",
-        f"{'':<10}{ixia:<14}{'startProtocols':<23}"
-        f"{'start protocols':<35}{'':<66}{'y':<18}n",
-        f"{'':<10}{'':<14}{'sendArpAllPorts':<23}"
-        f"{'send arp for all ports':<35}{'':<66}{'y':<18}n",
         "",
     ]
     return JavaFile(path="cmp/tests/evpn/bringUpParams.crt",
                     content="\n".join(out))
+
+
+#: Why `startProtocols` / `sendArpAllPorts` are NOT in the before/after table.
+#:
+#: The VPLS suite runs both, because its `.ixncfg` carries emulated protocol
+#: sessions to start and hosts to ARP for. This suite has neither: it builds
+#: raw traffic items in code and configures no protocols. Asking the chassis to
+#: start protocols it does not have is not harmless - on pc-3080 `startProtocols`
+#: blocked until the 120 s command timeout and failed the run.
+#:
+#: It looked harmless for a long time only because the TCL library was never
+#: loaded, so the call answered `invalid command name` and `performFunctions`
+#: reported "ended without errors".
+_OMITTED_IXIA_ACTIONS = ("startProtocols", "sendArpAllPorts")

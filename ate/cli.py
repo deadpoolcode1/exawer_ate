@@ -101,6 +101,12 @@ def main(argv: list[str] | None = None) -> int:
                       help="Only emit tests the dirty queue marks SELECTED "
                            "(the SOW's 'code generation based on selected "
                            "tests'); refreshes and updates the queue")
+    p_cg.add_argument("--captures", default="out/captured_expectations.json",
+                      metavar="JSON",
+                      help="Expectations captured from a real device by "
+                           "`ate capture`. Usable ones are compiled into "
+                           "EvpnParams; the rest stay empty and keep warning. "
+                           "Pass '' to generate without any.")
     p_cg.add_argument("--queue", default=None,
                       help="Queue file path (default: out/codegen_queue.json)")
     p_cap = sub.add_parser("capture",
@@ -354,7 +360,8 @@ def _cmd_codegen(args) -> int:
             return 1
         result = generate_evpn_suite(args.sfs, args.cli_doc,
                                      plan_xlsx=args.from_plan,
-                                     plan_flows=plan_flows)
+                                     plan_flows=plan_flows,
+                                     captures_path=args.captures or None)
     except UngroundedCommandError as e:
         print(f"error: {e}")
         return 1

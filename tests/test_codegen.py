@@ -1148,3 +1148,91 @@ def test_prompt_does_not_swallow_output_lines():
                  "MAC Limit          65520",
                  "Total entries: 3"):
         assert not _PROMPT.search(line), f"real output line {line!r} mistaken for a prompt"
+
+
+# ── PIPELINE RULE: nothing may fake a pass ──────────────────────────────
+#
+# Every case below is one that actually happened on hardware. A red test gets
+# fixed; a green test that checks nothing gets trusted, which is worse than
+# having no test at all.
+
+LEGEND_ONLY_CAPTURE = {
+    "FLOW030_S04_AC1_MACS_LEARNT_LINES": {
+        "lines": [
+            "LOC:  L - local, R - remote",
+            "L-FL: D - dynamic, S - static",
+            "ACT:  S - Single-Active, A - All-Active",
+            "--------------------------------------",
+            "INTERFACE  ESI  ES LABEL",
+        ],
+        "command": "show evpn mac-address-table name evi-1",
+        "host": "10.3.80.1", "build": "8.7.0: LAB 22", "captured_at": "now",
+    },
+}
+
+REAL_CAPTURE = {
+    "FLOW010_S08_EVPN_DETAIL_LINES": {
+        "lines": ["EVPN name: evi-1", "Service Type: vlan-based",
+                  "MAC Limit: 65520"],
+        "command": "show evpn detail",
+        "host": "10.3.80.1", "build": "8.7.0: LAB 22", "captured_at": "now",
+    },
+}
+
+
+def test_an_expectation_of_pure_table_furniture_is_rejected(scripts):
+    """It would match on a device where the feature does nothing."""
+    from ate.codegen.fake_pass import audit
+
+    violations = audit(scripts, LEGEND_ONLY_CAPTURE)
+    assert violations, "a legend-only expectation must be caught"
+    assert violations[0].rule == "unfalsifiable-expectation"
+
+
+def test_a_real_capture_is_not_flagged(scripts):
+    from ate.codegen.fake_pass import audit
+
+    assert audit(scripts, REAL_CAPTURE) == []
+
+
+def test_generation_stops_on_an_unfalsifiable_expectation(scripts):
+    """Fatal, like an ungrounded command - not a warning nobody reads."""
+    from ate.codegen.fake_pass import FakePassError, audit
+
+    violations = audit(scripts, LEGEND_ONLY_CAPTURE)
+    with pytest.raises(FakePassError):
+        raise FakePassError("; ".join(str(v) for v in violations))
+
+
+def test_the_census_counts_what_can_actually_fail(scripts):
+    from ate.codegen.fake_pass import assertion_census
+
+    census = assertion_census(scripts, REAL_CAPTURE)
+    assert census.falsifiable == ["FLOW-010.S08"]
+    assert census.warns_only, "the rest must be reported as warn-only"
+    assert census.total == len(census.falsifiable) + len(census.warns_only)
+
+
+def test_every_test_class_refuses_to_pass_without_verifying_something(files):
+    """The run-time half: emptiness is only knowable on the device."""
+    for f in files:
+        if f.class_name.startswith("TC"):
+            assert "evpnUtils.assertSomethingWasVerified();" in f.content, \
+                f"{f.class_name} could report a pass having verified nothing"
+
+
+def test_a_no_change_assertion_refuses_an_empty_baseline(files):
+    """"Nothing changed" is trivially true when there was nothing to change."""
+    utils = next(f for f in files if f.class_name == "EvpnUtils").content
+    assert "isEmptyTable(before)" in utils
+    assert "NOT ASSERTED" in utils
+    # and it must not be counted as an assertion in that case
+    before_guard = utils.index("isEmptyTable(before)")
+    after_guard = utils.index("falsifiableAssertions++", before_guard)
+    assert utils.index("return;", before_guard) < after_guard
+
+
+def test_only_the_non_empty_path_counts_as_an_assertion(files):
+    utils = next(f for f in files if f.class_name == "EvpnUtils").content
+    assert utils.count("falsifiableAssertions++") == 2, \
+        "exactly the show-lines and the no-change paths may count"

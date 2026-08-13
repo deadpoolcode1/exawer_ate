@@ -119,6 +119,8 @@ public class TC02_EvpnType2MacIpAdvertisement extends CmpTestCase {
         evpnUtils.verifyIxiaStatistics("Verify AC1 -> AC2 traffic now forwards out AC3", testParams.FLOW030_S17_UNICAST_TO_AC3_ROWS);
         CompassReporter.warning("FLOW-030.S17: Expected rows depend on .ixncfg port naming.");
 
+        // PIPELINE RULE: a test that verified nothing is not a pass.
+        evpnUtils.assertSomethingWasVerified();
         CompassReporter.stopLevel();
     }
 }

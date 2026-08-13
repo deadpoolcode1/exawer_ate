@@ -192,7 +192,57 @@ def emit_commands() -> JavaFile:
 
 # ── EvpnParams ──────────────────────────────────────────────────────────────
 
-def emit_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
+#: Regex metacharacters that appear in ordinary device output and would
+#: otherwise change what an expectation means. `Local Label: 40960` is
+#: harmless; `Move Interval: 180 seconds (default)` is not — an unescaped `(`
+#: turns the line into a capture group and the match silently stops meaning
+#: what it says.
+_RE_META = set(r".^$*+?()[]{}|\\")
+
+
+def _line_to_regex(line: str) -> str:
+    """A captured line as a regex that matches THAT line and little else.
+
+    Two deliberate choices:
+
+    * every metacharacter is escaped, so the expectation asserts the text the
+      device actually printed rather than an accident of punctuation;
+    * runs of whitespace become `\\s+`, because these tables are column-padded
+      and the padding shifts with the width of neighbouring values. Asserting
+      the exact number of spaces would make the test fail on a longer EVI name
+      while the behaviour it checks is unchanged.
+    """
+    out = []
+    for chunk in line.strip().split():
+        out.append("".join("\\" + c if c in _RE_META else c for c in chunk))
+    return "\\s+".join(out)
+
+
+def _captured_expectation(key: str, st: Step, cap: dict) -> list[str]:
+    """One expectation constant, filled from real device output.
+
+    The provenance is part of the artifact, not a commit message: an
+    expectation whose origin is unknown cannot be reviewed, and these are the
+    lines that decide whether a test passes.
+    """
+    lines = [
+        _ascii(f"    /** {st.id} - {st.text}"),
+        _ascii(f"     *  Captured from {cap.get('host', '?')} "
+               f"({cap.get('build', '?')}) on {cap.get('captured_at', '?')}"),
+        _ascii(f"     *  Command: {cap.get('command', '?')}"),
+        "     */",
+        f"    public final String[] {key} = new String[] {{",
+    ]
+    body = cap.get("lines") or []
+    for i, raw in enumerate(body):
+        sep = "," if i < len(body) - 1 else ""
+        lines.append(f"        {_jstr(_line_to_regex(raw))}{sep}")
+    lines.append("    };")
+    return lines
+
+
+def emit_params(scripts: list[TestScript], lab: LabProfile,
+                captures: dict | None = None) -> JavaFile:
     """Expected values and lab bindings.
 
     Every `expect_key` referenced by a step becomes a `String[]` constant. Keys
@@ -288,7 +338,10 @@ def emit_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
     ]
     for key in sorted(seen):
         st = seen[key]
-        if st.todo:
+        cap = (captures or {}).get(key)
+        if cap:
+            lines += _captured_expectation(key, st, cap)
+        elif st.todo:
             lines.append(_ascii(
                 f"    /** {st.id} - NOT YET VALIDATED. {st.todo} */"))
             lines.append(f"    public final String[] {key} = new String[] {{}};")
@@ -369,6 +422,7 @@ _UTILS_BODY = '''
             }
         }
 
+        falsifiableAssertions++;
         CompassReporter.passFailByCondition(asExpected,
                 "The output of " + command.toString() + " is as expected.",
                 "The output of " + command.toString()
@@ -406,16 +460,20 @@ _UTILS_BODY = '''
             String name = ti[0], srcVport = ti[1], dstVport = ti[2], srcMac = ti[3];
             logMsg.info("Creating IXIA traffic item " + name
                     + " (" + srcVport + " -> " + dstVport + ")");
-            CompassReporter.warning(name + ": source MAC " + srcMac
-                    + " is NOT applied - ixia_lib.tcl has no src-MAC proc. Any"
-                    + " assertion that depends on a specific source MAC is"
-                    + " unmet until an .ixncfg or a new proc provides it.");
+            // Source MAC is set below, after the item exists.
+            // "null" - not "" - is how their TCL spells an unset argument:
+            // every proc in ixia_lib.tcl guards with
+            // `if {[string match $arg null] != 1}`. An empty Java string
+            // collapses during TCL word-splitting and the proc is called with
+            // too few arguments, which answers `wrong # args` while
+            // performFunctions still reports "ended without errors".
             ixia.performFunctions(IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM.args(
-                    name, "true", "", "l2L3", "false", "false", "raw",
-                    name, "interleaved", "", "false", "false", "oneToOne"));
+                    name, "true", "null", "l2L3", "false", "false", "raw",
+                    name, "interleaved", "null", "false", "false", "oneToOne"));
             ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_ENDPOINTS.args(
-                    name, "1", srcVport, "", "", "", "", "", "",
-                    dstVport, "", "", "", "", "", "", "", "", "", name, "", ""));
+                    name, "1", srcVport, "null", "null", "null", "null", "null",
+                    "null", dstVport, "null", "null", "null", "null", "null",
+                    "null", "null", "null", "null", name, "null", "null"));
             ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_STREAM.args(
                     name, "1", "goodCRC", "manual", name, "8", "auto", "false"));
             ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_FRAME_RATE.args(
@@ -423,7 +481,91 @@ _UTILS_BODY = '''
                     params.TRAFFIC_RATE_FPS, "bytes", "bitsPerSec", "false"));
         }
         ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
+
+        // EVPN learns from SOURCE MACs, and ixia_lib.tcl exposes only
+        // editTrafficRawDestMacAddr. It does not need a new proc: that one is a
+        // single ixNet setAtt on the ethernet-1 stack, and the source field
+        // sits beside the destination field on the same path. So the same
+        // assignment is issued here as raw TCL, into the session where
+        // ixia_lib.tcl is already sourced - their file is not modified.
+        for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
+            setTrafficItemSourceMac(ti[0], ti[3]);
+        }
+        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info("Traffic items built on the chassis");
+    }
+
+    /**
+     * Set a traffic item's source MAC, and CHECK the chassis took it.
+     *
+     * Mirrors ixia_lib.tcl's editTrafficRawDestMacAddr, with
+     * ethernet.header.sourceAddress-1 in place of destinationAddress-1, and
+     * reuses that file's own getTraffic helper. The value is read back rather
+     * than assumed: an unapplied source MAC would leave the MAC-move flows
+     * asserting something that never happened.
+     */
+    public void setTrafficItemSourceMac(String trafficItemName, String mac)
+            throws Exception {
+        final String field = "$ce/stack:\\\"ethernet-1\\\"/field:"
+                + "\\\"ethernet.header.sourceAddress-1\\\"";
+        ixia.runCommand(new RawTcl(
+                "foreach ce [ixNet getL [getTraffic \\\"" + trafficItemName
+                + "\\\"] configElement] { ixNet setAtt " + field
+                + " -singleValue " + mac + " } ; ixNet commit"));
+
+        String readBack = ixia.runCommand(new RawTcl(
+                "set out {} ; foreach ce [ixNet getL [getTraffic \\\""
+                + trafficItemName + "\\\"] configElement] { append out ["
+                + "ixNet getAtt " + field + " -singleValue] } ; set out"));
+
+        boolean applied = readBack != null
+                && readBack.toLowerCase().contains(mac.toLowerCase());
+        CompassReporter.passFailByCondition(applied,
+                trafficItemName + ": source MAC " + mac + " applied on the chassis.",
+                trafficItemName + ": source MAC " + mac + " was NOT applied - the"
+                        + " chassis reports " + String.valueOf(readBack).trim()
+                        + ". Any assertion that depends on this source MAC is"
+                        + " unmet.");
+    }
+
+    /**
+     * A raw TCL command for the IXIA session.
+     *
+     * Deliberately NOT an EvpnCommands constant: that enum is validated
+     * against the EVPN CLI documentation at generation time, and TCL sent to
+     * IxNetwork has no place in it.
+     */
+    private static final class RawTcl implements ICmpCliCmd {
+        private final String tcl;
+
+        RawTcl(String tcl) {
+            this.tcl = tcl;
+        }
+
+        @Override
+        public ICmpCliCmd args(Object... args) {
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            return this.tcl;
+        }
+
+        @Override
+        public String stripArgs() {
+            return this.tcl;
+        }
+
+        @Override
+        public SessionMode getCmdSessionMode() {
+            return SessionMode.CLI;
+        }
+
+        @Override
+        public SessionType getCmdSessionType() {
+            return SessionType.MGMT;
+        }
     }
 
     /** Enable (unsuspend) or disable (suspend) one named IXIA traffic item. */
@@ -433,6 +575,35 @@ _UTILS_BODY = '''
                 .args(trafficItemName, String.valueOf(enabled)));
         ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info("Traffic item " + trafficItemName + " enabled=" + enabled);
+    }
+
+    /**
+     * How many assertions ran that COULD have failed.
+     *
+     * A suite that verified nothing must not be able to report success, so
+     * this is counted rather than assumed, and checked at the end of the test.
+     */
+    private int falsifiableAssertions = 0;
+
+    /**
+     * Fail the test if nothing was actually verified.
+     *
+     * Called at the end of every generated test. A run in which every
+     * verification step warned - because its expectation has never been
+     * captured from a device - is not a pass; it is a run that proved the
+     * plumbing works and checked no behaviour. Reporting that as green is how
+     * a test suite stops being worth anything.
+     */
+    public void assertSomethingWasVerified() throws Exception {
+        if (falsifiableAssertions == 0) {
+            CompassReporter.fail("INCONCLUSIVE: this test made no assertion "
+                    + "that could have failed. Every verification step ran its "
+                    + "command and reported a warning, so the run says nothing "
+                    + "about the feature. Capture the expectations "
+                    + "(ate capture) and regenerate.");
+            throw new Exception("no falsifiable assertion was made");
+        }
+        logMsg.info("Falsifiable assertions made: " + falsifiableAssertions);
     }
 
     /** Capture the current output of a command, for later no-change comparison. */
@@ -448,11 +619,43 @@ _UTILS_BODY = '''
     public void verifyOutputUnchanged(String before, ICmpCliCmd command,
                                       String what) throws Exception {
         String after = cmp.runCommandAndSwitch(command.toString(), command);
-        boolean unchanged = (before == null)
-                ? (after == null) : before.equals(after);
+
+        // An empty baseline makes this assertion vacuous: "nothing changed"
+        // is trivially true when there was nothing to change, so it passes on
+        // a device where the feature never worked. Seen for real - the
+        // "no new Type-2 after a local MAC move" check compared
+        // "% No entries found." with "% No entries found." and reported a pass.
+        if (isEmptyTable(before)) {
+            CompassReporter.warning(what + ": NOT ASSERTED - the baseline was "
+                    + "empty (" + oneLine(before) + "), so 'unchanged' could "
+                    + "not have failed. This needs a peer and traffic before it "
+                    + "means anything.");
+            return;
+        }
+
+        boolean unchanged = before.equals(after);
+        falsifiableAssertions++;
         CompassReporter.passFailByCondition(unchanged,
                 what + ": unchanged, as expected.",
                 what + ": CHANGED unexpectedly.");
+    }
+
+    /** Did the device answer with no rows at all? */
+    private boolean isEmptyTable(String output) {
+        if (output == null) {
+            return true;
+        }
+        String low = output.toLowerCase();
+        return low.trim().isEmpty() || low.contains("no entries found");
+    }
+
+    /** Collapse output to one line, for a readable report message. */
+    private String oneLine(String output) {
+        if (output == null) {
+            return "null";
+        }
+        String s = output.replace('\\r', ' ').replace('\\n', ' ').trim();
+        return s.length() > 60 ? s.substring(0, 60) + "..." : s;
     }
 
     /**
@@ -574,6 +777,8 @@ def emit_utils(lab: LabProfile) -> JavaFile:
         "",
         "import cmp.infra.CmpRouter;",
         "import cmp.infra.Session.ICmpCliCmd;",
+        "import cmp.infra.Session.SessionMode;",
+        "import cmp.infra.Session.SessionType;",
         "import cmp.infra.common.GlobalParam;",
         "import cmp.infra.ixia.Ixia;",
         "import cmp.infra.ixia.IxiaFunctions;",
@@ -617,7 +822,8 @@ def _arg_expr(arg: str, lab: LabProfile) -> str:
     return _jstr(arg)
 
 
-def _render_step(step: Step, lab: LabProfile) -> list[str]:
+def _render_step(step: Step, lab: LabProfile,
+                 captured: set[str] | None = None) -> list[str]:
     """One IR step → its Java lines (level banner + the call)."""
     out: list[str] = []
     if step.req_ids:
@@ -665,13 +871,18 @@ def _render_step(step: Step, lab: LabProfile) -> list[str]:
         out.append("        evpnUtils.verifyOutputUnchanged(routesBefore, "
                    f"{cmd_expr}, {_jstr(step.text)});")
 
-    if step.todo:
+    # A step whose expectation has since been captured from a device is no
+    # longer "awaiting real device output", so it must not keep saying so. The
+    # warning exists to stop an unvalidated table looking green; once the table
+    # is real, the assertion speaks for itself.
+    if step.todo and not (captured and step.expect_key in captured):
         out.append(f"        CompassReporter.warning({_jstr(step.id + ': ' + step.todo)});")
     out.append("")
     return out
 
 
-def emit_test(script: TestScript, lab: LabProfile) -> JavaFile:
+def emit_test(script: TestScript, lab: LabProfile,
+               captured: set[str] | None = None) -> JavaFile:
     extra = [script.summary]
     if script.depends_on:
         extra.append(
@@ -732,9 +943,11 @@ def emit_test(script: TestScript, lab: LabProfile) -> JavaFile:
             lines.append(f"        routesBefore = evpnUtils.snapshot({cmd_expr});")
             lines.append("")
             continue
-        lines += _render_step(step, lab)
+        lines += _render_step(step, lab, captured)
 
     lines += [
+        "        // PIPELINE RULE: a test that verified nothing is not a pass.",
+        "        evpnUtils.assertSomethingWasVerified();",
         "        CompassReporter.stopLevel();",
         "    }",
         "}",
@@ -744,7 +957,16 @@ def emit_test(script: TestScript, lab: LabProfile) -> JavaFile:
                     content="\n".join(lines))
 
 
-def emit_all(scripts: list[TestScript], lab: LabProfile) -> list[JavaFile]:
-    files = [emit_commands(), emit_params(scripts, lab), emit_utils(lab)]
-    files += [emit_test(s, lab) for s in scripts]
+def emit_all(scripts: list[TestScript], lab: LabProfile,
+             captures: dict | None = None) -> list[JavaFile]:
+    """Every artifact of the suite.
+
+    `captures` maps an expect_key to one usable `ate capture` result. Keys it
+    covers become real assertions carrying their provenance; keys it does not
+    stay empty and keep warning.
+    """
+    captured = set(captures or {})
+    files = [emit_commands(), emit_params(scripts, lab, captures),
+             emit_utils(lab)]
+    files += [emit_test(s, lab, captured) for s in scripts]
     return files

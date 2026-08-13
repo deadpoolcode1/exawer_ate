@@ -66,8 +66,32 @@ public class EvpnParams implements ISuiteParams {
     public final int MAC_AGING_TIME_IN_SEC = 300;
 
     // ---- expected output ----
-    /** FLOW-010.S08 - NOT YET VALIDATED. Expected lines need real `show evpn detail` output with an EVI configured; on an empty device it answers "No entries found". */
-    public final String[] FLOW010_S08_EVPN_DETAIL_LINES = new String[] {};
+    /** FLOW-010.S08 - Verify evi-1 is up and all three ACs are bound
+     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-13T00:19:29
+     *  Command: show evpn detail
+     */
+    public final String[] FLOW010_S08_EVPN_DETAIL_LINES = new String[] {
+        "EVPN\\s+name:\\s+evi-1",
+        "Advertise\\s+MAC\\s+Addresses:\\s+Enabled",
+        "ES\\s+DF\\s+Waiting\\s+Time:\\s+3\\s+seconds",
+        "Export-rt:\\s+65000:1",
+        "Import-rt:\\s+65000:1",
+        "Service\\s+Type:\\s+vlan-based",
+        "Host\\s+MAC\\s+Address\\s+Duplicate\\s+Detection:\\s+Disabled",
+        "Move\\s+Interval:\\s+180\\s+seconds",
+        "Move\\s+Counter:\\s+5",
+        "Freeze\\s+Time:\\s+30\\s+seconds",
+        "MAC\\s+Aging\\s+Time:\\s+300\\s+seconds",
+        "MAC\\s+Limit:\\s+65520",
+        "Unknown\\s+MAC\\s+Flooding:\\s+Disabled",
+        "Control\\s+Word:\\s+Disabled",
+        "Local\\s+Interfaces:",
+        "INTERFACE\\s+ESI\\s+ES\\s+LABEL",
+        "--------------------------------------------------------",
+        "x-eth0/0/8\\.100\\s+-\\s+-",
+        "x-eth0/0/18\\.100\\s+-\\s+-",
+        "x-eth0/0/26\\.100\\s+-\\s+-"
+    };
 
     /** FLOW-010.S09 - NOT YET VALIDATED. Needs real `show evpn mac-address-table` output. */
     public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {};
@@ -108,8 +132,18 @@ public class EvpnParams implements ISuiteParams {
     /** FLOW-031.S05 - NOT YET VALIDATED. Needs real BGP EVPN table output. */
     public final String[] FLOW031_S05_TYPE2_WITHDRAWN_LINES = new String[] {};
 
-    /** FLOW-031.S06 - NOT YET VALIDATED. Needs real `show evpn broadcast-domains` output with an EVI configured; `show evpn bum routing-table` does not exist on this build. */
-    public final String[] FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES = new String[] {};
+    /** FLOW-031.S06 - Verify the BUM routing table still lists the flood list
+     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-13T00:19:29
+     *  Command: show evpn broadcast-domains name evi-1
+     */
+    public final String[] FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES = new String[] {
+        "EVPN\\s+Name:\\s+evi-1,\\s+Service\\s+Type:\\s+vlan-based",
+        "Local\\s+BUM\\s+Label:\\s+32768",
+        "Local\\s+Interfaces:",
+        "x-eth0/0/8\\.100",
+        "x-eth0/0/18\\.100",
+        "x-eth0/0/26\\.100"
+    };
 
     @Override
     public SuiteTableParams[] getSuiteParamsTableToUpdate() {

@@ -6,6 +6,8 @@ import java.util.regex.Pattern;
 
 import cmp.infra.CmpRouter;
 import cmp.infra.Session.ICmpCliCmd;
+import cmp.infra.Session.SessionMode;
+import cmp.infra.Session.SessionType;
 import cmp.infra.common.GlobalParam;
 import cmp.infra.ixia.Ixia;
 import cmp.infra.ixia.IxiaFunctions;
@@ -131,6 +133,7 @@ public class EvpnUtils implements loggerImp {
             }
         }
 
+        falsifiableAssertions++;
         CompassReporter.passFailByCondition(asExpected,
                 "The output of " + command.toString() + " is as expected.",
                 "The output of " + command.toString()
@@ -168,16 +171,20 @@ public class EvpnUtils implements loggerImp {
             String name = ti[0], srcVport = ti[1], dstVport = ti[2], srcMac = ti[3];
             logMsg.info("Creating IXIA traffic item " + name
                     + " (" + srcVport + " -> " + dstVport + ")");
-            CompassReporter.warning(name + ": source MAC " + srcMac
-                    + " is NOT applied - ixia_lib.tcl has no src-MAC proc. Any"
-                    + " assertion that depends on a specific source MAC is"
-                    + " unmet until an .ixncfg or a new proc provides it.");
+            // Source MAC is set below, after the item exists.
+            // "null" - not "" - is how their TCL spells an unset argument:
+            // every proc in ixia_lib.tcl guards with
+            // `if {[string match $arg null] != 1}`. An empty Java string
+            // collapses during TCL word-splitting and the proc is called with
+            // too few arguments, which answers `wrong # args` while
+            // performFunctions still reports "ended without errors".
             ixia.performFunctions(IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM.args(
-                    name, "true", "", "l2L3", "false", "false", "raw",
-                    name, "interleaved", "", "false", "false", "oneToOne"));
+                    name, "true", "null", "l2L3", "false", "false", "raw",
+                    name, "interleaved", "null", "false", "false", "oneToOne"));
             ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_ENDPOINTS.args(
-                    name, "1", srcVport, "", "", "", "", "", "",
-                    dstVport, "", "", "", "", "", "", "", "", "", name, "", ""));
+                    name, "1", srcVport, "null", "null", "null", "null", "null",
+                    "null", dstVport, "null", "null", "null", "null", "null",
+                    "null", "null", "null", "null", name, "null", "null"));
             ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_STREAM.args(
                     name, "1", "goodCRC", "manual", name, "8", "auto", "false"));
             ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_FRAME_RATE.args(
@@ -185,7 +192,91 @@ public class EvpnUtils implements loggerImp {
                     params.TRAFFIC_RATE_FPS, "bytes", "bitsPerSec", "false"));
         }
         ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
+
+        // EVPN learns from SOURCE MACs, and ixia_lib.tcl exposes only
+        // editTrafficRawDestMacAddr. It does not need a new proc: that one is a
+        // single ixNet setAtt on the ethernet-1 stack, and the source field
+        // sits beside the destination field on the same path. So the same
+        // assignment is issued here as raw TCL, into the session where
+        // ixia_lib.tcl is already sourced - their file is not modified.
+        for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
+            setTrafficItemSourceMac(ti[0], ti[3]);
+        }
+        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info("Traffic items built on the chassis");
+    }
+
+    /**
+     * Set a traffic item's source MAC, and CHECK the chassis took it.
+     *
+     * Mirrors ixia_lib.tcl's editTrafficRawDestMacAddr, with
+     * ethernet.header.sourceAddress-1 in place of destinationAddress-1, and
+     * reuses that file's own getTraffic helper. The value is read back rather
+     * than assumed: an unapplied source MAC would leave the MAC-move flows
+     * asserting something that never happened.
+     */
+    public void setTrafficItemSourceMac(String trafficItemName, String mac)
+            throws Exception {
+        final String field = "$ce/stack:\"ethernet-1\"/field:"
+                + "\"ethernet.header.sourceAddress-1\"";
+        ixia.runCommand(new RawTcl(
+                "foreach ce [ixNet getL [getTraffic \"" + trafficItemName
+                + "\"] configElement] { ixNet setAtt " + field
+                + " -singleValue " + mac + " } ; ixNet commit"));
+
+        String readBack = ixia.runCommand(new RawTcl(
+                "set out {} ; foreach ce [ixNet getL [getTraffic \""
+                + trafficItemName + "\"] configElement] { append out ["
+                + "ixNet getAtt " + field + " -singleValue] } ; set out"));
+
+        boolean applied = readBack != null
+                && readBack.toLowerCase().contains(mac.toLowerCase());
+        CompassReporter.passFailByCondition(applied,
+                trafficItemName + ": source MAC " + mac + " applied on the chassis.",
+                trafficItemName + ": source MAC " + mac + " was NOT applied - the"
+                        + " chassis reports " + String.valueOf(readBack).trim()
+                        + ". Any assertion that depends on this source MAC is"
+                        + " unmet.");
+    }
+
+    /**
+     * A raw TCL command for the IXIA session.
+     *
+     * Deliberately NOT an EvpnCommands constant: that enum is validated
+     * against the EVPN CLI documentation at generation time, and TCL sent to
+     * IxNetwork has no place in it.
+     */
+    private static final class RawTcl implements ICmpCliCmd {
+        private final String tcl;
+
+        RawTcl(String tcl) {
+            this.tcl = tcl;
+        }
+
+        @Override
+        public ICmpCliCmd args(Object... args) {
+            return this;
+        }
+
+        @Override
+        public String toString() {
+            return this.tcl;
+        }
+
+        @Override
+        public String stripArgs() {
+            return this.tcl;
+        }
+
+        @Override
+        public SessionMode getCmdSessionMode() {
+            return SessionMode.CLI;
+        }
+
+        @Override
+        public SessionType getCmdSessionType() {
+            return SessionType.MGMT;
+        }
     }
 
     /** Enable (unsuspend) or disable (suspend) one named IXIA traffic item. */
@@ -195,6 +286,35 @@ public class EvpnUtils implements loggerImp {
                 .args(trafficItemName, String.valueOf(enabled)));
         ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info("Traffic item " + trafficItemName + " enabled=" + enabled);
+    }
+
+    /**
+     * How many assertions ran that COULD have failed.
+     *
+     * A suite that verified nothing must not be able to report success, so
+     * this is counted rather than assumed, and checked at the end of the test.
+     */
+    private int falsifiableAssertions = 0;
+
+    /**
+     * Fail the test if nothing was actually verified.
+     *
+     * Called at the end of every generated test. A run in which every
+     * verification step warned - because its expectation has never been
+     * captured from a device - is not a pass; it is a run that proved the
+     * plumbing works and checked no behaviour. Reporting that as green is how
+     * a test suite stops being worth anything.
+     */
+    public void assertSomethingWasVerified() throws Exception {
+        if (falsifiableAssertions == 0) {
+            CompassReporter.fail("INCONCLUSIVE: this test made no assertion "
+                    + "that could have failed. Every verification step ran its "
+                    + "command and reported a warning, so the run says nothing "
+                    + "about the feature. Capture the expectations "
+                    + "(ate capture) and regenerate.");
+            throw new Exception("no falsifiable assertion was made");
+        }
+        logMsg.info("Falsifiable assertions made: " + falsifiableAssertions);
     }
 
     /** Capture the current output of a command, for later no-change comparison. */
@@ -210,11 +330,43 @@ public class EvpnUtils implements loggerImp {
     public void verifyOutputUnchanged(String before, ICmpCliCmd command,
                                       String what) throws Exception {
         String after = cmp.runCommandAndSwitch(command.toString(), command);
-        boolean unchanged = (before == null)
-                ? (after == null) : before.equals(after);
+
+        // An empty baseline makes this assertion vacuous: "nothing changed"
+        // is trivially true when there was nothing to change, so it passes on
+        // a device where the feature never worked. Seen for real - the
+        // "no new Type-2 after a local MAC move" check compared
+        // "% No entries found." with "% No entries found." and reported a pass.
+        if (isEmptyTable(before)) {
+            CompassReporter.warning(what + ": NOT ASSERTED - the baseline was "
+                    + "empty (" + oneLine(before) + "), so 'unchanged' could "
+                    + "not have failed. This needs a peer and traffic before it "
+                    + "means anything.");
+            return;
+        }
+
+        boolean unchanged = before.equals(after);
+        falsifiableAssertions++;
         CompassReporter.passFailByCondition(unchanged,
                 what + ": unchanged, as expected.",
                 what + ": CHANGED unexpectedly.");
+    }
+
+    /** Did the device answer with no rows at all? */
+    private boolean isEmptyTable(String output) {
+        if (output == null) {
+            return true;
+        }
+        String low = output.toLowerCase();
+        return low.trim().isEmpty() || low.contains("no entries found");
+    }
+
+    /** Collapse output to one line, for a readable report message. */
+    private String oneLine(String output) {
+        if (output == null) {
+            return "null";
+        }
+        String s = output.replace('\r', ' ').replace('\n', ' ').trim();
+        return s.length() > 60 ? s.substring(0, 60) + "..." : s;
     }
 
     /**

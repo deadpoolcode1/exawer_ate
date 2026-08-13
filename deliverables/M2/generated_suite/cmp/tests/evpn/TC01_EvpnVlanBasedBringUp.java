@@ -65,7 +65,6 @@ public class TC01_EvpnVlanBasedBringUp extends CmpTestCase {
         // FLOW-010.S08 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
         CompassReporter.stopAndStartLevel(++level + ". Verify evi-1 is up and all three ACs are bound");
         evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_DETAIL, testParams.FLOW010_S08_EVPN_DETAIL_LINES);
-        CompassReporter.warning("FLOW-010.S08: Expected lines need real `show evpn detail` output with an EVI configured; on an empty device it answers \"No entries found\".");
 
         // FLOW-010.S09 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
         CompassReporter.stopAndStartLevel(++level + ". Verify the EVPN MAC address-table starts empty");
@@ -77,6 +76,8 @@ public class TC01_EvpnVlanBasedBringUp extends CmpTestCase {
         evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL, testParams.FLOW010_S10_TYPE3_ADVERTISED_LINES);
         CompassReporter.warning("FLOW-010.S10: Needs real output of the route table above.");
 
+        // PIPELINE RULE: a test that verified nothing is not a pass.
+        evpnUtils.assertSomethingWasVerified();
         CompassReporter.stopLevel();
     }
 }

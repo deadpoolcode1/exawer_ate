@@ -150,6 +150,24 @@ class CaptureSession:
         p.write_text(json.dumps(asdict(self), indent=2), encoding="utf-8")
         return p
 
+    @classmethod
+    def load(cls, path: str | Path) -> CaptureSession:
+        """Read back a saved session, so codegen can compile it into the suite.
+
+        Without this the device loop stopped one step short of useful: capture
+        wrote a file and nothing read it, so every expectation in the generated
+        suite shipped empty and every verification step reported a warning
+        instead of asserting. The captured output existed and simply never
+        reached the code.
+        """
+        data = json.loads(Path(path).read_text(encoding="utf-8"))
+        return cls(
+            host=data.get("host", ""),
+            build=data.get("build", ""),
+            captured_at=data.get("captured_at", ""),
+            results=[CapturedCommand(**r) for r in data.get("results", [])],
+        )
+
 
 def commands_needed(scripts: list[TestScript]) -> list[tuple[str, str]]:
     """`(expect_key, rendered CLI)` for every step that asserts show output.

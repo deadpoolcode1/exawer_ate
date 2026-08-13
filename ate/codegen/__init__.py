@@ -55,6 +55,7 @@ def generate_evpn_suite(sfs_path: str | Path,
                         lab: LabProfile = SINGLE_DUT_3AC,
                         plan_xlsx: str | Path | None = None,
                         plan_flows: list[str] | None = None,
+                        captures_path: str | Path | None = None,
                         ) -> GenerationResult:
     """Generate the EVPN JSystem suite for the three M2 flows.
 
@@ -85,7 +86,33 @@ def generate_evpn_suite(sfs_path: str | Path,
     if plan_xlsx and plan_flows:
         from ate.codegen.plan_scripts import scripts_from_plan  # noqa: PLC0415
         scripts = scripts + scripts_from_plan(plan_xlsx, plan_flows, lab)
-    files = emit_all(scripts, lab)
+    # Expectations captured from a real device, if any have been. Without
+    # this the device loop stops one step short: `ate capture` writes a file
+    # and nothing reads it, so every expectation ships empty and every verify
+    # step warns instead of asserting.
+    captures, capture_notes = _load_captures(captures_path)
+
+    # PIPELINE RULE: nothing may fake a pass. A verification step that cannot
+    # fail is worse than a missing one - a red test gets fixed, a green test
+    # that checks nothing gets trusted. Fatal, like an ungrounded command.
+    from ate.codegen.fake_pass import (  # noqa: PLC0415
+        FakePassError,
+        assertion_census,
+        audit,
+    )
+
+    violations = audit(scripts, captures)
+    if violations:
+        raise FakePassError(
+            "generated steps would report a pass without checking anything:\n  "
+            + "\n  ".join(str(v) for v in violations))
+
+    census = assertion_census(scripts, captures)
+    capture_notes.append(
+        f"assertions: {len(census.falsifiable)} of {census.total} verification "
+        f"steps can actually fail; {len(census.warns_only)} only warn")
+
+    files = emit_all(scripts, lab, captures)
     # Per-scenario device configuration, in the house format (modelled on
     # cmp/tests/vpls/): the bring-up table plus the DUT .cfg it loads.
     from ate.codegen.device_config import (  # noqa: PLC0415
@@ -96,4 +123,37 @@ def generate_evpn_suite(sfs_path: str | Path,
     todos = [f"{s.id}: {s.todo}" for sc in scripts for s in sc.open_todos]
 
     return GenerationResult(files=files, scripts=scripts,
-                            warnings=warnings, open_todos=todos)
+                            warnings=warnings + capture_notes,
+                            open_todos=todos)
+
+
+def _load_captures(path: str | Path | None) -> tuple[dict, list[str]]:
+    """Usable captures keyed by expect_key, plus notes for the caller to print.
+
+    Only `ok` results are returned. An empty or rejected capture is not an
+    expectation, and silently promoting one would defeat the whole point of
+    the capture stage.
+    """
+    if not path:
+        return {}, []
+    p = Path(path)
+    if not p.exists():
+        return {}, [f"no captured expectations at {p} - expectations stay empty"]
+
+    from ate.codegen.capture import CaptureSession  # noqa: PLC0415
+
+    session = CaptureSession.load(p)
+    out = {}
+    for c in session.results:
+        if c.usable:
+            out[c.expect_key] = {
+                "lines": c.lines,
+                "command": c.command,
+                "host": session.host,
+                "build": session.build,
+                "captured_at": session.captured_at,
+            }
+    notes = [f"captured expectations: {len(out)} of {len(session.results)} "
+             f"usable, from {session.host} ({session.build}) "
+             f"at {session.captured_at}"]
+    return out, notes

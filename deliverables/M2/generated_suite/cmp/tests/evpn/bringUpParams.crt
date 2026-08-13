@@ -42,5 +42,3 @@ TEST      DEVICE_NAME   ID_ACT                 ACTION_DESCRIPTION               
 default   test          loadTestParamFile      loading suite parameters class     cmp.tests.evpn.EvpnParams                                         y                 n
           cmp1          verifyLCs              verify LCs are card ready state                                                                      y                 y
                         verifyInts             verify interfaces are up                                                                             y                 n
-          ixia1         startProtocols         start protocols                                                                                      y                 n
-                        sendArpAllPorts        send arp for all ports                                                                               y                 n

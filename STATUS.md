@@ -94,21 +94,28 @@ Two defects that run exposed matter more than the pass:
 
 ## Honest limits
 
-- **All three suites run green on hardware, and that is not the same as the
-  scenarios passing.** Tallied from the runs:
+- **The suites no longer fake a pass — and two of them are now correctly red.**
+  A generated test that verified nothing used to report `OK (1 test)`. It now
+  fails:
 
-  | Suite | Result | Warnings | EVPN-behaviour assertions |
-  |---|---|---|---|
-  | TC01 bring-up | `OK (1 test)` | 28 | **0** |
-  | TC02 Type-2 | `OK (1 test)` | 50 | **1** |
-  | TC03 Type-3 IMET | `OK (1 test)` | 24 | **0** |
+  | Suite | Before the rule | Now |
+  |---|---|---|
+  | TC01 bring-up | `OK` — 0 assertions | `OK` — **1 real assertion** (`show evpn detail`, 20 captured lines) |
+  | TC02 Type-2 | `OK` — 0 assertions | **FAILS** `INCONCLUSIVE: this test made no assertion that could have failed` |
+  | TC03 Type-3 IMET | `OK` — 0 assertions | **FAILS** for the same reason |
 
-  129 of the 131 reported passes are the framework's own infrastructure checks
-  (disk, commit succeeded, IXIA connected, no watchdog reboot). The single
-  EVPN assertion — "no new Type-2 after a local AC2→AC3 move" — currently
-  compares an **empty** route table with an empty route table, so it cannot
-  fail for the reason it exists. Detail:
+  Red is the correct colour for a test that checks nothing. See the "nothing
+  may fake a pass" convention in `CLAUDE.md` and
   `deliverables/M2/evidence_what_the_suites_assert.txt`.
+- **No IXIA traffic was ever created, in any run — their framework hid it.**
+  `Ixia.connect()` sources `ixia_lib.tcl` on the IXIA app server using a path
+  resolved on the JVM host. tate mounts a different `/home`, so the `source`
+  failed and **every** proc was undefined: 34 `invalid command name` answers in
+  one run (`configNewTrafficItem`, `trafficApply`, `startProtocols`, …) — while
+  `performFunctions` reported "ended without errors" for all of them. Running
+  from a path both hosts can see (`/var/tmp/ate-run`) brings that to **0**, and
+  the traffic items now build without `wrong # args`. Found only because the
+  generated code reads a value back instead of assuming.
 - **The capture → code loop is not closed.** `ate capture` writes
   `out/captured_expectations.json`; `ate codegen` does not read it. All 15
   expectation arrays in the delivered `EvpnParams` are empty, so every verify
