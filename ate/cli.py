@@ -97,6 +97,14 @@ def main(argv: list[str] | None = None) -> int:
                       help="EVPN CLI doc (.docx) — commands are grounded against it")
     p_cg.add_argument("--summary", action="store_true",
                       help="Print the plan without writing files")
+    p_cg.add_argument("--lab", choices=["3ac", "2ac-core"], default="3ac",
+                      help="Lab profile to bind the flows to. '3ac' is the "
+                           "spec topology (three attachment circuits, no core "
+                           "link, so no BGP session). '2ac-core' is pc-3080 as "
+                           "cabled: IXIA vport1 is an emulated BGP EVPN peer "
+                           "over an L3 core link and the other two vports stay "
+                           "attachment circuits, which is what lets EVPN come "
+                           "up at all (default: 3ac)")
     p_cg.add_argument("--selected-only", action="store_true",
                       help="Only emit tests the dirty queue marks SELECTED "
                            "(the SOW's 'code generation based on selected "
@@ -358,10 +366,19 @@ def _cmd_codegen(args) -> int:
         if plan_flows and not args.from_plan:
             print("error: --plan-flows needs --from-plan <xlsx>")
             return 1
+        from ate.codegen.evpn_scripts import skipped_flows
+        from ate.codegen.lab import SINGLE_DUT_2AC_CORE, SINGLE_DUT_3AC
+        lab = SINGLE_DUT_2AC_CORE if args.lab == "2ac-core" else SINGLE_DUT_3AC
         result = generate_evpn_suite(args.sfs, args.cli_doc,
+                                     lab=lab,
                                      plan_xlsx=args.from_plan,
                                      plan_flows=plan_flows,
                                      captures_path=args.captures or None)
+        print(f"lab profile: {lab.id}")
+        # A suite that silently generates fewer tests than the plan defines is
+        # the same failure as a test that silently asserts nothing: say it.
+        for line in skipped_flows(lab):
+            print(f"  NOT generated on this rig: {line}")
     except UngroundedCommandError as e:
         print(f"error: {e}")
         return 1

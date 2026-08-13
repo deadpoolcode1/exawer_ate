@@ -25,7 +25,12 @@ passes is worse than an explicit gap.
 """
 from __future__ import annotations
 
-from ate.codegen.lab import SINGLE_DUT_3AC, LabProfile, PeerSource
+from ate.codegen.lab import (
+    SINGLE_DUT_3AC,
+    LabProfile,
+    PeerSource,
+    TrafficItem,
+)
 from ate.codegen.script_ir import Step, StepKind, TestScript
 
 # Requirement anchors, mirrored from the flow selectors in planner/flows.py so
@@ -344,15 +349,34 @@ def _type2(lab: LabProfile) -> TestScript:
     )
 
 
+def _aging_source(lab: LabProfile) -> TrafficItem:
+    """The traffic item whose MACs must age out for FLOW-031 to mean anything.
+
+    FLOW-031 stops the traffic that is keeping MACs alive, waits out the aging
+    time and asserts the entries leave. Which item that is depends on the rig,
+    so it is resolved from the profile rather than named: the last item feeding
+    AC1 is TI_AC3_TO_AC1 on the three-circuit topology and TI_AC2_TO_AC1 where
+    one link has been spent on the EVPN core. Hard-coding it made the flow fail
+    to compile against any profile but the first.
+    """
+    feeding_ac1 = [t for t in lab.traffic_items if t.dst == "AC1"]
+    if not feeding_ac1:
+        raise ValueError(
+            f"lab profile {lab.id!r} has no traffic item terminating on AC1, "
+            "so FLOW-031 has nothing whose MACs could age out")
+    return feeding_ac1[-1]
+
+
 def _type3(lab: LabProfile) -> TestScript:
     """FLOW-031 — BUM flooding and Type-2 withdrawal after MAC aging."""
     evi = lab.evi_name
+    aging = _aging_source(lab)
     steps = [
         Step(
             id="FLOW-031.S01",
             kind=StepKind.TRAFFIC_STATE,
-            text="Stop traffic AC3 → AC1",
-            traffic_items=["TI_AC3_TO_AC1"],
+            text=f"Stop traffic {aging.src} → {aging.dst}",
+            traffic_items=[aging.name],
             enabled=False,
             req_ids=_R_TYPE3,
         ),
@@ -449,6 +473,31 @@ def _with_traffic_setup(script: TestScript) -> TestScript:
 
 
 def evpn_scripts(lab: LabProfile = SINGLE_DUT_3AC) -> list[TestScript]:
-    """The three M2 scripts, in dependency order."""
-    return [_with_traffic_setup(sc)
-            for sc in (_bring_up(lab), _type2(lab), _type3(lab))]
+    """The M2 scripts, in dependency order.
+
+    FLOW-030 is emitted only where the rig can carry it. Its whole premise is
+    that AC2 and AC3 source identical MACs so traffic shifting between them is
+    a purely local MAC move, and that needs a third attachment circuit. A
+    profile that spends one of its three DUT<->IXIA links on the core (so that
+    EVPN has a BGP session at all) has two, and the flow would otherwise fail
+    at generation with a tuple-unpacking error.
+
+    Dropping it is reported rather than silent: a suite that quietly generates
+    fewer tests than the plan says is the same class of problem as a test that
+    quietly asserts nothing.
+    """
+    scripts = [_bring_up(lab)]
+    if len(lab.acs) >= 3:
+        scripts.append(_type2(lab))
+    scripts.append(_type3(lab))
+    return [_with_traffic_setup(sc) for sc in scripts]
+
+
+def skipped_flows(lab: LabProfile) -> list[str]:
+    """Flows the plan defines that this rig cannot run, and why."""
+    if len(lab.acs) >= 3:
+        return []
+    return [
+        f"FLOW-030 (Type-2 MAC move): needs 3 attachment circuits, profile "
+        f"{lab.id!r} has {len(lab.acs)} because one link is the EVPN core."
+    ]

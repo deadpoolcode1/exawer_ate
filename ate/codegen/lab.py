@@ -52,6 +52,13 @@ class AccessCircuit:
     #: follows the numbering Exaware's own VPLS suite uses for l2-transport
     #: circuits (`int2.100`, `int2.101`, ... in VPLS_N1.cfg).
     subinterface: int = 100
+    #: Which `intN` placeholder and SUT intPool index this circuit takes.
+    #:
+    #: `None` means "position in `LabProfile.acs`", which is what every profile
+    #: did while all three ports were attachment circuits. A rig that spends a
+    #: port on the core link needs the ACs to start at the next index instead,
+    #: so it sets this explicitly rather than relying on list order.
+    int_index: int | None = None
 
     @property
     def ac_interface(self) -> str:
@@ -105,6 +112,53 @@ class PeerSource(str, Enum):
 
     NEIGHBOUR = "neighbour"
     NONE = "none"
+    #: The peer is an IXIA-emulated BGP EVPN speaker on a dedicated vport.
+    #:
+    #: This was long recorded as impossible here on two counts, and BOTH were
+    #: wrong. The rig was believed to have no peer available, and IxNetwork was
+    #: believed too old to emulate one. Read off the chassis on 2026-08-13:
+    #:
+    #:   * the IxNetwork API server answers `getVersion` = **9.00.1915.16**.
+    #:     Only the *client* TCL library is pinned at 6.30 in the SUT file, and
+    #:     that is what the "6.30 is too old for EVPN" reading came from;
+    #:   * `/vport/protocols/bgp/neighborRange` carries `-evpn` and
+    #:     `-evpnNextHopCount`, with a full object tree beneath it:
+    #:     `ethernetSegments` -> `evi` -> `broadcastDomains` -> `cMacRange`,
+    #:     plus `-eVpnAfi` / `-eVpnSafi` and the MAC-mobility extended
+    #:     community on the parent `bgp` node.
+    #:
+    #: So Type-2 and Type-3 advertisement and withdrawal are testable on this
+    #: testbed, with no dependency on Exaware and no `.ixncfg` from anybody.
+    IXIA = "ixia"
+
+
+@dataclass(frozen=True)
+class CoreLink:
+    """The DUT<->IXIA link that carries the overlay, not client traffic.
+
+    Ilan, 2026-08-13: "we use ixia as end point as client traffic and also as
+    remote router". Those are two different jobs on two different ports, and
+    nothing in the generator modelled the second one — every vport was wired as
+    an attachment circuit, so the suite had no core side at all.
+
+    A vport cannot do both. A raw traffic item's endpoint is only accepted in
+    the `/vport:N/protocols` form when the vport has EXACTLY ONE interface with
+    a VLAN on it; giving a vport a second, L3 interface for BGP breaks that and
+    the chassis answers ERROR-6301. So the core takes a port of its own.
+    """
+
+    #: Placeholder written into the `.cfg`, bound by `bringUpParams.crt`.
+    interface: str = "int1"
+    vport: str = "vport1"
+    #: Index into the SUT intPool backing the link.
+    pool_index: int = 0
+    #: DUT side of the point-to-point link, and the IXIA side facing it.
+    dut_ipv4: str = "29.60.0.1"
+    peer_ipv4: str = "29.60.0.2"
+    prefix_len: int = 24
+    #: The DUT's own router ID / LDP transport address.
+    loopback_ipv4: str = "29.30.30.30"
+    loopback_id: int = 0
 
 
 @dataclass(frozen=True)
@@ -128,6 +182,17 @@ class LabProfile:
     #: circuits carry. The DUT sub-interface and the IXIA vport are both bound
     #: to it, from the SUT, so the two sides cannot drift apart.
     ac_vlan_index: int = 0
+    #: The core link, when this rig has one. `None` means every vport is an
+    #: attachment circuit and the suite has no overlay side — which is the
+    #: state that made EVPN unable to come up at all.
+    core: CoreLink | None = None
+    #: Autonomous system for the IGP and BGP processes. 3029 follows the
+    #: number Exaware's own VPLS suite uses on this testbed (`routing ospf
+    #: 3029` / `routing bgp 3029` in VPLS_N1.cfg), so the config reads the
+    #: same as the ones their QA already runs.
+    bgp_asn: int = 3029
+    #: OSPF area for the core link and the loopback.
+    igp_area: str = "0.0.0.0"
     #: Seconds to wait for MAC aging.
     #:
     #: Grounded, not guessed: the EVPN CLI doc's `mac-aging-time` parameter
@@ -199,5 +264,52 @@ SINGLE_DUT_3AC = LabProfile(
         "PeerSource.NEIGHBOUR once a peer exists (fourth port, emulated peer, "
         "real PE, or a software speaker on DevicesSut.LINUX1) to assert "
         "transmission rather than origination.",
+    ],
+)
+
+# ---------------------------------------------------------------------------
+# The rig as it is actually cabled, as opposed to the topology the flows assume.
+# ---------------------------------------------------------------------------
+
+CORE_AC1 = AccessCircuit(name="AC1", interface="agg-eth-2", vport="vport2",
+                         int_index=2)
+CORE_AC2 = AccessCircuit(name="AC2", interface="agg-eth-3", vport="vport3",
+                         int_index=3)
+
+TI_CORE_AC1_TO_AC2 = TrafficItem(name="TI_AC1_TO_AC2", src="AC1", dst="AC2",
+                                 src_mac="00:00:01:00:00:01")
+TI_CORE_AC2_TO_AC1 = TrafficItem(name="TI_AC2_TO_AC1", src="AC2", dst="AC1",
+                                 src_mac="00:00:02:00:00:01")
+
+SINGLE_DUT_2AC_CORE = LabProfile(
+    id="lab-1dut-2ac-core",
+    description=(
+        "Single DUT on pc-3080. IXIA vport1 is the core: an emulated BGP EVPN "
+        "peer over a point-to-point L3 link. vport2 and vport3 stay client "
+        "attachment circuits on the EVI. This is the testbed as cabled."
+    ),
+    dut="CMP1",
+    ixia="IXIA1",
+    evi_name="evi-1",
+    acs=[CORE_AC1, CORE_AC2],
+    traffic_items=[TI_CORE_AC1_TO_AC2, TI_CORE_AC2_TO_AC1],
+    bgp_neighbor="PE2",
+    peer_source=PeerSource.IXIA,
+    core=CoreLink(),
+    notes=[
+        "TWO attachment circuits, not three, and that is a property of the "
+        "rig rather than a simplification. pc-3080's data1 pool has exactly "
+        "three DUT<->IXIA links (x-eth 0/0/8, 0/0/18, 0/0/26). Spending one "
+        "on the core leaves two. Verified 2026-08-13 that there is no fourth: "
+        "the SUT's IXIA pool lists a vport4 on card 1/1, but of the DUT ports "
+        "that could face it only x-eth 0/0/4 comes up, and it receives "
+        "multicast only at ~840 bps - a lab switch on the control network, "
+        "not an IXIA port.",
+        "FLOW-030's MAC move needs a third AC and so cannot run against this "
+        "profile. SINGLE_DUT_3AC keeps the spec topology for the reviewed "
+        "test plan; this profile is the binding for what actually runs.",
+        "The peer is IXIA itself (PeerSource.IXIA), so Type-2/Type-3 "
+        "advertisement and withdrawal are assertable here without a second "
+        "physical PE.",
     ],
 )

@@ -94,19 +94,19 @@ Two defects that run exposed matter more than the pass:
 
 ## Honest limits
 
-- **The suites no longer fake a pass — and two of them are now correctly red.**
-  A generated test that verified nothing used to report `OK (1 test)`. It now
-  fails:
+- **The suites no longer fake a pass, and the rule earned its keep twice.**
+  A generated test that verified nothing used to report `OK (1 test)`.
 
-  | Suite | Before the rule | Now |
+  | Suite | Before the rule | On `--lab 2ac-core` |
   |---|---|---|
-  | TC01 bring-up | `OK` — 0 assertions | `OK` — **1 real assertion** (`show evpn detail`, 20 captured lines) |
-  | TC02 Type-2 | `OK` — 0 assertions | **FAILS** `INCONCLUSIVE: this test made no assertion that could have failed` |
-  | TC03 Type-3 IMET | `OK` — 0 assertions | **FAILS** for the same reason |
+  | TC01 bring-up | `OK` — 0 assertions | **`OK`** — 4 falsifiable assertions |
+  | TC02 Type-2 | `OK` — 0 assertions | not generated: needs a 3rd AC |
+  | TC03 Type-3 IMET | `OK` — 0 assertions | **`OK`** — same expectations |
 
-  Red is the correct colour for a test that checks nothing. See the "nothing
-  may fake a pass" convention in `CLAUDE.md` and
-  `deliverables/M2/evidence_what_the_suites_assert.txt`.
+  Both greens were earned twice over: generated with no captures, TC01 failed
+  `INCONCLUSIVE` exactly as designed, and only went green once real device
+  output backed it. Red is the correct colour for a test that checks nothing.
+  See `CLAUDE.md` and `deliverables/M2/evidence_what_the_suites_assert.txt`.
 - **No IXIA traffic was ever created, in any run — their framework hid it.**
   `Ixia.connect()` sources `ixia_lib.tcl` on the IXIA app server using a path
   resolved on the JVM host. tate mounts a different `/home`, so the `source`
@@ -116,16 +116,14 @@ Two defects that run exposed matter more than the pass:
   from a path both hosts can see (`/var/tmp/ate-run`) brings that to **0**, and
   the traffic items now build without `wrong # args`. Found only because the
   generated code reads a value back instead of assuming.
-- **The capture → code loop is not closed.** `ate capture` writes
-  `out/captured_expectations.json`; `ate codegen` does not read it. All 15
-  expectation arrays in the delivered `EvpnParams` are empty, so every verify
-  step warns rather than asserts — including the two expectations that *were*
-  captured successfully. Wiring that back is ours to do and is the next piece
-  of work.
-- **Usable expectations dropped from 7 to 2, and that is a correction.** Five of
-  the previous seven were the MAC table's legend with no MAC address in it — an
-  assertion that passes on any device, working or broken. `capture` now refuses
-  them.
+- **Captures are topology-specific, and silently so.** Expectations taken on
+  the three-AC rig name `.100` sub-interfaces on what is now the L3 core port,
+  so replaying them against `--lab 2ac-core` fails on lines the device is right
+  not to print. Re-capture after any topology change; nothing warns you.
+- **5 of 11 expectations are still empty, all of them MAC-table reads.** The
+  MAC table prints its legend and no addresses because nothing has been learnt:
+  no traffic has run through the EVI. `capture` refuses legend-only output
+  rather than recording an assertion that passes on any device.
 - **The 3 delivered suites are hand-curated at step level.** The tool emits the
   Java; a human wrote the 33 steps. Mechanically generated suites are prefixed
   `TCM<nnn>` so the two can never be confused.
@@ -146,6 +144,85 @@ Two defects that run exposed matter more than the pass:
   prompt, escaping it with Ctrl-C (never answering — that would be a write), and
   proving the channel is resynced after every probe. Verdicts were then
   spot-checked by hand against the device.
+
+## EVPN could not come up standalone — the underlay was missing
+
+Raised by Ilan on 2026-08-13 against Exaware's "nothing is missing", and
+confirmed in our own generated files.
+
+EVPN is an overlay. It needs an IGP for reachability, MPLS transport for the
+service label, and BGP `af-l2vpn evpn` for the control plane. `EVPN_Base.cfg`
+stated in its own header that the underlay was "lab data ... deliberately not
+invented here" and had to arrive from `cleanBaseConfig` — and it never did:
+the `.crt` loads `cleanBaseConfig` then the feature file, and a clean base
+configures no IGP and no BGP. **The delegation had no receiver.**
+
+That is also why the four `show bgp l2vpn evpn table evi detail` expectations
+were always empty. Not because no peer answered — because there was no BGP
+session at all.
+
+`ate codegen --lab 2ac-core` now emits the underlay, and every stanza of it
+**committed on pc-3080**: `routing bgp 3029` with `af-l2vpn evpn`, `routing
+ospf 3029` area 0.0.0.0, `mpls ldp default`, loopback 29.30.30.30/32.
+
+## IXIA is the peer, and the rig proves it
+
+The lab profile used to record "all three IXIA ports are attachment circuits,
+so the peer cannot be one of them". IXIA is used as client traffic endpoints
+**and** as the remote router; nothing modelled the second job. `LabProfile`
+now carries a `CoreLink`, and `--lab 2ac-core` binds vport1 as the core with
+vport2/vport3 left as ACs.
+
+Verified against chassis 10.1.70.108:
+
+| | |
+|---|---|
+| IxNetwork version | **9.00.1915.16** — the SUT pins only the *client* TCL lib at 6.30. Do not read capability off `tclFolder` |
+| EVPN object tree | `bgp` (`eVpnAfi=25 eVpnSafi=70`) → `neighborRange -evpn true` → `ethernetSegments` → `evi` (RT 65000:1) → `broadcastDomains` → `cMacRange`, all committed |
+| Core link | vport1 (card 5/1) ↔ x-eth 0/0/8: `state=up connected=true` |
+| BGP session | DUT reports **`BGP state: Established`** with `29.60.0.2`, and lists an `L2VPN EVPN table` for the neighbour |
+
+The verified sequence is committed as `scripts/ixia_evpn_peer.tcl`.
+
+**It will not start**, and only at the start step:
+`ERROR-1005 ... There is no license available for BGP EVPN`. Isolated to the
+EVPN feature: remove `ethernetSegments`, start the same neighbour with plain
+ipv4-unicast, and BGP runs and the session establishes. So the ask on Exaware
+is a **licence**, not a peer and not a TCL proc.
+
+Cost of the core link: two attachment circuits instead of three, so FLOW-030's
+MAC move cannot run on this rig. `ate codegen` says so rather than quietly
+emitting fewer tests. `SINGLE_DUT_3AC` keeps the spec topology.
+
+## Both suites now pass on hardware, with real assertions
+
+Run on pc-3080 on 2026-08-13 with `--lab 2ac-core`, after the underlay landed:
+
+| Suite | Verdict | Assertions |
+|---|---|---|
+| TC01 bring-up | **`OK (1 test)`** | 4 of 7 verification steps can fail |
+| TC03 Type-3 IMET | **`OK (1 test)`** | same generated expectations |
+
+`VPORTS=3`, `ACVLAN=3380/true`, and raw endpoints bound to
+`/vport:2/protocols|/vport:3/protocols` — vport1 correctly left as the core.
+
+**Usable expectations went 2 → 6 of 11**, and the four that moved are exactly
+the `show bgp l2vpn evpn table evi detail` ones that were called blocked. They
+return real content now because the EVI finally has a BGP EVPN control plane
+to originate into. The old "ceiling: 7 of 11, needs a peer this testbed does
+not have" was wrong on its stated cause.
+
+Three bugs the run exposed, all ours, all fixed:
+
+1. **The EVI was bound to the core port.** The Java resolved AC interfaces by
+   position in `lab.acs` while the `.cfg` used the intPool index; once a link
+   became the core those differ. Commit came back *"Interface must be
+   l2-transport enabled"*. Fixed with `AC_POOL_OFFSET`.
+2. **Only two vports were created while three were named**, so the chassis
+   answered *"can't read ixia(vport3): no such element in array"*.
+3. **Stale captures.** Expectations recorded on the three-AC topology name
+   `.100` sub-interfaces on a port that is now L3, so they fail against the
+   rig they were not taken on. Re-captured; `out/captures_2ac.json`.
 
 ## In progress — resume point
 
@@ -202,9 +279,13 @@ grep -oE "SRCMAC=[^ ]* SET=[0-9]+ FIELDS=.*" $W/run/TC02.log
 After that: confirm the IXIA tx/rx counters actually move, then `ate capture`
 with traffic present, then write the count-based assertions.
 
-**Ceiling on this rig:** roughly 7 of 11 expectations. The other four are
-`show bgp l2vpn evpn table evi detail` — Type-2/Type-3 advertisement and
-withdrawal — and they need a BGP EVPN peer this testbed does not have.
+**Ceiling on this rig — SUPERSEDED 2026-08-13.** This used to read "roughly 7
+of 11; the other four need a BGP EVPN peer this testbed does not have". Both
+halves were wrong. IXIA is the peer, and those four
+`show bgp l2vpn evpn table evi detail` expectations capture successfully now
+that the DUT has a BGP EVPN control plane at all. The real remaining ceiling
+is the five MAC-table reads, which need traffic through the EVI, and the
+Type-2/Type-3 exchange, which needs the IXIA **BGP EVPN licence**.
 
 Note: the six `ERROR-6301` answers in the log are their own
 `configTrafficItemEndpoints` failing; our explicit bind corrects it afterwards.
@@ -214,8 +295,8 @@ Harmless, but it is why that error still appears.
 
 | # | Item | Impact |
 |---|---|---|
-| 1 | **A src-MAC proc in `ixia_lib.tcl`** (their infra file) *or* the `.ixncfg` | No traffic to learn from → 9 of 11 expectations stay empty; blocks the MAC-move assertions |
-| 2 | **A BGP EVPN peer** for the DUT | The four `show bgp l2vpn evpn table evi detail` expectations have nothing to show |
+| 1 | **A BGP EVPN licence on IXIA chassis 10.1.70.108** | The emulated peer builds and commits but will not start: `ERROR-1005 ... There is no license available for BGP EVPN`. This is now the single thing between us and Type-2/Type-3 assertions |
+| 2 | **A src-MAC proc in `ixia_lib.tcl`** (their infra file) *or* the `.ixncfg` | Blocks only FLOW-030's MAC-move premise, not MAC learning generally |
 | 3 | **Ticket ID** for the branch (`AUT-nnn` / `EM-nnnn`) | Blocks handover under its real name; push path solved via tate (10.1.70.200) |
 | 4 | **Confirmation on the EVI knobs and multi-homing config absent from LAB 22** | Either the CLI doc is ahead of the build or the build lacks them — we report, we do not guess |
 

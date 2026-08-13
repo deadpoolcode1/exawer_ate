@@ -91,11 +91,12 @@ def _placeholderise(lines: list[str], lab: LabProfile) -> list[str]:
     out = []
     for line in lines:
         for i, ac in enumerate(lab.acs):
+            n = ac.int_index if ac.int_index is not None else i + 1
             # Sub-interface first: replacing the bare port would turn
             # `agg-eth-1.100` into `int1.100` only by luck of ordering, and
             # into `int1` plus a stray `.100` if the port name is a prefix.
-            line = line.replace(ac.ac_interface, f"int{i + 1}.vlan1")
-            line = line.replace(ac.interface, f"int{i + 1}")
+            line = line.replace(ac.ac_interface, f"int{n}.vlan1")
+            line = line.replace(ac.interface, f"int{n}")
         out.append(line)
     return out
 
@@ -116,16 +117,96 @@ def _attachment_circuits(lab: LabProfile) -> list[str]:
     lines = ["!", "! Attachment circuits. A vlan-based EVI binds SUB-interfaces,",
              "! never the port itself - the device rejects the commit otherwise.",
              "!"]
-    for i in range(1, len(lab.acs) + 1):
+    for i, ac in enumerate(lab.acs):
+        n = ac.int_index if ac.int_index is not None else i + 1
         lines += [
-            f"interface int{i}",
+            f"interface int{n}",
             " admin-state up",
             "!",
-            f"interface int{i}.vlan1",
+            f"interface int{n}.vlan1",
             " l2-transport enable",
             "!",
         ]
     return lines
+
+
+def _underlay(lab: LabProfile) -> list[str]:
+    """The core link, IGP, MPLS transport and the BGP EVPN session.
+
+    Why this exists at all: EVPN is an overlay and cannot come up standalone.
+    It needs reachability to the remote PE (IGP), a transport label (LDP) and
+    a control plane to carry Type-2/Type-3 routes (BGP `af-l2vpn evpn`).
+    Without them the EVI is a local bridge domain with sub-interfaces on it,
+    and `show bgp l2vpn evpn ...` has nothing to print because there is no BGP
+    session at all - which is exactly what every run showed.
+
+    This file used to state, in its own header, that the underlay was "lab
+    data ... deliberately not invented here" and had to arrive from
+    `cleanBaseConfig`. It never did: the `.crt` loads `cleanBaseConfig` and
+    then this file, and a clean base configures no IGP and no BGP. The
+    delegation had no receiver, so nothing supplied it (Ilan, 2026-08-13).
+
+    It is not invented now either. Every stanza below is the shape Exaware's
+    own VPLS suite commits on this same testbed
+    (`cmp/tests/vpls/configurations/compass/VPLS_N1.cfg`), with `af-l2vpn
+    vpls` swapped for `af-l2vpn evpn` - and that swap is device-grounded: on
+    pc-3080 `af-l2vpn evpn` was found to live only under a neighbour in
+    `vrf default`, which is where it is written here.
+    """
+    core = lab.core
+    if core is None:
+        return []
+    i, lo = core.interface, f"loopback {core.loopback_id}"
+    return [
+        "!",
+        "! Underlay. EVPN is an overlay: without an IGP, a transport label and",
+        "! a BGP session there is no control plane to carry Type-2/Type-3 and",
+        "! the EVI is only a local bridge domain.",
+        "!",
+        "! Stanza shapes are Exaware's own, from cmp/tests/vpls/configurations/",
+        "! compass/VPLS_N1.cfg on this testbed; the address family is EVPN.",
+        "!",
+        f"interface {i}",
+        " admin-state  up",
+        f" ipv4-address {core.dut_ipv4}/{core.prefix_len}",
+        " mpls         enable",
+        "!",
+        f"interface {lo}",
+        f" ipv4-address {core.loopback_ipv4}/32",
+        "!",
+        "mpls ldp default",
+        f" router-id {core.loopback_ipv4}",
+        f" interface {i}",
+        "  af-ipv4",
+        " !",
+        "!",
+        f"routing ospf {lab.bgp_asn}",
+        " vrf default",
+        f"  area {lab.igp_area}",
+        f"   interface {i}",
+        "    network-type point-to-point",
+        "    mtu          1500",
+        "   !",
+        f"   interface {lo}",
+        "    passive enable",
+        "   !",
+        "  !",
+        " !",
+        "!",
+        f"routing bgp {lab.bgp_asn}",
+        " vrf default",
+        f"  neighbor {core.peer_ipv4}",
+        f"   remote-as-number {lab.bgp_asn}",
+        "   af-ipv4 unicast",
+        "    inbound-soft-reconfiguration enable",
+        "   !",
+        "   af-l2vpn evpn",
+        "    inbound-soft-reconfiguration enable",
+        "   !",
+        "  !",
+        " !",
+        "!",
+    ]
 
 
 def _evpn_block(lines: list[str], evi: str) -> tuple[list[str], list[str]]:
@@ -168,16 +249,19 @@ def emit_dut_config(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         "! REJECTED - a vlan-based EVI takes sub-interfaces only. The circuits",
         "! below are created first, then bound.",
         "!",
-        "! NOT included - the underlay. Interface addressing, MPLS/LDP and BGP",
-        "! are lab data, absent from the SFS and CLI doc, and are deliberately",
-        "! not invented here. They must come from cleanBaseConfig or the site",
-        "! configuration loaded ahead of this file (LOAD_TYPE 1, then 2).",
-        "!",
         "! Interface names are placeholders bound by the find-and-replace",
         "! table in bringUpParams.crt to the SUT's 'data1' intPool.",
         "!",
     ]
-    body = _attachment_circuits(lab) + (
+    if lab.core is None:
+        head += [
+            "! NOT included - the underlay. This suite has no core link, so",
+            "! there is no IGP, no transport label and no BGP session, and the",
+            "! EVI below is a local bridge domain only. A profile with a",
+            "! CoreLink emits the overlay; see LabProfile.core.",
+            "!",
+        ]
+    body = _underlay(lab) + _attachment_circuits(lab) + (
         block or ["! (no EVPN configuration steps in the selected scripts)"])
     tail = []
     if unplaced:
@@ -247,13 +331,23 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         f"{'INTPOOL_NAME':<17}INTPOOL_INDEX",
         "-" * 100,
     ]
-    for i, _ac in enumerate(lab.acs):
+    # (DUT placeholder, IXIA vport, intPool index) for every link, core first.
+    # The core link is a link like any other to the bring-up: it just gets an
+    # IP and an IGP in the .cfg instead of an l2-transport sub-interface.
+    links: list[tuple[str, str, int]] = []
+    if lab.core is not None:
+        links.append((lab.core.interface, lab.core.vport, lab.core.pool_index))
+    for i, ac in enumerate(lab.acs):
+        n = ac.int_index if ac.int_index is not None else i + 1
+        links.append((f"int{n}", ac.vport, n - 1))
+
+    for i, (dut_int, _vport, idx) in enumerate(links):
         first = i == 0
         out.append(f"{'default' if first else '':<12}{dut if first else '':<15}"
-                   f"{'interface':<14}{'int' + str(i + 1):<27}{'data1':<17}{i}")
-    for i, _ac in enumerate(lab.acs):
+                   f"{'interface':<14}{dut_int:<27}{lab.ac_pool:<17}{idx}")
+    for i, (_dut_int, vport, idx) in enumerate(links):
         out.append(f"{'':<12}{ixia if i == 0 else '':<15}"
-                   f"{'interface':<14}{'vport' + str(i + 1):<27}{'data1':<17}{i}")
+                   f"{'interface':<14}{vport:<27}{lab.ac_pool:<17}{idx}")
     # The AC VLAN, bound from the SUT on BOTH sides.
     #
     # On cmp1 it replaces the `vlan1` placeholder in the .cfg, so the
@@ -266,9 +360,15 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
     # otherwise.
     out.append(f"{'':<12}{'cmp1':<15}"
                f"{'vlan':<14}{'vlan1':<27}{'vlans':<17}{lab.ac_vlan_index}")
-    for i in range(len(lab.acs)):
+    #
+    # The core vport is deliberately NOT tagged here. It carries a routed
+    # interface for the BGP EVPN session, not a raw traffic endpoint, so the
+    # one-interface-with-a-VLAN rule above does not apply to it and tagging it
+    # would only put the session behind a VLAN the DUT's core interface does
+    # not have.
+    for i, ac in enumerate(lab.acs):
         out.append(f"{'':<12}{'ixia1' if i == 0 else '':<15}"
-                   f"{'vlan':<14}{'vport' + str(i + 1):<27}"
+                   f"{'vlan':<14}{ac.vport:<27}"
                    f"{'vlans':<17}{lab.ac_vlan_index}")
     out += [
         "",

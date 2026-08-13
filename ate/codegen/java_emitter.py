@@ -65,6 +65,17 @@ def _ascii(s: str) -> str:
     return s.encode("ascii", "replace").decode("ascii")
 
 
+def _pool_index(ac, position: int) -> int:
+    """The SUT intPool index backing an attachment circuit.
+
+    `AccessCircuit.int_index` is 1-based because it names the `intN`
+    placeholder in the `.cfg`; the pool is 0-based. Profiles that predate the
+    core link leave it unset and fall back to position, which is what they
+    always did.
+    """
+    return ac.int_index - 1 if ac.int_index is not None else position
+
+
 def _jstr(s: str) -> str:
     """Render a Python string as an ASCII-safe Java string literal."""
     out = _ascii(s).replace("\\", "\\\\").replace('"', '\\"')
@@ -674,8 +685,12 @@ _UTILS_BODY = '''
         // A session that never loaded an .ixncfg has however many a previous
         // run happened to leave behind, so the names the suite uses may simply
         // not exist - "can't read ixia(vport3): no such element in array".
-        // Create them up to the number of ACs, then reload the object map.
-        int want = params.AC_VPORTS.length;
+        // Create them up to the HIGHEST vport the suite names, then reload the
+        // object map. Counting only the ACs is not enough once a link is spent
+        // on the core: the ACs are then vport2 and vport3, so creating two
+        // vports leaves $ixia(vport3) undefined and the chassis answers
+        // "can't read ixia(vport3): no such element in array".
+        int want = AC_POOL_OFFSET + params.AC_VPORTS.length;
         String created = ixia.runCommand(new RawTcl(
                 "set n [llength [ixNet getL [ixNet getRoot] vport]] ; "
                 + "while {$n < " + want + "} { ixNet add [ixNet getRoot] vport ; "
@@ -695,8 +710,9 @@ _UTILS_BODY = '''
         ixia.performFunctions(IxiaFunctions.LOAD_IXIA_OBJECT);
 
         for (int i = 0; i < params.AC_VPORTS.length; i++) {
-            String card = ixia.getIntPool(AC_POOL).getInter(i).getCard();
-            String port = ixia.getIntPool(AC_POOL).getInter(i).getPort();
+            int poolIdx = i + AC_POOL_OFFSET;
+            String card = ixia.getIntPool(AC_POOL).getInter(poolIdx).getCard();
+            String port = ixia.getIntPool(AC_POOL).getInter(poolIdx).getPort();
             logMsg.info("Assigning " + params.AC_VPORTS[i]
                     + " to card " + card + " port " + port);
             ixia.performFunctions(
@@ -910,9 +926,19 @@ def _ac_binding_java(lab: LabProfile) -> str:
     """
     pool = lab.ac_pool
     vlan_index = lab.ac_vlan_index
+    ac_offset = _pool_index(lab.acs[0], 0) if lab.acs else 0
     return _ascii(f'''
     /** intPool in the SUT file that backs the attachment circuits. */
     private static final String AC_POOL = "{pool}";
+
+    /**
+     * Where the attachment circuits start in that pool.
+     *
+     * Non-zero when a link is spent on the EVPN core: pc-3080's data1 pool is
+     * three DUT<->IXIA links, and binding the EVI from index 0 put it on the
+     * core port, which is L3 and not l2-transport.
+     */
+    private static final int AC_POOL_OFFSET = {ac_offset};
 
     /** Index into the SUT's `general/vlans` list for the AC VLAN. */
     private static final int AC_VLAN_INDEX = {vlan_index};
@@ -1033,7 +1059,12 @@ def _arg_expr(arg: str, lab: LabProfile) -> str:
     """
     for i, ac in enumerate(lab.acs):
         if arg == ac.ac_interface:
-            return f"evpnUtils.acInterface({i})"
+            # The SUT intPool index, NOT the position in `lab.acs`. On a rig
+            # that spends a link on the EVPN core those differ, and using the
+            # list position bound the EVI to the core port: the commit came
+            # back "Interface must be l2-transport enabled" because the core
+            # port carries an L3 address, not an l2-transport sub-interface.
+            return f"evpnUtils.acInterface({_pool_index(ac, i)})"
     return _jstr(arg)
 
 

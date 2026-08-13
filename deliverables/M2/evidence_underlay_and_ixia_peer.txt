@@ -1,0 +1,184 @@
+EVPN underlay + IXIA as BGP EVPN peer — evidence
+pc-3080 (exa-il01-uf-3080, 8.7.0 LAB 22) and IXIA chassis 10.1.70.108
+2026-08-13
+
+Raised by Ilan against Exaware's "nothing is missing": the configuration file
+was missing BGP and IGP, EVPN could not be loaded standalone, and the IXIA was
+never configured — it is meant to be both the client traffic endpoint and the
+remote router. All three turned out to be correct and are evidenced below.
+
+
+1. THE UNDERLAY WAS ABSENT, AND THE DELEGATION HAD NO RECEIVER
+--------------------------------------------------------------
+EVPN_Base.cfg used to say, in its own header:
+
+    ! NOT included - the underlay. Interface addressing, MPLS/LDP and BGP
+    ! are lab data ... They must come from cleanBaseConfig or the site
+    ! configuration loaded ahead of this file (LOAD_TYPE 1, then 2).
+
+bringUpParams.crt loads exactly two files onto cmp1: cleanBaseConfig
+(LOAD_TYPE 1) and then EVPN_Base.cfg (LOAD_TYPE 2). A clean base configures no
+IGP and no BGP, so nothing ever supplied the underlay.
+
+Consequence, previously filed under the wrong cause: the four
+`show bgp l2vpn evpn table evi detail` expectations were empty because there
+was NO BGP SESSION AT ALL — not because no peer answered.
+
+
+2. THE GENERATED UNDERLAY COMMITS ON THE DEVICE
+------------------------------------------------
+`ate codegen --lab 2ac-core` now emits it. Read back off the DUT:
+
+    router# show configuration routing bgp
+    routing bgp 3029
+     vrf default
+      neighbor 29.60.0.2
+       remote-as-number 3029
+       af-ipv4 unicast
+        inbound-soft-reconfiguration enable
+       !
+       af-l2vpn evpn
+        inbound-soft-reconfiguration enable
+       !
+
+    router# show configuration routing ospf
+    routing ospf 3029
+     vrf default
+      area 0.0.0.0
+       interface x-eth 0/0/8
+        network-type point-to-point
+        mtu          1500
+       !
+       interface loopback 0
+        passive enable
+
+    router# show configuration mpls
+    mpls ldp default
+     router-id 29.30.30.30
+     interface x-eth 0/0/8
+      af-ipv4
+
+Stanza shapes are Exaware's own, from cmp/tests/vpls/configurations/compass/
+VPLS_N1.cfg on this same testbed, with af-l2vpn vpls -> af-l2vpn evpn.
+
+
+3. THE IXIA WAS NEVER CONFIGURED — CONFIRMED IN THEIR CODE
+-----------------------------------------------------------
+Ixia.loadConfigurationFile() is only ever reached for a device that has a
+config-file row in bringUpParams.crt. The VPLS suite has one:
+
+    default   cmp1   cleanBaseConfig                            y  1  1900
+                     /configurations/compass/VPLS_N1.cfg        y  2  1900
+              ixia1  /configurations/ixia/VPLSN1.ixncfg         y
+
+Our EVPN .crt had NO ixia1 row at all, so the IXIA was cleaned and never
+configured. This suite configures it from code over raw TCL instead, which
+needs no .ixncfg from anybody.
+
+
+4. IXNETWORK VERSION — THE 6.30 READING WAS WRONG
+--------------------------------------------------
+The SUT pins the CLIENT TCL library:
+
+    <tclFolder>/auto/software/tools/Ixia/IxOS-6.30.701.16_veryNew/...</tclFolder>
+    <ixTclNetworkVersion>6.30.701.16</ixTclNetworkVersion>
+
+The API server itself answers:
+
+    ixNet getVersion  ->  9.00.1915.16
+
+Do not infer chassis capability from tclFolder. `ixia_lib.tcl` uses only the
+classic vport/protocols model (0 hits for topology/deviceGroup), and that model
+carries EVPN on this server.
+
+
+5. THE FULL BGP EVPN PEER BUILDS AND COMMITS
+----------------------------------------------
+Every object created and read back (scripts/ixia_evpn_peer.tcl):
+
+    /vport/protocols/bgp            -eVpnAfi 25  -eVpnSafi 70
+      neighborRange                 -evpn true   -dutIpAddress 29.60.0.1
+        ethernetSegments            -typeOfEthernetVpn evpn
+          evi                       -rdEvi 1, import/export RT 65000:1
+            broadcastDomains        -ethernetTagId 0
+              cMacRange             start 00:00:aa:00:00:01, count 5
+
+    PORT state=up connected=true        (vport1 = card 5/1 <-> x-eth 0/0/8)
+
+
+6. THE ONE REAL BLOCKER: A LICENCE
+------------------------------------
+    ixNet exec start /vport:1/protocols/bgp
+    ERROR-1005-Cannot start protocol due a missing license:
+    There is no license available for BGP EVPN.
+
+Isolated to the EVPN feature, not BGP as a whole. Remove the ethernetSegments
+object and start the same neighbour with plain ipv4-unicast:
+
+    BGP-RUNNING=started
+
+and the DUT then reports:
+
+    router# show bgp neighbor 29.60.0.2
+    BGP peer: 29.60.0.2
+    Admin status: up, BGP state: Established (up for: 56s), link type: internal
+      Local Router ID:  29.30.30.30     Remote Router ID: 29.60.0.2
+      IPv4 Unicast table:   Rx prefixes: 0   Tx prefixes: 0
+      L2VPN EVPN table:     Rx prefixes: 0   Tx prefixes: 0
+
+So the whole path is correct and in place, the DUT even holds an L2VPN EVPN
+table for the peer, and only the address family cannot be brought up. The ask
+on Exaware is the BGP EVPN licence on chassis 10.1.70.108.
+
+
+7. BOTH SUITES PASS ON HARDWARE, WITH FALSIFIABLE ASSERTIONS
+--------------------------------------------------------------
+    TC01_EvpnVlanBasedBringUp     OK (1 test)
+    TC03_EvpnType3ImetFlooding    OK (1 test)
+
+    VPORTS=3
+    ACVLAN=3380/true
+    ENDPOINTS=::ixNet::OBJ-/vport:2/protocols|::ixNet::OBJ-/vport:3/protocols
+
+vport1 is correctly left out of the raw traffic endpoints — it is the core.
+
+Earned, not assumed: generated with no captures first, TC01 failed
+`INCONCLUSIVE: this test made no assertion that could have failed`, and only
+went green after `ate capture` recorded real device output. Usable
+expectations 2 -> 6 of 11; the four that moved are the
+`show bgp l2vpn evpn table evi detail` reads that were called blocked.
+
+
+8. THREE BUGS THE RUN EXPOSED, ALL OURS
+-----------------------------------------
+a) The EVI was bound to the CORE port. The Java resolved AC interfaces by
+   position in lab.acs while the .cfg used the intPool index; once a link
+   becomes the core those differ:
+
+       Aborted: 'l2-services evpn evi-1 interface x-eth 0/0/8.3380 instance':
+       Interface must be l2-transport enabled
+
+   Fixed with AC_POOL_OFFSET, emitted from the profile.
+
+b) Only 2 vports were created while 3 were named:
+
+       vport3: VLAN 3380 was NOT enabled (chassis said can't read
+       "ixia(vport3)": no such element in array)
+
+   `want` counted ACs; the AC vports are numbered after the core.
+
+c) Stale captures. Expectations recorded on the 3-AC topology name .100
+   sub-interfaces on a port that is now L3, so they fail against a rig they
+   were not taken on. Re-capture after any topology change.
+
+
+9. COST OF THE CORE LINK
+-------------------------
+pc-3080's data1 pool is exactly three DUT<->IXIA links (x-eth 0/0/8, 0/0/18,
+0/0/26). Spending one on the core leaves two attachment circuits, so FLOW-030's
+MAC move cannot run here; `ate codegen` reports it rather than quietly emitting
+fewer tests. SINGLE_DUT_3AC keeps the spec topology for the reviewed test plan.
+
+There is no fourth link: the SUT's IXIA pool lists a vport4 on card 1/1, but of
+the DUT ports that could face it only x-eth 0/0/4 comes up, and it receives
+multicast only at ~840 bps — a lab switch on the control network, not IXIA.
