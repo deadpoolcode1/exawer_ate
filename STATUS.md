@@ -167,18 +167,44 @@ path tate can also see, which is why the TCL library finally loads.
 | IXIA VLAN tagging | `ACVLAN=3380/true` on all three vports, from the SUT's `vlans[0]` |
 | raw endpoints bound | `ENDPOINTS=/vport:1/protocols\|/vport:2/protocols` |
 
-**Next, precisely.** Setting the source MAC answers
-`::ixNet::ERROR-Object reference not set to an instance of an object` on
-`[getTraffic <name>] configElement` → `stack:"ethernet-1"`. Chase where the
-ethernet stack lives on a raw item after `generateAllTrafficItems` (it may need
-`generateTrafficItem <name>` per item, or the stack may hang off
-`configElement/stack` only once the endpoints existed at generate time — the
-endpoints are now bound BEFORE generate, so re-check the ordering first).
+**Next, precisely — this is the resume point.**
 
-Then: traffic flows → MACs are learnt → write the count-based assertions in
-their VPLS shape (counts per interface, not MAC values — `ShowVplsMacSummary`
-is the model, but EVPN has no `summary` sub-command so rows must be counted
-from `show evpn mac-address-table name <evi>`).
+The source MAC is the only thing between here and traffic. The chassis
+rejected the obvious mirror of their destination-MAC write:
+
+    ixia_lib.tcl : field:"ethernet.header.destinationAddress-1"   (works)
+    mirrored     : field:"ethernet.header.sourceAddress-1"
+    chassis      : ERROR-7009-Could not find the requested item,
+                   ethernet.header.sourceAddress-1
+                   NullReferenceException in StackFieldHandler.InsertMissingField
+
+The `-1` is a POSITION in the stack, not part of a name, so the source field
+sits at a different index. `EvpnUtils.setTrafficItemSourceMac` now enumerates
+the ethernet stack's fields and matches on `-displayName` containing "source"
+instead of guessing an index, and prints `FIELDS=<names>` so the real naming is
+recorded on the next run.
+
+**That change is written, unit-tested and compiling, but NOT yet run against
+the chassis.** Re-running TC02 is the next action:
+
+```bash
+# from the repo, after `ate codegen` + the compile gate
+cd <scratch> && tar czf classes.tgz -C build classes && tar czf gen.tgz -C gen cmp
+scp classes.tgz gen.tgz axawear:/var/tmp/
+ssh axawear 'W=/var/tmp/ate-run; cd $W; rm -rf classes; tar xzf /var/tmp/classes.tgz;
+  tar xzf /var/tmp/gen.tgz -C cmp-tests-project/src; chmod -R a+rX $W;
+  cd $W/run; CP=$(find $W/libs $W/extlibs -name "*.jar" | tr "\n" ":")$W/classes;
+  $W/jdk17/bin/java -cp "$CP" org.junit.runner.JUnitCore \
+    cmp.tests.evpn.TC02_EvpnType2MacIpAdvertisement > $W/run/TC02.log 2>&1'
+grep -oE "SRCMAC=[^ ]* SET=[0-9]+ FIELDS=.*" $W/run/TC02.log
+```
+
+After that: confirm the IXIA tx/rx counters actually move, then `ate capture`
+with traffic present, then write the count-based assertions.
+
+**Ceiling on this rig:** roughly 7 of 11 expectations. The other four are
+`show bgp l2vpn evpn table evi detail` — Type-2/Type-3 advertisement and
+withdrawal — and they need a BGP EVPN peer this testbed does not have.
 
 Note: the six `ERROR-6301` answers in the log are their own
 `configTrafficItemEndpoints` failing; our explicit bind corrects it afterwards.

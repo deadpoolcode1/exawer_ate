@@ -565,29 +565,46 @@ _UTILS_BODY = '''
      */
     public void setTrafficItemSourceMac(String trafficItemName, String mac)
             throws Exception {
-        final String field = "$ce/stack:\\\"ethernet-1\\\"/field:"
-                + "\\\"ethernet.header.sourceAddress-1\\\"";
-        ixia.runCommand(new RawTcl(
-                "foreach ce [ixNet getL [getTraffic \\\"" + trafficItemName
-                + "\\\"] configElement] { ixNet setAtt " + field
-                + " -singleValue " + mac + " } ; ixNet commit"));
-
-        // TclCli.runTclCommand returns only what lies BETWEEN the first and
-        // last newline of the response. A single-line answer therefore comes
-        // back as the empty string - which reads as "the chassis reported
-        // nothing" when in fact it answered. Print the value on its own line.
-        String readBack = ixia.runCommand(new RawTcl(
-                "set out {} ; foreach ce [ixNet getL [getTraffic \\\""
-                + trafficItemName + "\\\"] configElement] { append out ["
-                + "ixNet getAtt " + field + " -singleValue] } ; "
-                + "puts \\\"\\\" ; puts \\\"SRCMAC=$out\\\" ; puts \\\"\\\""));
+        // Find the field by NAME, do not guess its index. ixia_lib.tcl writes
+        // the destination MAC to `ethernet.header.destinationAddress-1`, and
+        // the obvious mirror `...sourceAddress-1` does not exist - the chassis
+        // answers "ERROR-7009-Could not find the requested item" with a
+        // NullReferenceException in StackFieldHandler.InsertMissingField,
+        // because field suffixes are positions within the stack, not names.
+        // So walk the ethernet stack's fields and match on the display name.
+        String tcl =
+            "set ti [getTraffic \\\"" + trafficItemName + "\\\"] ; "
+            + "set names {} ; set done 0 ; "
+            + "foreach ce [ixNet getL $ti configElement] { "
+            +   "foreach st [ixNet getL $ce stack] { "
+            +     "if {![string match *ethernet* $st]} { continue } ; "
+            +     "foreach fld [ixNet getL $st field] { "
+            +       "set nm [ixNet getAtt $fld -displayName] ; "
+            +       "lappend names $nm ; "
+            +       "if {[string match -nocase {*source*} $nm]} { "
+            +         "ixNet setMultiAttr $fld -singleValue " + mac
+            +           " -fieldValue " + mac + " -valueType singleValue ; "
+            +         "incr done } } } } ; "
+            + "ixNet commit ; "
+            + "set got {} ; "
+            + "foreach ce [ixNet getL $ti configElement] { "
+            +   "foreach st [ixNet getL $ce stack] { "
+            +     "if {![string match *ethernet* $st]} { continue } ; "
+            +     "foreach fld [ixNet getL $st field] { "
+            +       "if {[string match -nocase {*source*} "
+            +         "[ixNet getAtt $fld -displayName]]} { "
+            +         "append got [ixNet getAtt $fld -singleValue] } } } } ; "
+            + "puts \\\"\\\" ; "
+            + "puts \\\"SRCMAC=$got SET=$done FIELDS=$names\\\" ; "
+            + "puts \\\"\\\"";
+        String readBack = ixia.runCommand(new RawTcl(tcl));
 
         boolean applied = readBack != null
-                && readBack.toLowerCase().contains(mac.toLowerCase());
+                && readBack.toLowerCase().contains("srcmac=" + mac.toLowerCase());
         CompassReporter.passFailByCondition(applied,
                 trafficItemName + ": source MAC " + mac + " applied on the chassis.",
                 trafficItemName + ": source MAC " + mac + " was NOT applied - the"
-                        + " chassis reports " + String.valueOf(readBack).trim()
+                        + " chassis reports " + oneLine(readBack)
                         + ". Any assertion that depends on this source MAC is"
                         + " unmet.");
     }
@@ -839,7 +856,7 @@ _UTILS_BODY = '''
             return "null";
         }
         String s = output.replace('\\r', ' ').replace('\\n', ' ').trim();
-        return s.length() > 60 ? s.substring(0, 60) + "..." : s;
+        return s.length() > 240 ? s.substring(0, 240) + "..." : s;
     }
 
     /**
