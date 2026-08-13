@@ -206,6 +206,7 @@ public class EvpnUtils implements loggerImp {
                     name, "1", srcVport, "null", "null", "null", "null", "null",
                     "null", dstVport, "null", "null", "null", "null", "null",
                     "null", "null", "null", "null", name, "null", "null"));
+            bindRawEndpoints(name, srcVport, dstVport);
             ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_STREAM.args(
                     name, "1", "goodCRC", "manual", name, "8", "auto", "false"));
             ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_FRAME_RATE.args(
@@ -231,6 +232,48 @@ public class EvpnUtils implements loggerImp {
         }
         ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info("Traffic items built on the chassis");
+    }
+
+    /**
+     * Point a raw traffic item's endpoints at the vports, and verify it.
+     *
+     * `configTrafficItemEndpoints` only emits the `/vport:{id}/protocols` form
+     * that a RAW item requires when it decides the source vport's interface
+     * has a VLAN - and it decides that with
+     * `ixNet getAtt [ixNet getL $vport interface]/vlan -vlanEnable`, which is
+     * only a valid path when the vport has EXACTLY ONE interface. A vport
+     * carrying more than one makes that read fail, the heuristic falls through
+     * to the interface-list form, and the chassis answers
+     * "ERROR-6301-The endpoint is not correct for this type of trafficItem" -
+     * which performFunctions reports as a warning and the run survives.
+     *
+     * Rather than depend on that heuristic, set the endpoints explicitly and
+     * read them back.
+     */
+    public void bindRawEndpoints(String trafficItemName, String srcVport,
+                                 String dstVport) throws Exception {
+        String readBack = ixia.runCommand(new RawTcl(
+                "set ti [getTraffic \"" + trafficItemName + "\"] ; "
+                + "set es [lindex [ixNet getL $ti endpointSet] 0] ; "
+                + "ixNet setMultiAttr $es "
+                +   "-sources [list $ixia(" + srcVport + ")/protocols] "
+                +   "-destinations [list $ixia(" + dstVport + ")/protocols] ; "
+                + "ixNet commit ; "
+                + "puts \"\" ; "
+                + "puts \"ENDPOINTS=[ixNet getAtt $es -sources]"
+                +   "|[ixNet getAtt $es -destinations]\" ; "
+                + "puts \"\""));
+
+        boolean bound = readBack != null && readBack.contains("/protocols")
+                && !readBack.contains("ERROR");
+        CompassReporter.passFailByCondition(bound,
+                trafficItemName + ": endpoints bound to " + srcVport + " -> "
+                        + dstVport + ".",
+                trafficItemName + ": endpoints NOT bound (" + oneLine(readBack)
+                        + ") - the item will transmit nothing.");
+        if (!bound) {
+            throw new Exception("could not bind endpoints for " + trafficItemName);
+        }
     }
 
     /**
@@ -331,6 +374,31 @@ public class EvpnUtils implements loggerImp {
      * .ixncfg. So the tagging is done here, where it is also verified.
      */
     public void assignAcVports() throws Exception {
+        // `loadIxiaObj` names $ixia(vport1..N) from the vports ALREADY present
+        // in the IxNetwork configuration (`ixNet getL [ixNet getRoot] vport`).
+        // A session that never loaded an .ixncfg has however many a previous
+        // run happened to leave behind, so the names the suite uses may simply
+        // not exist - "can't read ixia(vport3): no such element in array".
+        // Create them up to the number of ACs, then reload the object map.
+        int want = params.AC_VPORTS.length;
+        String created = ixia.runCommand(new RawTcl(
+                "set n [llength [ixNet getL [ixNet getRoot] vport]] ; "
+                + "while {$n < " + want + "} { ixNet add [ixNet getRoot] vport ; "
+                + "incr n } ; ixNet commit ; "
+                + "puts \"\" ; "
+                + "puts \"VPORTS=[llength [ixNet getL [ixNet getRoot] vport]]\" ; "
+                + "puts \"\""));
+        boolean enough = created != null && created.contains("VPORTS=")
+                && !created.contains("VPORTS=0");
+        CompassReporter.passFailByCondition(enough,
+                "IXIA has at least " + want + " vports (" + oneLine(created) + ").",
+                "IXIA does not have " + want + " vports (" + oneLine(created)
+                        + ") - the traffic items cannot be built.");
+        if (!enough) {
+            throw new Exception("could not create the IXIA vports");
+        }
+        ixia.performFunctions(IxiaFunctions.LOAD_IXIA_OBJECT);
+
         for (int i = 0; i < params.AC_VPORTS.length; i++) {
             String card = ixia.getIntPool(AC_POOL).getInter(i).getCard();
             String port = ixia.getIntPool(AC_POOL).getInter(i).getPort();

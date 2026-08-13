@@ -149,33 +149,40 @@ Two defects that run exposed matter more than the pass:
 
 ## In progress — resume point
 
-Making the suites assert real EVPN behaviour, which needs real traffic. Each
-device iteration is ~8 minutes; the workspace is `/var/tmp/ate-run` on the dev
-box (a path tate can also see — see below).
+Making the suites assert real EVPN behaviour, which needs real traffic. Device
+iterations are ~8 minutes. Workspace: `/var/tmp/ate-run` on the dev box — a
+path tate can also see, which is why the TCL library finally loads.
 
-**Done and verified on hardware:**
+**Verified on hardware, in order of discovery:**
 
 | | |
 |---|---|
-| capture → codegen loop | closed; `ate codegen --captures` compiles real expectations, TC01 asserts 20 live lines |
-| fake-pass rule | enforced; TC02/TC03 now fail `INCONCLUSIVE` instead of falsely passing |
-| TCL library loads | `invalid command name` 0 (was 34) — run from `/var/tmp/ate-run`, with `ixia_lib.tcl` copied to the same path on tate |
-| traffic item arguments | `wrong # args` 0 — unset arguments must be `null`, not `""` |
-| `generateAllTrafficItems` | added; binds physical MACs onto raw items |
-| traffic actually started | `startTraffic()`; unsuspending an item does not transmit |
-| IXIA VLAN tagging | `ACVLAN=3380/true` verified on vport1 and vport2, from the SUT's `vlans[0]` |
+| capture → codegen loop closed | `ate codegen --captures`; TC01 asserts 20 live lines and goes red if one is wrong |
+| fake-pass rule enforced | TC02/TC03 now fail `INCONCLUSIVE` instead of falsely passing |
+| TCL library loads | `invalid command name` **34 → 0** (workspace path visible to tate) |
+| traffic item arguments | `wrong # args` **→ 0** (unset args are `null`, not `""`) |
+| `generateAllTrafficItems` | added — binds physical MACs onto raw items |
+| traffic actually started | `startTraffic()` — unsuspending an item does not transmit |
+| IXIA vports created | `VPORTS=3` — `loadIxiaObj` only names vports that already exist |
+| IXIA VLAN tagging | `ACVLAN=3380/true` on all three vports, from the SUT's `vlans[0]` |
+| raw endpoints bound | `ENDPOINTS=/vport:1/protocols\|/vport:2/protocols` |
 
-**Next, precisely:** `$ixia(vport3)` does not exist. `loadIxiaObj` names
-`$ixia(vportN)` from the vports already present in the IxNetwork config
-(`ixNet getL [ixNet getRoot] vport`), and the session holds only two. So the
-suite must **create** the vports (`ixNet add [ixNet getRoot] vport`) up to the
-number of ACs, re-run `loadIxiaObj`, then assign card/port from the SUT's
-`ixia1` `data1` pool, then tag the VLAN. After that: traffic flows, MACs are
-learnt, and the count-based assertions (their VPLS shape — counts per
-interface, not MAC values) become writable.
+**Next, precisely.** Setting the source MAC answers
+`::ixNet::ERROR-Object reference not set to an instance of an object` on
+`[getTraffic <name>] configElement` → `stack:"ethernet-1"`. Chase where the
+ethernet stack lives on a raw item after `generateAllTrafficItems` (it may need
+`generateTrafficItem <name>` per item, or the stack may hang off
+`configElement/stack` only once the endpoints existed at generate time — the
+endpoints are now bound BEFORE generate, so re-check the ordering first).
 
-Still unresolved: the source MAC read-back returns empty, so FLOW-030's
-"AC2 and AC3 share a source MAC" premise remains unmet.
+Then: traffic flows → MACs are learnt → write the count-based assertions in
+their VPLS shape (counts per interface, not MAC values — `ShowVplsMacSummary`
+is the model, but EVPN has no `summary` sub-command so rows must be counted
+from `show evpn mac-address-table name <evi>`).
+
+Note: the six `ERROR-6301` answers in the log are their own
+`configTrafficItemEndpoints` failing; our explicit bind corrects it afterwards.
+Harmless, but it is why that error still appears.
 
 ## Blocked on Exaware
 
