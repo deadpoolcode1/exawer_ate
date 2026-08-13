@@ -124,6 +124,10 @@ class LabProfile:
     #: run time, so one suite runs on any testbed rather than on the one whose
     #: interface names happened to be written into the profile.
     ac_pool: str = "data1"
+    #: Index into the SUT's `general/vlans` list for the VLAN the attachment
+    #: circuits carry. The DUT sub-interface and the IXIA vport are both bound
+    #: to it, from the SUT, so the two sides cannot drift apart.
+    ac_vlan_index: int = 0
     #: Seconds to wait for MAC aging.
     #:
     #: Grounded, not guessed: the EVPN CLI doc's `mac-aging-time` parameter

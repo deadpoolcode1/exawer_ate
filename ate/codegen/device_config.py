@@ -94,7 +94,7 @@ def _placeholderise(lines: list[str], lab: LabProfile) -> list[str]:
             # Sub-interface first: replacing the bare port would turn
             # `agg-eth-1.100` into `int1.100` only by luck of ordering, and
             # into `int1` plus a stray `.100` if the port name is a prefix.
-            line = line.replace(ac.ac_interface, f"int{i + 1}.{ac.subinterface}")
+            line = line.replace(ac.ac_interface, f"int{i + 1}.vlan1")
             line = line.replace(ac.interface, f"int{i + 1}")
         out.append(line)
     return out
@@ -116,12 +116,12 @@ def _attachment_circuits(lab: LabProfile) -> list[str]:
     lines = ["!", "! Attachment circuits. A vlan-based EVI binds SUB-interfaces,",
              "! never the port itself - the device rejects the commit otherwise.",
              "!"]
-    for i, ac in enumerate(lab.acs, start=1):
+    for i in range(1, len(lab.acs) + 1):
         lines += [
             f"interface int{i}",
             " admin-state up",
             "!",
-            f"interface int{i}.{ac.subinterface}",
+            f"interface int{i}.vlan1",
             " l2-transport enable",
             "!",
         ]
@@ -254,6 +254,22 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
     for i, _ac in enumerate(lab.acs):
         out.append(f"{'':<12}{ixia if i == 0 else '':<15}"
                    f"{'interface':<14}{'vport' + str(i + 1):<27}{'data1':<17}{i}")
+    # The AC VLAN, bound from the SUT on BOTH sides.
+    #
+    # On cmp1 it replaces the `vlan1` placeholder in the .cfg, so the
+    # sub-interfaces come out as <port>.<vlan>. On ixia1 it tags the vport's
+    # interface with the same VLAN - which is also what makes the vport usable
+    # as a RAW traffic-item endpoint: configTrafficItemEndpoints only takes the
+    # `/vport:N/protocols` form the chassis demands for raw items when the
+    # interface has a VLAN enabled, and answers
+    # "ERROR-6301-The endpoint is not correct for this type of trafficItem"
+    # otherwise.
+    out.append(f"{'':<12}{'cmp1':<15}"
+               f"{'vlan':<14}{'vlan1':<27}{'vlans':<17}{lab.ac_vlan_index}")
+    for i in range(len(lab.acs)):
+        out.append(f"{'':<12}{'ixia1' if i == 0 else '':<15}"
+                   f"{'vlan':<14}{'vport' + str(i + 1):<27}"
+                   f"{'vlans':<17}{lab.ac_vlan_index}")
     out += [
         "",
         "//before after table:",

@@ -147,6 +147,36 @@ Two defects that run exposed matter more than the pass:
   proving the channel is resynced after every probe. Verdicts were then
   spot-checked by hand against the device.
 
+## In progress — resume point
+
+Making the suites assert real EVPN behaviour, which needs real traffic. Each
+device iteration is ~8 minutes; the workspace is `/var/tmp/ate-run` on the dev
+box (a path tate can also see — see below).
+
+**Done and verified on hardware:**
+
+| | |
+|---|---|
+| capture → codegen loop | closed; `ate codegen --captures` compiles real expectations, TC01 asserts 20 live lines |
+| fake-pass rule | enforced; TC02/TC03 now fail `INCONCLUSIVE` instead of falsely passing |
+| TCL library loads | `invalid command name` 0 (was 34) — run from `/var/tmp/ate-run`, with `ixia_lib.tcl` copied to the same path on tate |
+| traffic item arguments | `wrong # args` 0 — unset arguments must be `null`, not `""` |
+| `generateAllTrafficItems` | added; binds physical MACs onto raw items |
+| traffic actually started | `startTraffic()`; unsuspending an item does not transmit |
+| IXIA VLAN tagging | `ACVLAN=3380/true` verified on vport1 and vport2, from the SUT's `vlans[0]` |
+
+**Next, precisely:** `$ixia(vport3)` does not exist. `loadIxiaObj` names
+`$ixia(vportN)` from the vports already present in the IxNetwork config
+(`ixNet getL [ixNet getRoot] vport`), and the session holds only two. So the
+suite must **create** the vports (`ixNet add [ixNet getRoot] vport`) up to the
+number of ACs, re-run `loadIxiaObj`, then assign card/port from the SUT's
+`ixia1` `data1` pool, then tag the VLAN. After that: traffic flows, MACs are
+learnt, and the count-based assertions (their VPLS shape — counts per
+interface, not MAC values) become writable.
+
+Still unresolved: the source MAC read-back returns empty, so FLOW-030's
+"AC2 and AC3 share a source MAC" premise remains unmet.
+
 ## Blocked on Exaware
 
 | # | Item | Impact |

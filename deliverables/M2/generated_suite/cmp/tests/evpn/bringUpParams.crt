@@ -34,6 +34,10 @@ default     cmp1           interface     int1                       data1       
             ixia1          interface     vport1                     data1            0
                            interface     vport2                     data1            1
                            interface     vport3                     data1            2
+            cmp1           vlan          vlan1                      vlans            0
+            ixia1          vlan          vport1                     vlans            0
+                           vlan          vport2                     vlans            0
+                           vlan          vport3                     vlans            0
 
 //before after table:
 

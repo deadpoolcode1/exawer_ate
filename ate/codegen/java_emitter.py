@@ -323,6 +323,9 @@ def emit_params(scripts: list[TestScript], lab: LabProfile,
             f"        {{{_jstr(ti.name)}, {_jstr(src.vport)}, "
             f"{_jstr(dst.vport)}, {_jstr(ti.src_mac)}}},")
     lines.append("    };")
+    lines.append("    /** IXIA vports backing the ACs, in AC order. */")
+    lines.append("    public final String[] AC_VPORTS = {"
+                 + ", ".join(_jstr(ac.vport) for ac in lab.acs) + "};")
     lines.append("    public final String TRAFFIC_RATE_FPS = \"1000\";")
 
     lines += [
@@ -456,6 +459,13 @@ _UTILS_BODY = '''
      * EvpnParams so it is ready the moment either arrives.
      */
     public void createTrafficItems() throws Exception {
+        // The vports have to exist before they can be tagged or used as
+        // endpoints. Their suites get them from the .crt's interface rows,
+        // which Ixia.loadConfigurationFile applies while loading an .ixncfg -
+        // a file this suite deliberately does not have. Whatever vports happen
+        // to be left in the chassis session from an earlier run are not ours.
+        assignAcVports();
+        tagVportsWithAcVlan();
         for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
             String name = ti[0], srcVport = ti[1], dstVport = ti[2], srcMac = ti[3];
             logMsg.info("Creating IXIA traffic item " + name
@@ -480,7 +490,13 @@ _UTILS_BODY = '''
                     name, "stream", "1", "framesPerSecond",
                     params.TRAFFIC_RATE_FPS, "bytes", "bitsPerSec", "false"));
         }
-        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
+        // GENERATE binds the physical MACs and interfaces onto each raw item -
+        // their own enum says so ("generate traffic item to apply physical mac
+        // and interfaces to traffic source and destanation"). Without it the
+        // items are configured but unresolved, and nothing is transmitted. It
+        // runs BEFORE the source MAC is set; generating afterwards would
+        // overwrite it.
+        ixia.performFunctions(IxiaFunctions.GENERATE_TRAFFIC);
 
         // EVPN learns from SOURCE MACs, and ixia_lib.tcl exposes only
         // editTrafficRawDestMacAddr. It does not need a new proc: that one is a
@@ -513,10 +529,15 @@ _UTILS_BODY = '''
                 + "\\\"] configElement] { ixNet setAtt " + field
                 + " -singleValue " + mac + " } ; ixNet commit"));
 
+        // TclCli.runTclCommand returns only what lies BETWEEN the first and
+        // last newline of the response. A single-line answer therefore comes
+        // back as the empty string - which reads as "the chassis reported
+        // nothing" when in fact it answered. Print the value on its own line.
         String readBack = ixia.runCommand(new RawTcl(
                 "set out {} ; foreach ce [ixNet getL [getTraffic \\\""
                 + trafficItemName + "\\\"] configElement] { append out ["
-                + "ixNet getAtt " + field + " -singleValue] } ; set out"));
+                + "ixNet getAtt " + field + " -singleValue] } ; "
+                + "puts \\\"\\\" ; puts \\\"SRCMAC=$out\\\" ; puts \\\"\\\""));
 
         boolean applied = readBack != null
                 && readBack.toLowerCase().contains(mac.toLowerCase());
@@ -566,6 +587,101 @@ _UTILS_BODY = '''
         public SessionType getCmdSessionType() {
             return SessionType.MGMT;
         }
+    }
+
+    /**
+     * Enable the AC VLAN on every IXIA vport, and verify the chassis took it.
+     *
+     * Two things depend on this and both fail silently without it:
+     *
+     *  * frames must carry the AC VLAN or they never reach the sub-interface
+     *    the EVI is bound to;
+     *  * a RAW traffic item only accepts endpoints of the form
+     *    `/vport:{id}/protocols`, and `configTrafficItemEndpoints` only builds
+     *    that form when the vport's interface has a VLAN enabled. Without it
+     *    the chassis answers "ERROR-6301-The endpoint is not correct for this
+     *    type of trafficItem" - and performFunctions still reports the call as
+     *    "ended without errors".
+     *
+     * The .crt carries `vlan` rows for the same purpose, but they are applied
+     * by `Ixia.loadConfigurationFile`, which only runs for a device that has a
+     * configuration file row - and this suite deliberately references no
+     * .ixncfg. So the tagging is done here, where it is also verified.
+     */
+    public void assignAcVports() throws Exception {
+        for (int i = 0; i < params.AC_VPORTS.length; i++) {
+            String card = ixia.getIntPool(AC_POOL).getInter(i).getCard();
+            String port = ixia.getIntPool(AC_POOL).getInter(i).getPort();
+            logMsg.info("Assigning " + params.AC_VPORTS[i]
+                    + " to card " + card + " port " + port);
+            ixia.performFunctions(
+                    IxiaFunctions.ASSIGN_VPORT_$_WITH_CARD_$_AND_PORT_$.args(
+                            params.AC_VPORTS[i], card, port, "true"));
+        }
+    }
+
+    /**
+     * Enable the AC VLAN on every IXIA vport, and verify the chassis took it.
+     */
+    public void tagVportsWithAcVlan() throws Exception {
+        String vlan = acVlan();
+        for (String vport : params.AC_VPORTS) {
+            // NOT IxiaFunctions.SET_AND_VERIFY_INTERFACE_$_VLAN_$: its proc
+            // does `ixNet getL $vport vlan`, and the chassis rejects that -
+            // "is not a valid child of /vport (possible options are: l1Config
+            // capture protocols discoveredNeighbor interface ...)". The VLAN
+            // hangs off the vport's INTERFACE, which is how their own
+            // configTrafficItemEndpoints reaches it ($int/vlan). A vport with
+            // no interface object gets one first; their suites get theirs from
+            // the .ixncfg we deliberately do not load.
+            String tcl =
+                "set vp $ixia(" + vport + ") ; "
+                + "set il [ixNet getL $vp interface] ; "
+                + "if {[llength $il] == 0} { "
+                +   "ixNet add $vp interface ; ixNet commit ; "
+                +   "set il [ixNet getL $vp interface] ; "
+                +   "ixNet setAtt [lindex $il 0] -enabled true ; ixNet commit "
+                + "} ; "
+                + "set int [lindex $il 0] ; "
+                + "ixNet setMultiAtt $int/vlan -vlanEnable true ; ixNet commit ; "
+                + "ixNet setMultiAtt $int/vlan -vlanId " + vlan + " ; ixNet commit ; "
+                + "puts \\\"\\\" ; "
+                + "puts \\\"ACVLAN=[ixNet getAtt $int/vlan -vlanId]"
+                +   "/[ixNet getAtt $int/vlan -vlanEnable]\\\" ; "
+                + "puts \\\"\\\"";
+            String readBack = ixia.runCommand(new RawTcl(tcl));
+
+            boolean ok = readBack != null
+                    && readBack.contains("ACVLAN=" + vlan + "/true");
+            CompassReporter.passFailByCondition(ok,
+                    vport + ": VLAN " + vlan + " enabled on the IXIA interface.",
+                    vport + ": VLAN " + vlan + " was NOT enabled (chassis said "
+                            + oneLine(readBack) + ") - raw traffic endpoints "
+                            + "will be rejected and no frame will reach the EVI.");
+            if (!ok) {
+                throw new Exception("could not tag " + vport + " with VLAN " + vlan);
+            }
+        }
+    }
+
+    /**
+     * Start the traffic engine.
+     *
+     * Unsuspending an item is not the same as transmitting. Their suites load
+     * an .ixncfg whose traffic is already running and only suspend/unsuspend
+     * it; a suite that builds its own items must start them, or the chassis
+     * holds three correctly configured items and sends nothing.
+     */
+    public void startTraffic() throws Exception {
+        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
+        ixia.performFunctions(IxiaFunctions.START_TRAFFIC);
+        logMsg.info("Traffic started");
+    }
+
+    /** Stop the traffic engine. */
+    public void stopTraffic() throws Exception {
+        ixia.performFunctions(IxiaFunctions.STOP_TRAFFIC);
+        logMsg.info("Traffic stopped");
     }
 
     /** Enable (unsuspend) or disable (suspend) one named IXIA traffic item. */
@@ -708,13 +824,13 @@ def _ac_binding_java(lab: LabProfile) -> str:
        that the device accepted the command.
     """
     pool = lab.ac_pool
-    subif = lab.acs[0].subinterface
+    vlan_index = lab.ac_vlan_index
     return _ascii(f'''
     /** intPool in the SUT file that backs the attachment circuits. */
     private static final String AC_POOL = "{pool}";
 
-    /** Sub-interface each attachment circuit is created as. */
-    private static final int AC_SUBINTERFACE = {subif};
+    /** Index into the SUT's `general/vlans` list for the AC VLAN. */
+    private static final int AC_VLAN_INDEX = {vlan_index};
 
     /**
      * The attachment circuit as THIS testbed defines it, e.g.
@@ -724,7 +840,20 @@ def _ac_binding_java(lab: LabProfile) -> str:
      */
     public String acInterface(int index) throws Exception {{
         return cmp.getIntPool(AC_POOL).getInter(index).getIntName()
-               + "." + AC_SUBINTERFACE;
+               + "." + acVlan();
+    }}
+
+    /**
+     * The VLAN the attachment circuits carry, taken from the SUT file.
+     *
+     * Both sides must agree or no frame ever reaches the service: the DUT
+     * sub-interface is created as <port>.<vlan>, and the IXIA vport is tagged
+     * with the same value by the `vlan` rows in bringUpParams.crt. Reading it
+     * from the SUT rather than hard-coding it is what keeps that true on a
+     * testbed whose VLAN is different.
+     */
+    public String acVlan() throws Exception {{
+        return General.getInstanceByName().vlans[AC_VLAN_INDEX].getNumber();
     }}
 
     /**
@@ -779,6 +908,7 @@ def emit_utils(lab: LabProfile) -> JavaFile:
         "import cmp.infra.Session.ICmpCliCmd;",
         "import cmp.infra.Session.SessionMode;",
         "import cmp.infra.Session.SessionType;",
+        "import cmp.infra.common.General;",
         "import cmp.infra.common.GlobalParam;",
         "import cmp.infra.ixia.Ixia;",
         "import cmp.infra.ixia.IxiaFunctions;",
@@ -853,10 +983,12 @@ def _render_step(step: Step, lab: LabProfile,
     elif step.kind is StepKind.TRAFFIC_START:
         out.append("        evpnUtils.setTrafficItemState("
                    "testParams.TI_AC1_TO_AC2, true);")
+        out.append("        evpnUtils.startTraffic();")
     elif step.kind is StepKind.TRAFFIC_STOP:
         for ti in step.traffic_items:
             out.append(f"        evpnUtils.setTrafficItemState("
                        f"testParams.{ti}, false);")
+        out.append("        evpnUtils.stopTraffic();")
     elif step.kind is StepKind.WAIT:
         out.append(f"        evpnUtils.waitSeconds("
                    f"testParams.MAC_AGING_TIME_IN_SEC, {_jstr(step.text)});")

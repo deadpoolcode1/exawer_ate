@@ -56,6 +56,8 @@ public class EvpnParams implements ISuiteParams {
         {"TI_AC2_TO_AC1", "vport2", "vport1", "00:00:02:00:00:01"},
         {"TI_AC3_TO_AC1", "vport3", "vport1", "00:00:02:00:00:01"},
     };
+    /** IXIA vports backing the ACs, in AC order. */
+    public final String[] AC_VPORTS = {"vport1", "vport2", "vport3"};
     public final String TRAFFIC_RATE_FPS = "1000";
 
     // ---- timing ----
