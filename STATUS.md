@@ -32,8 +32,8 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Steps → DUT config | (same) | ✅ `.crt` passes their own validator |
 | Test selection | `ate queue` | ✅ dirty queue |
 | **Verify commands on a device** | `ate verify-commands` | ✅ 123 templates; **both halves now trustworthy** |
-| **Capture real expectations** | `ate capture` | ✅ **2 usable, 9 empty, 0 unsupported** |
-| **Run the suite on the DUT** | `javac` + JUnit/JSystem | ✅ **TC01 green on pc-3080** |
+| **Capture real expectations** | `ate capture` | ✅ 2 usable, 9 empty, 0 unsupported — **not yet fed back into the code** |
+| **Run the suite on the DUT** | `javac` + JUnit/JSystem | ✅ **TC01/02/03 all run green on pc-3080** (assert little — see limits) |
 | Build IXIA traffic items | `ate codegen` | ✅ in code, no `.ixncfg` (src MAC still blocked) |
 
 ## M2 — SOW bullets
@@ -70,11 +70,16 @@ now overturned decisions we had reasoned to from the specs.
 Any claim about the build must name the build: pc-3021 was re-imaged mid-session
 (LAB 904 → LAB 22), and pc-3080 runs LAB 22 / `feature/dev64_evpn_23Jul2026`.
 
-## TC01 runs green on hardware — and what that is worth
+## The suites run on hardware — and what that is worth
 
-On **pc-3080** (`exa-il01-uf-3080`), `TC01_EvpnVlanBasedBringUp` completes under
-JUnit + JSystem: `OK (1 test)`, exit 0, full bring-up included. Afterwards the
-DUT shows `evi-1` with its three attachment circuits bound.
+On **pc-3080** (`exa-il01-uf-3080`), **all three** suites complete under
+JUnit + JSystem: `OK (1 test)` each, exit 0, full bring-up and tear-down
+included. Afterwards the DUT shows `evi-1` with its three attachment circuits
+bound.
+
+That proves the pipeline emits code a real device **accepts and executes**. It
+does not yet prove the code **verifies EVPN behaviour** — see "Honest limits"
+below for the assertion tally, which is the number that matters.
 
 Two defects that run exposed matter more than the pass:
 
@@ -89,10 +94,27 @@ Two defects that run exposed matter more than the pass:
 
 ## Honest limits
 
-- **A green TC01 is narrower than it sounds.** It means every configuration step
-  was accepted and committed and the bring-up completed. It does **not** mean
-  the verification steps asserted anything: **2 of 11** expectations are
-  captured and usable, the other 9 report a warning.
+- **All three suites run green on hardware, and that is not the same as the
+  scenarios passing.** Tallied from the runs:
+
+  | Suite | Result | Warnings | EVPN-behaviour assertions |
+  |---|---|---|---|
+  | TC01 bring-up | `OK (1 test)` | 28 | **0** |
+  | TC02 Type-2 | `OK (1 test)` | 50 | **1** |
+  | TC03 Type-3 IMET | `OK (1 test)` | 24 | **0** |
+
+  129 of the 131 reported passes are the framework's own infrastructure checks
+  (disk, commit succeeded, IXIA connected, no watchdog reboot). The single
+  EVPN assertion — "no new Type-2 after a local AC2→AC3 move" — currently
+  compares an **empty** route table with an empty route table, so it cannot
+  fail for the reason it exists. Detail:
+  `deliverables/M2/evidence_what_the_suites_assert.txt`.
+- **The capture → code loop is not closed.** `ate capture` writes
+  `out/captured_expectations.json`; `ate codegen` does not read it. All 15
+  expectation arrays in the delivered `EvpnParams` are empty, so every verify
+  step warns rather than asserts — including the two expectations that *were*
+  captured successfully. Wiring that back is ours to do and is the next piece
+  of work.
 - **Usable expectations dropped from 7 to 2, and that is a correction.** Five of
   the previous seven were the MAC table's legend with no MAC address in it — an
   assertion that passes on any device, working or broken. `capture` now refuses

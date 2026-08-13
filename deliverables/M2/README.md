@@ -7,8 +7,10 @@ mapped to the artifact that satisfies it, plus the evidence behind each claim.
 
 > **Latest run:** SUT **pc-3080** (`exa-il01-uf-3080`, 10.3.80.1), software
 > **8.7.0 LAB 22**, application build `feature/dev64_evpn_23Jul2026`.
-> `TC01_EvpnVlanBasedBringUp` passes end to end — `OK (1 test)`.
-> Start with `evidence_tc01_run_pc3080.txt`, then `lab_validation_pc3080.md`.
+> TC01, TC02 and TC03 all run end to end — `OK (1 test)` each — but between
+> them they make **one** EVPN-behaviour assertion, and it is currently vacuous.
+> Start with `evidence_what_the_suites_assert.txt`, then
+> `evidence_tc01_run_pc3080.txt` and `lab_validation_pc3080.md`.
 
 | SOW M2 deliverable | Artifact | Evidence |
 |---|---|---|
@@ -150,12 +152,22 @@ file.
 errors; strict `-Werror -Xlint:all` gate on the generated files: zero warnings).
 275 ATE tests pass.
 
-**TC01 now runs green on real hardware.** On SUT **pc-3080**
-(`exa-il01-uf-3080`, 8.7.0 LAB 22) `TC01_EvpnVlanBasedBringUp` completes under
+**All three suites now run on real hardware.** On SUT **pc-3080**
+(`exa-il01-uf-3080`, 8.7.0 LAB 22) TC01, TC02 and TC03 each complete under
 JUnit + JSystem — `OK (1 test)`, exit 0 — including the full bring-up that
 pc-3021 could not reach. `show evpn detail` on the DUT afterwards lists the EVI
 with its three attachment circuits bound. See `evidence_tc01_run_pc3080.txt`
 and `lab_validation_pc3080.md`.
+
+**Read `evidence_what_the_suites_assert.txt` before reading "green" as "the
+scenarios pass."** Across the three runs there are 131 reported passes and
+**one** of them checks EVPN behaviour — and that one currently compares an
+empty route table with an empty route table. The rest are the framework's
+infrastructure checks. Every verification step carries an empty expectation and
+therefore warns instead of asserting, for two reasons: there is no traffic to
+learn from without source-MAC control on the IXIA, and `ate capture`'s output
+is not yet fed back into `EvpnParams` by `ate codegen`. The first is Exaware's,
+the second is ours.
 
 Two defects were found by that run, and both mattered more than the pass:
 

@@ -1,0 +1,98 @@
+WHAT THE THREE SUITES ACTUALLY ASSERT ON HARDWARE
+================================================================================
+All three run on SUT pc-3080 (exa-il01-uf-3080, 8.7.0 LAB 22), 2026-08-13.
+All three report success. This file is about what that success means, because
+the headline number is misleading on its own.
+
+    Suite                              Result        Warnings   EVPN assertions
+    ---------------------------------------------------------------------------
+    TC01_EvpnVlanBasedBringUp          OK (1 test)      28             0
+    TC02_EvpnType2MacIpAdvertisement   OK (1 test)      50             1
+    TC03_EvpnType3ImetFlooding         OK (1 test)      24             0
+
+"EVPN assertions" counts reported passes that check EVPN behaviour. The rest —
+129 of the 131 passes across the three runs — are the framework's own
+infrastructure checks: disk space, file cleanup, commit succeeded, IXIA server
+connected, no watchdog reboot, alarm history clean.
+
+
+1. THE ONE FUNCTIONAL ASSERTION, AND WHY IT IS NOT YET WORTH MUCH
+--------------------------------------------------------------------------------
+TC02, step 11:
+
+    Pass: Verify NO new Type-2 was triggered by the local AC2 -> AC3 move
+          (route table unchanged vs the snapshot): unchanged, as expected.
+
+It is a real assertion and it is the right one — Eyal's 2026-07-06 annotation
+says a MAC moving between two local ACs on the same PE must not re-advertise a
+Type-2 route. But look at what it compared:
+
+    show bgp l2vpn evpn table evi detail
+    %  No entries found.                  <- before
+    ...
+    show bgp l2vpn evpn table evi detail
+    %  No entries found.                  <- after
+
+An empty table against an empty table. With no BGP EVPN peer and no traffic
+there are no routes to re-advertise, so the assertion cannot fail for the
+reason it exists. It will become meaningful the moment there is a peer and
+traffic; today it is a placeholder that happens to be green.
+
+
+2. WHY EVERYTHING ELSE ONLY WARNS
+--------------------------------------------------------------------------------
+Every verification step in the delivered suite carries an EMPTY expectation:
+
+    public final String[] FLOW010_S08_EVPN_DETAIL_LINES = new String[] {};
+    public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {};
+    ... 15 in total
+
+and `EvpnUtils.verifyShowLines` treats an empty expectation as "not validated
+against a real device": it runs the command, prints the output, reports a
+warning and asserts nothing. That is deliberate — a guessed expected value that
+silently passes is worse than an explicit gap — but it means the suites
+currently exercise the device without judging it.
+
+Two separate reasons the tables are empty, and it is worth keeping them apart:
+
+  (a) **Nothing to capture.** EVPN learns from SOURCE MACs; `ixia_lib.tcl` has
+      `editTrafficRawDestMacAddr` and no source equivalent, so no traffic the
+      DUT can learn from is offered. The MAC tables print their legend and no
+      rows, and the BGP EVPN table has no peer to fill it. This is the blocker,
+      and it is in Exaware's infra file.
+
+  (b) **The loop is not closed in code.** `ate capture` writes what it captured
+      to `out/captured_expectations.json`, but `ate codegen` does not read that
+      file. Even the two expectations that WERE captured successfully
+      (`show evpn detail`, `show evpn broadcast-domains name evi-1`) are not
+      compiled into `EvpnParams`. Feeding captures back is currently a manual
+      step that has not been taken, not an automated one.
+
+(b) is ours and is the obvious next piece of work. (a) is not.
+
+
+3. WHAT IS GENUINELY PROVEN ON HARDWARE
+--------------------------------------------------------------------------------
+Not nothing, and worth stating precisely:
+
+  * The generated Java runs under JUnit + JSystem against a real DUT and
+    completes a full bring-up and tear-down, three suites in a row, unattended.
+  * The generated `bringUpParams.crt` passes Exaware's own
+    `TemplateManager.validateAgainstTemplate` inside that live bring-up.
+  * The generated `EVPN_Base.cfg` loads onto the DUT and **commits**, and the
+    device then reports the service the plan asked for:
+
+        EVPN name: evi-1     Service Type: vlan-based
+        Import-rt / Export-rt: 65000:1
+        Local Interfaces: x-eth0/0/8.100, x-eth0/0/18.100, x-eth0/0/26.100
+
+  * Every CLI command the suites issue exists on this build (`ate capture`
+    reports 0 unsupported across all 11), and each configuration command is now
+    checked for acceptance, with a negative control proving the check fails
+    when it should.
+  * The same generated files ran unchanged on two different platforms
+    (edgeCore pc-3021, UfiSpace pc-3080).
+
+So: the pipeline produces code that a real device accepts and executes. It does
+not yet produce code that verifies EVPN *behaviour*. The gap between those two
+sentences is items (a) and (b) above.

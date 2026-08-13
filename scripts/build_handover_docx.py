@@ -123,11 +123,12 @@ r = p.add_run("SUT pc-3080 / exa-il01-uf-3080, software 8.7.0 LAB 22, "
               "application build feature/dev64_evpn_23Jul2026.")
 r.font.size = Pt(10)
 bullets(doc, [
-    ("TC01 runs green, end to end - ",
-     "TC01_EvpnVlanBasedBringUp completes under JUnit + JSystem against the DUT: "
-     "OK (1 test), exit 0. That includes the full bring-up, which is where the "
+    ("All three suites run end to end - ",
+     "TC01, TC02 and TC03 each complete under JUnit + JSystem against the DUT: "
+     "OK (1 test), exit 0, full bring-up and tear-down included - which is where the "
      "previous milestone stopped. Afterwards show evpn detail lists evi-1 with its "
-     "three attachment circuits bound."),
+     "three attachment circuits bound. Please read the next section before reading "
+     "\"green\" as \"the scenarios pass\"."),
     ("Compiles against your framework - ",
      "953 sources -> 1454 classes, zero errors; the generated files pass "
      "javac --release 8 -Werror -Xlint:all with zero warnings."),
@@ -176,6 +177,35 @@ r.font.size = Pt(9.5)
 r.font.color.rgb = MUTED
 
 # ── doc corrections ─────────────────────────────────────────────────────
+h(doc, "What \"green\" means here - and what it does not", size=11, space_before=10)
+p = doc.add_paragraph()
+r = p.add_run("We would rather you get this from us than find it yourselves.")
+r.font.size = Pt(9.5)
+r.font.color.rgb = MUTED
+table(doc,
+      ["Suite", "Result", "Warnings", "EVPN-behaviour assertions"],
+      [["TC01 bring-up", "OK (1 test)", "28", "0"],
+       ["TC02 Type-2 MAC/IP", "OK (1 test)", "50", "1"],
+       ["TC03 Type-3 IMET", "OK (1 test)", "24", "0"]])
+p = doc.add_paragraph()
+p.paragraph_format.space_before = Pt(6)
+r = p.add_run("129 of the 131 reported passes are your framework's own infrastructure "
+              "checks - disk space, commit succeeded, IXIA connected, no watchdog reboot, "
+              "alarm history clean. The single EVPN assertion (\"no new Type-2 after a "
+              "local AC2 to AC3 move\") is the right check, but today it compares an empty "
+              "route table with an empty route table, so it cannot fail for the reason it "
+              "exists.")
+r.font.size = Pt(10.5)
+p = doc.add_paragraph()
+r = p.add_run("So: the pipeline produces code your device accepts and executes - the "
+              "bring-up, the .crt, the .cfg, every CLI command. It does not yet produce "
+              "code that verifies EVPN behaviour. Two things stand between the two, one "
+              "yours and one ours: there is no traffic to learn from without source-MAC "
+              "control on the IXIA, and ate capture's output is not yet fed back into the "
+              "generated expectations. Full detail in "
+              "02_evidence/evidence_what_the_suites_assert.txt.")
+r.font.size = Pt(10.5)
+
 h(doc, "Corrections your EVPN CLI documentation may want")
 p = doc.add_paragraph()
 r = p.add_run("Found by running against LAB 22, not by reading.")
