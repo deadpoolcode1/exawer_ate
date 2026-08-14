@@ -1294,58 +1294,19 @@ def test_real_table_content_is_still_usable() -> None:
     assert any("32768" in ln for ln in lines)
 
 
-def test_legend_only_bgp_table_is_refused_as_an_expectation() -> None:
-    """The BGP table's legend must not become an assertion.
-
-    The same defect as the MAC table's legend, arriving through a different
-    command: `show bgp l2vpn evpn table evi detail` prints a flags legend and
-    the EVI name and no routes. Recorded as an expectation it passes on any
-    device with an EVI of that name, working or broken - and it WAS recorded
-    and asserted on by TC01 and TC03 before this rule existed.
-    """
-    from ate.codegen.capture import _classify
-
-    raw = (
-        "show bgp l2vpn evpn table evi detail\r\n"
-        "Flags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\n"
-        "i - internal, S - stale, = - multipath, a - alternate\r\n"
-        "Origin:  i - IGP, e - EGP, ? - incomplete\r\n"
-        "EVI Name = evi-1\r\n"
-        "router[2026-08-13-20:15:07]#"
-    )
-    status, lines, note = _classify(raw, "show bgp l2vpn evpn table evi detail")
-    assert status == "empty", f"legend-only output was accepted: {lines}"
-    assert not lines
-    assert "no rows" in note
-
-
-def test_real_table_content_is_still_usable() -> None:
-    """The rule must not swallow output that genuinely carries state."""
-    from ate.codegen.capture import _classify
-
-    raw = (
-        "show evpn broadcast-domains name evi-1\r\n"
-        "EVPN Name: evi-1, Service Type: vlan-based\r\n"
-        " Local BUM Label: 32768\r\n"
-        "  Local Interfaces:\r\n"
-        "    x-eth0/0/18.3380\r\n"
-        "router[2026-08-13-20:15:10]#"
-    )
-    status, lines, _ = _classify(raw, "show evpn broadcast-domains name evi-1")
-    assert status == "ok"
-    assert any("32768" in ln for ln in lines)
-
-
 def test_a_one_sided_underlay_is_refused() -> None:
     """The DUT must never run a protocol the tester cannot answer.
 
-    This is the generation-time form of the defect Exaware caught by eye:
-    OSPF configured on the device and not on the IXIA, which shows up only as
-    an adjacency that never forms and reads as "not wired up yet".
+    The generation-time form of the defect Exaware caught by eye: OSPF
+    configured on the device and not on the IXIA, which surfaces only as an
+    adjacency that never forms and reads as "not wired up yet".
     """
     import dataclasses
 
-    from ate.codegen.lab import SINGLE_DUT_2AC_CORE, underlay_symmetry_violations
+    from ate.codegen.lab import (
+        SINGLE_DUT_2AC_CORE,
+        underlay_symmetry_violations,
+    )
 
     assert underlay_symmetry_violations(SINGLE_DUT_2AC_CORE) == []
 

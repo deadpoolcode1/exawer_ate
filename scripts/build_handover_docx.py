@@ -21,7 +21,7 @@ from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 
-OUT = "/home/ilan/Desktop/Exaware_M2_handover_2026-08-13/M2_Handover.docx"
+OUT = "/home/ilan/Desktop/Exaware_M2_handover_2026-08-14/M2_Handover.docx"
 #: Keep in step with deliverables/M2/ — every claim below has an evidence file.
 ACCENT = RGBColor(0x1F, 0x4E, 0x79)
 MUTED = RGBColor(0x59, 0x59, 0x59)
@@ -123,12 +123,16 @@ r = p.add_run("SUT pc-3080 / exa-il01-uf-3080, software 8.7.0 LAB 22, "
               "application build feature/dev64_evpn_23Jul2026.")
 r.font.size = Pt(10)
 bullets(doc, [
-    ("All three suites run end to end - ",
-     "TC01, TC02 and TC03 each complete under JUnit + JSystem against the DUT: "
-     "OK (1 test), exit 0, full bring-up and tear-down included - which is where the "
-     "previous milestone stopped. Afterwards show evpn detail lists evi-1 with its "
-     "three attachment circuits bound. Please read the next section before reading "
-     "\"green\" as \"the scenarios pass\"."),
+    ("All three suites PASS, on real assertions - ",
+     "TC01, TC02 and TC03 each report OK (1 test) under JUnit + JSystem against the "
+     "DUT, and between them make seven assertions against real device output. TC02 "
+     "had never passed before this drop. A generated test that verifies nothing fails "
+     "by construction here, so a green run means assertions ran and could have failed."),
+    ("EVPN behaviour demonstrated on real traffic - ",
+     "MAC learning per attachment circuit; a local MAC move (AC2 and AC3 source the "
+     "same MAC, and the entry moves from x-eth0/0/18.3380 to x-eth0/0/26.3380 when "
+     "traffic shifts); and aging - with that traffic stopped the entry leaves the "
+     "table, which is what TC03 asserts."),
     ("Compiles against your framework - ",
      "953 sources -> 1454 classes, zero errors; the generated files pass "
      "javac --release 8 -Werror -Xlint:all with zero warnings."),
@@ -160,19 +164,20 @@ bullets(doc, [
      "know the assertion works."),
 ])
 
-h(doc, "One number went down on purpose", size=11, space_before=10)
+h(doc, "A correction to our own last hand-over", size=11, space_before=10)
 p = doc.add_paragraph()
-r = p.add_run("Usable captured expectations are 2 of 11, where the last hand-over said 7. "
-              "Five of those seven were the MAC table's legend with no MAC address in it - "
-              "an assertion that passes on any device, working or broken, and could never "
-              "detect a regression. ate capture now refuses them and says why. The suite "
-              "asserts less and means more; 02_evidence/evidence_capture_pc3080.txt shows "
-              "one of the five in full.")
+r = p.add_run("The previous drop reported that the suites made one EVPN-behaviour "
+              "assertion and that it was vacuous. That was true when written, and the "
+              "reason was worse than we said: four expectations had captured a table "
+              "LEGEND rather than any rows - text a device prints whether the feature "
+              "works or not. Our own guard was meant to refuse exactly that and only "
+              "recognised short all-caps labels, so the BGP table's mixed-case Flags: "
+              "and Origin: walked past it.")
 r.font.size = Pt(10.5)
 p = doc.add_paragraph()
-r = p.add_run("The cause is not the device and not the commands - every command the suite "
-              "issues exists here. It is that there is no traffic to learn from, which is "
-              "the source-MAC item below.")
+r = p.add_run("The guard now matches the shape of a glossary rather than one spelling "
+              "of a label, and applies to every command. The assertions in the table "
+              "below are what survived that.")
 r.font.size = Pt(9.5)
 r.font.color.rgb = MUTED
 
@@ -183,27 +188,27 @@ r = p.add_run("We would rather you get this from us than find it yourselves.")
 r.font.size = Pt(9.5)
 r.font.color.rgb = MUTED
 table(doc,
-      ["Suite", "Result", "Warnings", "EVPN-behaviour assertions"],
-      [["TC01 bring-up", "OK (1 test)", "28", "0"],
-       ["TC02 Type-2 MAC/IP", "OK (1 test)", "50", "1"],
-       ["TC03 Type-3 IMET", "OK (1 test)", "24", "0"]])
+      ["Suite", "Result", "EVPN-behaviour assertions"],
+      [["TC01 bring-up", "OK (1 test)", "2"],
+       ["TC02 Type-2 MAC/IP + local move", "OK (1 test)", "3"],
+       ["TC03 Type-3 IMET + aging", "OK (1 test)", "2"]])
 p = doc.add_paragraph()
 p.paragraph_format.space_before = Pt(6)
-r = p.add_run("129 of the 131 reported passes are your framework's own infrastructure "
+r = p.add_run("Most of the reported passes remain your framework's own infrastructure "
               "checks - disk space, commit succeeded, IXIA connected, no watchdog reboot, "
-              "alarm history clean. The single EVPN assertion (\"no new Type-2 after a "
-              "local AC2 to AC3 move\") is the right check, but today it compares an empty "
-              "route table with an empty route table, so it cannot fail for the reason it "
-              "exists.")
+              "alarm history clean. The seven counted above are the EVPN ones: they read "
+              "device output back and compare it, and each was seen to fail before it was "
+              "made to pass.")
 r.font.size = Pt(10.5)
 p = doc.add_paragraph()
-r = p.add_run("So: the pipeline produces code your device accepts and executes - the "
-              "bring-up, the .crt, the .cfg, every CLI command. It does not yet produce "
-              "code that verifies EVPN behaviour. Two things stand between the two, one "
-              "yours and one ours: there is no traffic to learn from without source-MAC "
-              "control on the IXIA, and ate capture's output is not yet fed back into the "
-              "generated expectations. Full detail in "
-              "02_evidence/evidence_what_the_suites_assert.txt.")
+r = p.add_run("So: the pipeline now produces code your device accepts, executes AND "
+              "that verifies EVPN behaviour - learning, a local MAC move, and aging. "
+              "What it does not yet demonstrate is Type-2/Type-3 ROUTE EXCHANGE with a "
+              "peer: emulating a BGP EVPN speaker on the IXIA fails with \"no license "
+              "available for BGP EVPN\" on chassis 10.1.70.108. Per your guidance the "
+              "current TCs check the EVPN address family in the session capabilities "
+              "instead, which needs no licence and is asserted. Full detail in "
+              "02_evidence/evidence_three_suites_green.txt.")
 r.font.size = Pt(10.5)
 
 h(doc, "Corrections your EVPN CLI documentation may want")

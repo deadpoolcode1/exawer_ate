@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>ATE M1 Test Report</title>
+<style>
+  body { font-family: -apple-system, Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+  h1 { color: #333; } h2 { color: #555; margin-top: 20px; }
+  .meta { color: #666; margin-bottom: 20px; }
+  .summary { font-size: 1.3em; padding: 15px; border-radius: 8px; margin: 15px 0; }
+  .summary.pass { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+  .summary.fail { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+  table { border-collapse: collapse; width: 100%; background: white; box-shadow: 0 1px 3px rgba(0,0,0,.12); margin-bottom: 20px; }
+  th { background: #343a40; color: white; padding: 10px 12px; text-align: left; }
+  td { padding: 8px 12px; border-bottom: 1px solid #dee2e6; vertical-align: top; }
+  tr.group td { background: #e9ecef; font-weight: bold; padding: 10px 12px; }
+  tr.pass td:last-child { color: #28a745; font-weight: bold; }
+  tr.fail td:last-child { color: #dc3545; font-weight: bold; }
+  tr.skip td:last-child { color: #ffc107; font-weight: bold; }
+  tr.info td:last-child { color: #17a2b8; font-weight: bold; }
+  code { background: #f1f3f5; padding: 1px 4px; border-radius: 3px; font-size: 0.85em; }
+  .footer { color: #999; margin-top: 30px; font-size: 0.9em; }
+  .legend { font-size: 0.9em; color: #666; margin: 8px 0; }
+</style></head><body>
+<h1>ATE — Document Parser (M1) Test Report</h1>
+<div class="meta">
+  <b>Date:</b> 2026-08-14 13:31:39<br>
+  <b>Project:</b> Codevalue PQ 4476 — Exaware AI Test-Plan Generator (POC)<br>
+  <b>Milestone:</b> M1 — Document parser (PDF / DOCX / TXT) → unified IR JSON<br>
+  <b>Platform:</b> Linux 7.0.0-28-generic / Python 3.12.3<br>
+  <b>Git:</b> 135dd70<br>
+  <b>Runtime:</b> 368.9 seconds
+</div>
+<div class="summary fail">
+  <b>Result:</b> SOME TESTS FAILED
+  &nbsp;—&nbsp; Total: 405 &nbsp;|&nbsp; Pass: 374 &nbsp;|&nbsp; Fail: 5 &nbsp;|&nbsp; Skip: 26
+</div>
+<div class="legend"><b>Legend:</b>
+  <span style="color:#28a745">PASS</span> — meets gate •
+  <span style="color:#dc3545">FAIL</span> — below threshold •
+  <span style="color:#ffc107">SKIP</span> — not in scope (later milestone) •
+  <span style="color:#17a2b8">INFO</span> — informational, not gated
+</div>
+<table>
+<tr><th style="width:10%">Test ID</th><th style="width:75%">Description</th><th style="width:15%">Result</th></tr>
+<tr class='group'><td colspan='3'><b>SOW Requirements Coverage — M1 (6 pass / 0 fail / 0 skip)</b></td></tr>
+<tr class='pass'><td>R-M1.1</td><td><b>Development environment (Docker / venv / Makefile / modular_tools.sh)</b><br><small><b>Covered by</b> (6 pass / 0 fail / 0 skip):</small><br><small style='font-family: monospace'><span style='color:#28a745'>[PASS]</span> <code>file:Dockerfile</code><br><span style='color:#28a745'>[PASS]</span> <code>file:docker-compose.yml</code><br><span style='color:#28a745'>[PASS]</span> <code>file:Makefile</code><br><span style='color:#28a745'>[PASS]</span> <code>file:modular_tools.sh</code><br><span style='color:#28a745'>[PASS]</span> <code>file:pyproject.toml</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_cli::test_cli_inprocess_summary</code></small></td><td>PASS</td></tr>
+<tr class='pass'><td>R-M1.2</td><td><b>Document parser supporting PDF, DOCX, and TXT formats (SOW §3 Requirements Processing)</b><br><small><b>Covered by</b> (22 pass / 0 fail / 0 skip):</small><br><small style='font-family: monospace'><span style='color:#28a745'>[PASS]</span> <code>pytest:test_dispatch::test_detect_pdf</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_dispatch::test_detect_docx</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_dispatch::test_detect_txt</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_dispatch::test_detect_html_rejected</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_parse_returns_document[tier_a/EVPN CLI 1.00.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_parse_returns_document[tier_a/EVPN System Specification 1.00.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_parse_returns_document[tier_a/rfc9785.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_parse_returns_document[tier_a/rfc9785.pdf]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_parse_returns_document[tier_a/rfc9785.txt]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_parse_returns_document[tier_b/rfc7432bis-13.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_parse_returns_document[tier_b/rfc7432bis-13.txt]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_pdf_no_text_layer_rejected</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_edge_cases::test_edge_case_produces_expected_outcome[broken_encoding.txt-UnsupportedFormatError]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_edge_cases::test_edge_case_produces_expected_outcome[empty.txt-EmptyDocumentError]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_edge_cases::test_edge_case_produces_expected_outcome[malformed.docx-CorruptDocumentError]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_edge_cases::test_edge_case_produces_expected_outcome[scanned.pdf-UnsupportedScannedPDFError]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_edge_cases::test_edge_case_produces_expected_outcome[small_valid.txt-OK]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_edge_cases::test_edge_case_produces_expected_outcome[truncated.pdf-CorruptDocumentError]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_edge_cases::test_edge_case_produces_expected_outcome[unsupported.html-UnsupportedFormatError]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_edge_cases::test_edge_case_produces_expected_outcome[whitespace_only.txt-EmptyDocumentError]</code><br><span style='color:#28a745'>[PASS]</span> <code>scorecard:no_unhandled_exceptions</code><br><span style='color:#28a745'>[PASS]</span> <code>scorecard:edge_cases</code></small></td><td>PASS</td></tr>
+<tr class='pass'><td>R-M1.3</td><td><b>Basic text extraction working — headings, paragraphs, code blocks, tables</b><br><small><b>Covered by</b> (25 pass / 0 fail / 0 skip):</small><br><small style='font-family: monospace'><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_evpn_spec_has_cli_blocks</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_evpn_spec_finds_anchors</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_docx_table_structure</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parsers::test_block_types_are_correct</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_parity::test_rfc9785_word_parity_across_formats</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_determinism::test_three_runs_byte_identical[tier_a/EVPN CLI 1.00.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_determinism::test_three_runs_byte_identical[tier_a/EVPN System Specification 1.00.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_determinism::test_three_runs_byte_identical[tier_a/rfc9785.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_determinism::test_three_runs_byte_identical[tier_a/rfc9785.pdf]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_determinism::test_three_runs_byte_identical[tier_a/rfc9785.txt]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_determinism::test_three_runs_byte_identical[tier_b/rfc7432bis-13.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_determinism::test_three_runs_byte_identical[tier_b/rfc7432bis-13.txt]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_regression::test_normalized_ir_matches_golden[tier_a/EVPN CLI 1.00.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_regression::test_normalized_ir_matches_golden[tier_a/EVPN System Specification 1.00.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_regression::test_normalized_ir_matches_golden[tier_a/rfc9785.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_regression::test_normalized_ir_matches_golden[tier_a/rfc9785.pdf]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_regression::test_normalized_ir_matches_golden[tier_a/rfc9785.txt]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_regression::test_normalized_ir_matches_golden[tier_b/rfc7432bis-13.docx]</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_regression::test_normalized_ir_matches_golden[tier_b/rfc7432bis-13.txt]</code><br><span style='color:#28a745'>[PASS]</span> <code>scorecard:heading_recovery</code><br><span style='color:#28a745'>[PASS]</span> <code>scorecard:cli_block_preservation</code><br><span style='color:#28a745'>[PASS]</span> <code>scorecard:table_preservation</code><br><span style='color:#28a745'>[PASS]</span> <code>scorecard:format_parity</code><br><span style='color:#28a745'>[PASS]</span> <code>scorecard:determinism</code><br><span style='color:#28a745'>[PASS]</span> <code>scorecard:performance</code></small></td><td>PASS</td></tr>
+<tr class='pass'><td>R-M1.4</td><td><b>Test plan generation from input documents (2 Word files + RFC) — AI-enriched (Claude) with rule-based fallback, single router</b><br><small><b>Covered by</b> (26 pass / 0 fail / 0 skip):</small><br><small style='font-family: monospace'><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_extracts_evpn_anchors_from_evpn_spec</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_extractor_dedupes_repeated_anchors</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_plan_from_evpn_spec_uses_template_categories</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_plan_rows_are_traced_to_a_requirement</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_plan_applies_categories_per_flow_not_uniformly</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_xlsx_is_written_and_readable</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_xlsx_columns_match_template_schema</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_xlsx_contains_evpn_anchors</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_plan_handles_doc_without_anchors</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_planner_is_deterministic</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_cli_plan_command_works</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_planner::test_cli_plan_handles_bad_input</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_ai_enricher::test_cache_loads_committed_baked_entries</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_ai_enricher::test_enrich_uses_cache_without_api_key</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_ai_enricher::test_enrich_swaps_action_steps_for_cached_rows</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_ai_enricher::test_enrich_calls_api_with_key_and_writes_cache</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_ai_enricher::test_enrich_falls_back_on_api_failure</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_ai_enricher::test_save_load_cache_roundtrip</code><br><span style='color:#28a745'>[PASS]</span> <code>pytest:test_ai_enricher::test_row_key_is_stable</code><br><span style='color:#28a745'>[PASS]</span> <code>file:ate/planner/__init__.py</code><br><span style='color:#28a745'>[PASS]</span> <code>file:ate/planner/generator.py</code><br><span style='color:#28a745'>[PASS]</span> <code>file:ate/planner/categories.py</code><br><span style='color:#28a745'>[PASS]</span> <code>file:ate/planner/extractor.py</code><br><span style='color:#28a745'>[PASS]</span> <code>file:ate/planner/xlsx_writer.py</code><br><span style='color:#28a745'>[PASS]</span> <code>file:ate/planner/ai_enricher.py</code><br><span style='color:#28a745'>[PASS]</span> <code>file:ate/planner/ai_cache.json</code></small></td><td>PASS</td></tr>
+<tr class='pass'><td>R-M1.5</td><td><b>Deliverable artifact: Test Plan (single router) xlsx for Exaware review/approval</b><br><small><b>Covered by</b> (1 pass / 0 fail / 0 skip):</small><br><small style='font-family: monospace'><span style='color:#28a745'>[PASS]</span> <code>file:plans/EVPN_System_Specification_1.00.xlsx</code></small></td><td>PASS</td></tr>
+<tr class='pass'><td>R-M1.6</td><td><b>Technical Design Document + acceptance docs</b><br><small><b>Covered by</b> (3 pass / 0 fail / 0 skip):</small><br><small style='font-family: monospace'><span style='color:#28a745'>[PASS]</span> <code>file:docs/TDD.md</code><br><span style='color:#28a745'>[PASS]</span> <code>file:docs/M1_acceptance.md</code><br><span style='color:#28a745'>[PASS]</span> <code>file:docs/exaware-acceptance.md</code></small></td><td>PASS</td></tr>
+<tr class='group'><td colspan='3'><b>SOW Requirements Coverage — M2 (0 pass / 0 fail / 4 skip)</b></td></tr>
+<tr class='skip'><td>R-M2.1</td><td><b>Pattern matching implementation (cross-style requirement IDs)</b><br><small style='color:#888'>not yet in scope — planned for M2</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M2.2</td><td><b>Code generation based on tests selected by Exaware (dirty queue)</b><br><small style='color:#888'>not yet in scope — planned for M2</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M2.3</td><td><b>Up to 3 integration-ready test plans</b><br><small style='color:#888'>not yet in scope — planned for M2</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M2.4</td><td><b>Demo: extract requirements from sample SFS</b><br><small style='color:#888'>not yet in scope — planned for M2</small></td><td>SKIP</td></tr>
+<tr class='group'><td colspan='3'><b>SOW Requirements Coverage — M3 (0 pass / 0 fail / 7 skip)</b></td></tr>
+<tr class='skip'><td>R-M3.1</td><td><b>OpenAI / Anthropic Claude API integration</b><br><small style='color:#888'>not yet in scope — planned for M3</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M3.2</td><td><b>Prompt engineering for test plan generation</b><br><small style='color:#888'>not yet in scope — planned for M3</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M3.3</td><td><b>Test plan generation engine — multi-router topologies</b><br><small style='color:#888'>not yet in scope — planned for M3</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M3.4</td><td><b>Test prioritization (critical / high / medium / low)</b><br><small style='color:#888'>not yet in scope — planned for M3</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M3.5</td><td><b>Coverage tracking — which requirements have generated tests</b><br><small style='color:#888'>not yet in scope — planned for M3</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M3.6</td><td><b>Multi load / router functionality</b><br><small style='color:#888'>not yet in scope — planned for M3</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M3.7</td><td><b>Deliverable: full single + multi-router test plan</b><br><small style='color:#888'>not yet in scope — planned for M3</small></td><td>SKIP</td></tr>
+<tr class='group'><td colspan='3'><b>SOW Requirements Coverage — M4 (0 pass / 0 fail / 7 skip)</b></td></tr>
+<tr class='skip'><td>R-M4.1</td><td><b>Code templates (Java + JSystem framework — NOT Python pytest)</b><br><small style='color:#888'>not yet in scope — planned for M4</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M4.2</td><td><b>Code generation engine producing Java/JSystem-compatible test code</b><br><small style='color:#888'>not yet in scope — planned for M4</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M4.3</td><td><b>Syntax validation on generated Java code (Checkstyle / JUnit)</b><br><small style='color:#888'>not yet in scope — planned for M4</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M4.4</td><td><b>Test file structure generation following JSystem conventions</b><br><small style='color:#888'>not yet in scope — planned for M4</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M4.5</td><td><b>Queue implementation for test selection</b><br><small style='color:#888'>not yet in scope — planned for M4</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M4.6</td><td><b>Test infrastructure hooks: IXIA Router Simulator + Neighboring Routers + JSystem</b><br><small style='color:#888'>not yet in scope — planned for M4</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M4.7</td><td><b>Up to 10 test plan use cases delivered as runnable Java code</b><br><small style='color:#888'>not yet in scope — planned for M4</small></td><td>SKIP</td></tr>
+<tr class='group'><td colspan='3'><b>SOW Requirements Coverage — M5 (0 pass / 0 fail / 6 skip)</b></td></tr>
+<tr class='skip'><td>R-M5.1</td><td><b>Web application: document upload UI</b><br><small style='color:#888'>not yet in scope — planned for M5</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M5.2</td><td><b>Web UI: requirements + plan view + plan editor</b><br><small style='color:#888'>not yet in scope — planned for M5</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M5.3</td><td><b>Web UI: generated Java/JSystem code viewer with syntax highlighting</b><br><small style='color:#888'>not yet in scope — planned for M5</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M5.4</td><td><b>Download functionality (xlsx test plans + Java code)</b><br><small style='color:#888'>not yet in scope — planned for M5</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M5.5</td><td><b>On-premises deployment via Docker + docker-compose; AI calls remain cloud (Claude API)</b><br><small style='color:#888'>not yet in scope — planned for M5</small></td><td>SKIP</td></tr>
+<tr class='skip'><td>R-M5.6</td><td><b>User documentation, training (2-hr session), 60-day post-delivery support</b><br><small style='color:#888'>not yet in scope — planned for M5</small></td><td>SKIP</td></tr>
+<tr class='group'><td colspan='3'><b>M1 Acceptance Scorecard (9 pass / 0 fail / 0 skip)</b></td></tr>
+<tr class='pass'><td>M1.01</td><td>heading_recovery = 100.0% (≥ 95%)</td><td>PASS</td></tr>
+<tr class='pass'><td>M1.02</td><td>cli_block_preservation = 8/8 (100.0%) (= 100%)</td><td>PASS</td></tr>
+<tr class='pass'><td>M1.03</td><td>table_preservation = 100.0% (≥ 90%)</td><td>PASS</td></tr>
+<tr class='pass'><td>M1.04</td><td>anchor_detection (M2) = 40 unique (reported)</td><td>PASS</td></tr>
+<tr class='pass'><td>M1.05</td><td>format_parity = min Jaccard 0.980 (≥ 0.90)</td><td>PASS</td></tr>
+<tr class='pass'><td>M1.06</td><td>determinism = 3/3 identical (3/3 identical)</td><td>PASS</td></tr>
+<tr class='pass'><td>M1.07</td><td>no_unhandled_exceptions = 0 / 7 (= 0)</td><td>PASS</td></tr>
+<tr class='pass'><td>M1.08</td><td>performance = 4.5s (&lt; 30s)</td><td>PASS</td></tr>
+<tr class='pass'><td>M1.09</td><td>edge_cases = 8/8 (manifest match)</td><td>PASS</td></tr>
+<tr class='group'><td colspan='3'><b>Pytest Suite (286 pass / 0 fail / 0 skip)</b></td></tr>
+<tr class='pass'><td>P.001</td><td>test_ai_enricher::test_cache_loads_committed_baked_entries</td><td>PASS</td></tr>
+<tr class='pass'><td>P.002</td><td>test_ai_enricher::test_cli_backend_falls_back_when_claude_missing</td><td>PASS</td></tr>
+<tr class='pass'><td>P.003</td><td>test_ai_enricher::test_cli_backend_handles_malformed_json</td><td>PASS</td></tr>
+<tr class='pass'><td>P.004</td><td>test_ai_enricher::test_cli_backend_handles_nonzero_exit</td><td>PASS</td></tr>
+<tr class='pass'><td>P.005</td><td>test_ai_enricher::test_default_backend_is_cli</td><td>PASS</td></tr>
+<tr class='pass'><td>P.006</td><td>test_ai_enricher::test_enrich_calls_api_with_key_and_writes_cache</td><td>PASS</td></tr>
+<tr class='pass'><td>P.007</td><td>test_ai_enricher::test_enrich_falls_back_on_api_failure</td><td>PASS</td></tr>
+<tr class='pass'><td>P.008</td><td>test_ai_enricher::test_enrich_falls_back_when_api_key_missing_and_no_cache</td><td>PASS</td></tr>
+<tr class='pass'><td>P.009</td><td>test_ai_enricher::test_enrich_swaps_action_steps_for_cached_rows</td><td>PASS</td></tr>
+<tr class='pass'><td>P.010</td><td>test_ai_enricher::test_enrich_uses_cache_without_api_key</td><td>PASS</td></tr>
+<tr class='pass'><td>P.011</td><td>test_ai_enricher::test_enrich_uses_cli_backend_by_subprocess</td><td>PASS</td></tr>
+<tr class='pass'><td>P.012</td><td>test_ai_enricher::test_env_var_selects_backend</td><td>PASS</td></tr>
+<tr class='pass'><td>P.013</td><td>test_ai_enricher::test_row_key_is_stable</td><td>PASS</td></tr>
+<tr class='pass'><td>P.014</td><td>test_ai_enricher::test_save_load_cache_roundtrip</td><td>PASS</td></tr>
+<tr class='pass'><td>P.015</td><td>test_ai_enricher::test_unknown_backend_raises</td><td>PASS</td></tr>
+<tr class='pass'><td>P.016</td><td>test_ai_enricher::test_use_api_none_never_calls_backend_even_when_available</td><td>PASS</td></tr>
+<tr class='pass'><td>P.017</td><td>test_atomic_rows::test_parse_blob_handles_inline_one_liners</td><td>PASS</td></tr>
+<tr class='pass'><td>P.018</td><td>test_atomic_rows::test_parse_blob_handles_numbered_steps</td><td>PASS</td></tr>
+<tr class='pass'><td>P.019</td><td>test_atomic_rows::test_parse_blob_peels_problem_method_framing</td><td>PASS</td></tr>
+<tr class='pass'><td>P.020</td><td>test_atomic_rows::test_plan_row_decomposes_to_banner_plus_atomic</td><td>PASS</td></tr>
+<tr class='pass'><td>P.021</td><td>test_atomic_rows::test_plan_row_monitor_column_extracts_show_commands</td><td>PASS</td></tr>
+<tr class='pass'><td>P.022</td><td>test_atomic_rows::test_problem_method_render_as_lead_rows_under_banner</td><td>PASS</td></tr>
+<tr class='pass'><td>P.023</td><td>test_atomic_rows::test_provenance_flows_through_to_atomic_rows</td><td>PASS</td></tr>
+<tr class='pass'><td>P.024</td><td>test_atomic_rows::test_split_expectation_parses_pass_and_fail</td><td>PASS</td></tr>
+<tr class='pass'><td>P.025</td><td>test_cli::test_cli_inprocess_emits_valid_json</td><td>PASS</td></tr>
+<tr class='pass'><td>P.026</td><td>test_cli::test_cli_inprocess_stdout_when_no_outflag</td><td>PASS</td></tr>
+<tr class='pass'><td>P.027</td><td>test_cli::test_cli_inprocess_summary</td><td>PASS</td></tr>
+<tr class='pass'><td>P.028</td><td>test_cli::test_cli_inprocess_typed_error_returns_1</td><td>PASS</td></tr>
+<tr class='pass'><td>P.029</td><td>test_cli::test_cli_inprocess_version_flag</td><td>PASS</td></tr>
+<tr class='pass'><td>P.030</td><td>test_cli::test_cli_subprocess_summary</td><td>PASS</td></tr>
+<tr class='pass'><td>P.031</td><td>test_cli::test_cli_subprocess_writes_json</td><td>PASS</td></tr>
+<tr class='pass'><td>P.032</td><td>test_cli_crosscheck::test_bare_verb_is_noise_not_a_command</td><td>PASS</td></tr>
+<tr class='pass'><td>P.033</td><td>test_cli_crosscheck::test_buckets_invented_vs_curated_vs_generic</td><td>PASS</td></tr>
+<tr class='pass'><td>P.034</td><td>test_cli_crosscheck::test_command_head_normalisation</td><td>PASS</td></tr>
+<tr class='pass'><td>P.035</td><td>test_cli_crosscheck::test_curated_vocabulary_loads_without_removed_mpls_commands</td><td>PASS</td></tr>
+<tr class='pass'><td>P.036</td><td>test_cli_crosscheck::test_format_warning_empty_when_all_grounded</td><td>PASS</td></tr>
+<tr class='pass'><td>P.037</td><td>test_cli_crosscheck::test_prefix_match_grounds_argument_variants</td><td>PASS</td></tr>
+<tr class='pass'><td>P.038</td><td>test_cli_crosscheck::test_scrub_noop_when_all_grounded</td><td>PASS</td></tr>
+<tr class='pass'><td>P.039</td><td>test_cli_crosscheck::test_scrub_recapitalises_clause_after_removing_subject</td><td>PASS</td></tr>
+<tr class='pass'><td>P.040</td><td>test_cli_crosscheck::test_scrub_removes_ungrounded_keeps_grounded</td><td>PASS</td></tr>
+<tr class='pass'><td>P.041</td><td>test_cli_extractor::test_choice_parameters_for_load_balancing_mode</td><td>PASS</td></tr>
+<tr class='pass'><td>P.042</td><td>test_cli_extractor::test_config_commands_are_filtered_from_show_clear</td><td>PASS</td></tr>
+<tr class='pass'><td>P.043</td><td>test_cli_extractor::test_default_behavior_extraction</td><td>PASS</td></tr>
+<tr class='pass'><td>P.044</td><td>test_cli_extractor::test_extractor_is_deterministic</td><td>PASS</td></tr>
+<tr class='pass'><td>P.045</td><td>test_cli_extractor::test_extracts_a_useful_number_of_commands</td><td>PASS</td></tr>
+<tr class='pass'><td>P.046</td><td>test_cli_extractor::test_named_commands_present</td><td>PASS</td></tr>
+<tr class='pass'><td>P.047</td><td>test_cli_extractor::test_no_form_detection</td><td>PASS</td></tr>
+<tr class='pass'><td>P.048</td><td>test_cli_extractor::test_related_features_for_service_carving</td><td>PASS</td></tr>
+<tr class='pass'><td>P.049</td><td>test_cli_extractor::test_syntax_and_mode_are_populated</td><td>PASS</td></tr>
+<tr class='pass'><td>P.050</td><td>test_cli_extractor::test_typed_parameter_for_lacp_key</td><td>PASS</td></tr>
+<tr class='pass'><td>P.051</td><td>test_cli_inheritance::test_deinvent_strips_invented_parameter_grammar</td><td>PASS</td></tr>
+<tr class='pass'><td>P.052</td><td>test_cli_inheritance::test_expand_emits_seven_subconfigs_for_af_l2vpn_evpn</td><td>PASS</td></tr>
+<tr class='pass'><td>P.053</td><td>test_cli_inheritance::test_expand_idempotent_on_existing_sub_config</td><td>PASS</td></tr>
+<tr class='pass'><td>P.054</td><td>test_cli_inheritance::test_expand_produces_nothing_when_parent_absent</td><td>PASS</td></tr>
+<tr class='pass'><td>P.055</td><td>test_cli_inheritance::test_inheritance_source_for_returns_source_string</td><td>PASS</td></tr>
+<tr class='pass'><td>P.056</td><td>test_cli_inheritance::test_inheritance_table_has_documented_provenance</td><td>PASS</td></tr>
+<tr class='pass'><td>P.057</td><td>test_cli_inheritance::test_inherited_commands_round_trip_through_cli_rows</td><td>PASS</td></tr>
+<tr class='pass'><td>P.058</td><td>test_cli_rows::test_all_rows_anchor_to_synthetic_cli_req_id</td><td>PASS</td></tr>
+<tr class='pass'><td>P.059</td><td>test_cli_rows::test_all_rows_carry_equipment_tag</td><td>PASS</td></tr>
+<tr class='pass'><td>P.060</td><td>test_cli_rows::test_all_rows_carry_pass_criterion</td><td>PASS</td></tr>
+<tr class='pass'><td>P.061</td><td>test_cli_rows::test_all_rows_carry_setup_action_verify</td><td>PASS</td></tr>
+<tr class='pass'><td>P.062</td><td>test_cli_rows::test_default_row_only_when_doc_names_default</td><td>PASS</td></tr>
+<tr class='pass'><td>P.063</td><td>test_cli_rows::test_full_command_set_produces_useful_volume</td><td>PASS</td></tr>
+<tr class='pass'><td>P.064</td><td>test_cli_rows::test_mutex_row_for_choice_command</td><td>PASS</td></tr>
+<tr class='pass'><td>P.065</td><td>test_cli_rows::test_no_form_row_only_when_syntax_shows_it</td><td>PASS</td></tr>
+<tr class='pass'><td>P.066</td><td>test_cli_rows::test_persistence_row_emitted_once_for_section</td><td>PASS</td></tr>
+<tr class='pass'><td>P.067</td><td>test_cli_rows::test_range_validation_row_for_typed_param</td><td>PASS</td></tr>
+<tr class='pass'><td>P.068</td><td>test_cli_rows::test_show_command_returns_no_rows</td><td>PASS</td></tr>
+<tr class='pass'><td>P.069</td><td>test_codegen::test_a_finished_command_is_not_mistaken_for_a_value_prompt[l2-services evpn X control-word ?\r\n                     ^\r\n% Invalid input detected at &#x27;^&#x27; marker.\r\nsyntax error: expecting \r\n  auto-discovery - Set auto-discovery attributes\r\n  mac-limit      - Set the limit on maximum MAC learned\r\nrouter(config)# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.070</td><td>test_codegen::test_a_finished_command_is_not_mistaken_for_a_value_prompt[show evpn ?\r\nDescription: Show EVPN information\r\nPossible completions:\r\n  broadcast-domains   Displays the EVPN broadcast domain\r\n  detail              Show EVPN detail status\r\n  mac-address-table   Show the EVPN MAC Address table\r\n  summary             Show EVPN summary\r\nrouter# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.071</td><td>test_codegen::test_a_keyword_introducing_a_value_set_is_not_an_argument</td><td>PASS</td></tr>
+<tr class='pass'><td>P.072</td><td>test_codegen::test_a_leaf_default_is_stripped_from_its_completion_token</td><td>PASS</td></tr>
+<tr class='pass'><td>P.073</td><td>test_codegen::test_a_mac_table_with_a_real_entry_is_captured</td><td>PASS</td></tr>
+<tr class='pass'><td>P.074</td><td>test_codegen::test_a_mac_table_with_only_a_legend_is_not_an_expectation</td><td>PASS</td></tr>
+<tr class='pass'><td>P.075</td><td>test_codegen::test_a_no_change_assertion_refuses_an_empty_baseline</td><td>PASS</td></tr>
+<tr class='pass'><td>P.076</td><td>test_codegen::test_a_one_sided_underlay_is_refused</td><td>PASS</td></tr>
+<tr class='pass'><td>P.077</td><td>test_codegen::test_a_range_leaf_is_never_reported_missing</td><td>PASS</td></tr>
+<tr class='pass'><td>P.078</td><td>test_codegen::test_a_real_capture_is_not_flagged</td><td>PASS</td></tr>
+<tr class='pass'><td>P.079</td><td>test_codegen::test_a_rejected_command_never_becomes_an_expectation</td><td>PASS</td></tr>
+<tr class='pass'><td>P.080</td><td>test_codegen::test_a_shared_knob_derives_the_evpn_mode_not_vpls</td><td>PASS</td></tr>
+<tr class='pass'><td>P.081</td><td>test_codegen::test_a_value_prompt_is_recognised_as_the_device_waiting[l2-services evpn X mac-limit ?\r\nPossible completions:\r\n  &lt;1-250000&gt;    maximum MAC learned (default 65520)\r\n  Currently configured[65520]\r\nrouter(config)# l2-services evpn X mac-limit \r\n(&lt;1-250000&gt;    maximum MAC learned (default 65520)\r\n  Currently configured): ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.082</td><td>test_codegen::test_a_value_prompt_is_recognised_as_the_device_waiting[l2-services evpn X service-type ?\r\nPossible completions:\r\n  vlan-based\r\n  port-based[vlan-based]\r\nrouter(config)# l2-services evpn X service-type \r\n[port-based,vlan-based]: ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.083</td><td>test_codegen::test_ac2_and_ac3_share_a_source_mac</td><td>PASS</td></tr>
+<tr class='pass'><td>P.084</td><td>test_codegen::test_an_expectation_of_pure_table_furniture_is_rejected</td><td>PASS</td></tr>
+<tr class='pass'><td>P.085</td><td>test_codegen::test_an_unaskable_probe_is_unknown_not_missing</td><td>PASS</td></tr>
+<tr class='pass'><td>P.086</td><td>test_codegen::test_angle_bracket_arguments_are_slots_not_cli_text</td><td>PASS</td></tr>
+<tr class='pass'><td>P.087</td><td>test_codegen::test_bring_up_does_not_build_traffic_it_never_uses</td><td>PASS</td></tr>
+<tr class='pass'><td>P.088</td><td>test_codegen::test_bringup_params_binds_placeholders_to_the_sut_intpool</td><td>PASS</td></tr>
+<tr class='pass'><td>P.089</td><td>test_codegen::test_bringup_params_emits_no_ixia_config_row</td><td>PASS</td></tr>
+<tr class='pass'><td>P.090</td><td>test_codegen::test_bringup_params_layers_clean_base_then_merges</td><td>PASS</td></tr>
+<tr class='pass'><td>P.091</td><td>test_codegen::test_capture_attributes_each_answer_to_its_own_command</td><td>PASS</td></tr>
+<tr class='pass'><td>P.092</td><td>test_codegen::test_capture_session_reports_and_saves</td><td>PASS</td></tr>
+<tr class='pass'><td>P.093</td><td>test_codegen::test_capture_skips_steps_nothing_would_consume</td><td>PASS</td></tr>
+<tr class='pass'><td>P.094</td><td>test_codegen::test_command_arity_matches_the_arguments_each_step_supplies</td><td>PASS</td></tr>
+<tr class='pass'><td>P.095</td><td>test_codegen::test_commands_are_lifted_out_of_backticks</td><td>PASS</td></tr>
+<tr class='pass'><td>P.096</td><td>test_codegen::test_commands_needed_renders_arguments</td><td>PASS</td></tr>
+<tr class='pass'><td>P.097</td><td>test_codegen::test_completions_are_parsed_without_the_noise_tokens</td><td>PASS</td></tr>
+<tr class='pass'><td>P.098</td><td>test_codegen::test_completions_drop_the_syntax_error_caret</td><td>PASS</td></tr>
+<tr class='pass'><td>P.099</td><td>test_codegen::test_cross_reference_rows_are_excluded_not_counted_as_failures</td><td>PASS</td></tr>
+<tr class='pass'><td>P.100</td><td>test_codegen::test_curated_entries_win_over_derived_ones</td><td>PASS</td></tr>
+<tr class='pass'><td>P.101</td><td>test_codegen::test_derived_keys_are_valid_java_constants</td><td>PASS</td></tr>
+<tr class='pass'><td>P.102</td><td>test_codegen::test_dut_config_declares_that_the_underlay_is_absent</td><td>PASS</td></tr>
+<tr class='pass'><td>P.103</td><td>test_codegen::test_dut_config_never_contains_clear_or_no_forms</td><td>PASS</td></tr>
+<tr class='pass'><td>P.104</td><td>test_codegen::test_dut_config_uses_intpool_placeholders_not_lab_interfaces</td><td>PASS</td></tr>
+<tr class='pass'><td>P.105</td><td>test_codegen::test_emitted_java_is_ascii</td><td>PASS</td></tr>
+<tr class='pass'><td>P.106</td><td>test_codegen::test_empty_output_is_not_treated_as_success</td><td>PASS</td></tr>
+<tr class='pass'><td>P.107</td><td>test_codegen::test_enumerated_keywords_stay_literal_not_arguments</td><td>PASS</td></tr>
+<tr class='pass'><td>P.108</td><td>test_codegen::test_every_command_template_is_grounded_in_the_cli_doc</td><td>PASS</td></tr>
+<tr class='pass'><td>P.109</td><td>test_codegen::test_every_mechanically_derived_step_carries_a_todo</td><td>PASS</td></tr>
+<tr class='pass'><td>P.110</td><td>test_codegen::test_every_test_class_refuses_to_pass_without_verifying_something</td><td>PASS</td></tr>
+<tr class='pass'><td>P.111</td><td>test_codegen::test_fingerprint_tracks_step_content</td><td>PASS</td></tr>
+<tr class='pass'><td>P.112</td><td>test_codegen::test_flow_010_is_the_declared_prerequisite</td><td>PASS</td></tr>
+<tr class='pass'><td>P.113</td><td>test_codegen::test_generated_files_are_the_four_artifact_kinds</td><td>PASS</td></tr>
+<tr class='pass'><td>P.114</td><td>test_codegen::test_generation_result_writes_every_file</td><td>PASS</td></tr>
+<tr class='pass'><td>P.115</td><td>test_codegen::test_generation_stops_on_an_unfalsifiable_expectation</td><td>PASS</td></tr>
+<tr class='pass'><td>P.116</td><td>test_codegen::test_legend_only_bgp_table_is_refused_as_an_expectation</td><td>PASS</td></tr>
+<tr class='pass'><td>P.117</td><td>test_codegen::test_local_mac_move_asserts_no_readvertisement</td><td>PASS</td></tr>
+<tr class='pass'><td>P.118</td><td>test_codegen::test_matched_steps_still_require_review</td><td>PASS</td></tr>
+<tr class='pass'><td>P.119</td><td>test_codegen::test_matcher_classifies_the_main_step_kinds</td><td>PASS</td></tr>
+<tr class='pass'><td>P.120</td><td>test_codegen::test_negative_assertions_are_not_mistaken_for_plain_checks</td><td>PASS</td></tr>
+<tr class='pass'><td>P.121</td><td>test_codegen::test_no_step_references_a_command_outside_the_registry</td><td>PASS</td></tr>
+<tr class='pass'><td>P.122</td><td>test_codegen::test_only_ok_captures_are_offered_as_expectations</td><td>PASS</td></tr>
+<tr class='pass'><td>P.123</td><td>test_codegen::test_only_the_non_empty_path_counts_as_an_assertion</td><td>PASS</td></tr>
+<tr class='pass'><td>P.124</td><td>test_codegen::test_only_the_ok_answers_reach_the_expectations</td><td>PASS</td></tr>
+<tr class='pass'><td>P.125</td><td>test_codegen::test_operands_inside_an_alternation_still_become_arguments</td><td>PASS</td></tr>
+<tr class='pass'><td>P.126</td><td>test_codegen::test_optional_groups_expand_both_ways</td><td>PASS</td></tr>
+<tr class='pass'><td>P.127</td><td>test_codegen::test_plan_rows_are_attributed_only_to_flow_banners</td><td>PASS</td></tr>
+<tr class='pass'><td>P.128</td><td>test_codegen::test_probe_declines_single_token_templates</td><td>PASS</td></tr>
+<tr class='pass'><td>P.129</td><td>test_codegen::test_probe_substitutes_arguments_in_the_parent_path</td><td>PASS</td></tr>
+<tr class='pass'><td>P.130</td><td>test_codegen::test_probe_targets_the_last_literal_token</td><td>PASS</td></tr>
+<tr class='pass'><td>P.131</td><td>test_codegen::test_prompt_does_not_swallow_output_lines</td><td>PASS</td></tr>
+<tr class='pass'><td>P.132</td><td>test_codegen::test_prompt_matches_every_shape_this_lab_produces[exa-il01-uf-3080# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.133</td><td>test_codegen::test_prompt_matches_every_shape_this_lab_produces[router# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.134</td><td>test_codegen::test_prompt_matches_every_shape_this_lab_produces[router(config)# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.135</td><td>test_codegen::test_prompt_matches_every_shape_this_lab_produces[router[2026-08-12-07:00:00]# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.136</td><td>test_codegen::test_prompt_matches_every_shape_this_lab_produces[router[2026-08-12-07:00:00](config)# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.137</td><td>test_codegen::test_queue_lifecycle_new_to_approved</td><td>PASS</td></tr>
+<tr class='pass'><td>P.138</td><td>test_codegen::test_queue_marks_stale_when_the_source_documents_change</td><td>PASS</td></tr>
+<tr class='pass'><td>P.139</td><td>test_codegen::test_queue_round_trips_through_json</td><td>PASS</td></tr>
+<tr class='pass'><td>P.140</td><td>test_codegen::test_read_stops_at_the_prompt_and_strips_it</td><td>PASS</td></tr>
+<tr class='pass'><td>P.141</td><td>test_codegen::test_read_terminates_against_both_prompt_shapes[router# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.142</td><td>test_codegen::test_read_terminates_against_both_prompt_shapes[router[2026-08-12-07:00:00]# ]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.143</td><td>test_codegen::test_real_output_is_captured_without_echo_or_prompt</td><td>PASS</td></tr>
+<tr class='pass'><td>P.144</td><td>test_codegen::test_real_table_content_is_still_usable</td><td>PASS</td></tr>
+<tr class='pass'><td>P.145</td><td>test_codegen::test_requirement_provenance_reaches_the_java</td><td>PASS</td></tr>
+<tr class='pass'><td>P.146</td><td>test_codegen::test_resolve_command_grounds_against_the_registry</td><td>PASS</td></tr>
+<tr class='pass'><td>P.147</td><td>test_codegen::test_resolve_command_matches_a_config_tail</td><td>PASS</td></tr>
+<tr class='pass'><td>P.148</td><td>test_codegen::test_select_all_protects_approved_work</td><td>PASS</td></tr>
+<tr class='pass'><td>P.149</td><td>test_codegen::test_stale_approved_is_reported_separately</td><td>PASS</td></tr>
+<tr class='pass'><td>P.150</td><td>test_codegen::test_step_ids_are_stable_and_unique</td><td>PASS</td></tr>
+<tr class='pass'><td>P.151</td><td>test_codegen::test_test_classes_extend_the_framework_base_class</td><td>PASS</td></tr>
+<tr class='pass'><td>P.152</td><td>test_codegen::test_tester_config_is_generated_from_the_same_profile</td><td>PASS</td></tr>
+<tr class='pass'><td>P.153</td><td>test_codegen::test_the_census_counts_what_can_actually_fail</td><td>PASS</td></tr>
+<tr class='pass'><td>P.154</td><td>test_codegen::test_the_hyphen_regression_would_be_caught</td><td>PASS</td></tr>
+<tr class='pass'><td>P.155</td><td>test_codegen::test_the_unsettable_source_mac_is_declared_not_implied</td><td>PASS</td></tr>
+<tr class='pass'><td>P.156</td><td>test_codegen::test_three_m2_flows_are_generated</td><td>PASS</td></tr>
+<tr class='pass'><td>P.157</td><td>test_codegen::test_traffic_build_params_carry_vports_and_source_macs</td><td>PASS</td></tr>
+<tr class='pass'><td>P.158</td><td>test_codegen::test_traffic_steps_reference_declared_items</td><td>PASS</td></tr>
+<tr class='pass'><td>P.159</td><td>test_codegen::test_traffic_using_scripts_build_their_items_first</td><td>PASS</td></tr>
+<tr class='pass'><td>P.160</td><td>test_codegen::test_ungrounded_command_is_fatal</td><td>PASS</td></tr>
+<tr class='pass'><td>P.161</td><td>test_codegen::test_ungrounded_rows_degrade_to_a_compiling_stub</td><td>PASS</td></tr>
+<tr class='pass'><td>P.162</td><td>test_codegen::test_unknown_command_never_invents_an_enum_constant</td><td>PASS</td></tr>
+<tr class='pass'><td>P.163</td><td>test_codegen::test_unvalidated_expectations_never_assert_a_pass</td><td>PASS</td></tr>
+<tr class='pass'><td>P.164</td><td>test_codegen::test_verdicts_match_what_the_device_actually_said[l2-services evpn X control-word ?\r\n                     ^\r\n% Invalid input detected at &#x27;^&#x27; marker.\r\nsyntax error: expecting \r\n  auto-discovery - Set auto-discovery attributes\r\n  mac-limit      - Set the limit on maximum MAC learned\r\nrouter(config)# -disable-missing]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.165</td><td>test_codegen::test_verdicts_match_what_the_device_actually_said[l2-services evpn X mac-limit ?\r\nPossible completions:\r\n  &lt;1-250000&gt;    maximum MAC learned (default 65520)\r\n  Currently configured[65520]\r\nrouter(config)# l2-services evpn X mac-limit \r\n(&lt;1-250000&gt;    maximum MAC learned (default 65520)\r\n  Currently configured): -250000-unknown]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.166</td><td>test_codegen::test_verdicts_match_what_the_device_actually_said[l2-services evpn X service-type ?\r\nPossible completions:\r\n  vlan-based\r\n  port-based[vlan-based]\r\nrouter(config)# l2-services evpn X service-type \r\n[port-based,vlan-based]: -half-duplex-missing]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.167</td><td>test_codegen::test_verdicts_match_what_the_device_actually_said[l2-services evpn X service-type ?\r\nPossible completions:\r\n  vlan-based\r\n  port-based[vlan-based]\r\nrouter(config)# l2-services evpn X service-type \r\n[port-based,vlan-based]: -port-based-supported]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.168</td><td>test_codegen::test_verdicts_match_what_the_device_actually_said[show evpn ?\r\nDescription: Show EVPN information\r\nPossible completions:\r\n  broadcast-domains   Displays the EVPN broadcast domain\r\n  detail              Show EVPN detail status\r\n  mac-address-table   Show the EVPN MAC Address table\r\n  summary             Show EVPN summary\r\nrouter# -global-missing]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.169</td><td>test_codegen::test_verdicts_match_what_the_device_actually_said[show evpn ?\r\nDescription: Show EVPN information\r\nPossible completions:\r\n  broadcast-domains   Displays the EVPN broadcast domain\r\n  detail              Show EVPN detail status\r\n  mac-address-table   Show the EVPN MAC Address table\r\n  summary             Show EVPN summary\r\nrouter# -mac-address-table-supported]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.170</td><td>test_codegen::test_verify_report_isolates_the_missing_commands</td><td>PASS</td></tr>
+<tr class='pass'><td>P.171</td><td>test_curated::test_curated_rows_present_and_deterministic</td><td>PASS</td></tr>
+<tr class='pass'><td>P.172</td><td>test_curated::test_default_gateway_ec_cross_references_rfc4360</td><td>PASS</td></tr>
+<tr class='pass'><td>P.173</td><td>test_curated::test_df_election_and_pmsi_encodings</td><td>PASS</td></tr>
+<tr class='pass'><td>P.174</td><td>test_curated::test_relevance_map_classifies_every_cited_dependency_rfc</td><td>PASS</td></tr>
+<tr class='pass'><td>P.175</td><td>test_determinism::test_three_runs_byte_identical[tier_a/EVPN CLI 1.00.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.176</td><td>test_determinism::test_three_runs_byte_identical[tier_a/EVPN System Specification 1.00.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.177</td><td>test_determinism::test_three_runs_byte_identical[tier_a/rfc9785.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.178</td><td>test_determinism::test_three_runs_byte_identical[tier_a/rfc9785.pdf]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.179</td><td>test_determinism::test_three_runs_byte_identical[tier_a/rfc9785.txt]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.180</td><td>test_determinism::test_three_runs_byte_identical[tier_b/rfc7432bis-13.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.181</td><td>test_determinism::test_three_runs_byte_identical[tier_b/rfc7432bis-13.txt]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.182</td><td>test_dispatch::test_detect_docx</td><td>PASS</td></tr>
+<tr class='pass'><td>P.183</td><td>test_dispatch::test_detect_empty_txt</td><td>PASS</td></tr>
+<tr class='pass'><td>P.184</td><td>test_dispatch::test_detect_html_rejected</td><td>PASS</td></tr>
+<tr class='pass'><td>P.185</td><td>test_dispatch::test_detect_missing_file</td><td>PASS</td></tr>
+<tr class='pass'><td>P.186</td><td>test_dispatch::test_detect_pdf</td><td>PASS</td></tr>
+<tr class='pass'><td>P.187</td><td>test_dispatch::test_detect_txt</td><td>PASS</td></tr>
+<tr class='pass'><td>P.188</td><td>test_edge_cases::test_edge_case_produces_expected_outcome[broken_encoding.txt-UnsupportedFormatError]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.189</td><td>test_edge_cases::test_edge_case_produces_expected_outcome[empty.txt-EmptyDocumentError]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.190</td><td>test_edge_cases::test_edge_case_produces_expected_outcome[malformed.docx-CorruptDocumentError]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.191</td><td>test_edge_cases::test_edge_case_produces_expected_outcome[scanned.pdf-UnsupportedScannedPDFError]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.192</td><td>test_edge_cases::test_edge_case_produces_expected_outcome[small_valid.txt-OK]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.193</td><td>test_edge_cases::test_edge_case_produces_expected_outcome[truncated.pdf-CorruptDocumentError]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.194</td><td>test_edge_cases::test_edge_case_produces_expected_outcome[unsupported.html-UnsupportedFormatError]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.195</td><td>test_edge_cases::test_edge_case_produces_expected_outcome[whitespace_only.txt-EmptyDocumentError]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.196</td><td>test_equipment::test_3rd_party_interop_for_rfc_calls_out_conformance</td><td>PASS</td></tr>
+<tr class='pass'><td>P.197</td><td>test_equipment::test_basic_functionality_config_only_drops_ixia</td><td>PASS</td></tr>
+<tr class='pass'><td>P.198</td><td>test_equipment::test_basic_functionality_packet_path_uses_neighbor</td><td>PASS</td></tr>
+<tr class='pass'><td>P.199</td><td>test_equipment::test_cli_row_equipment_tag</td><td>PASS</td></tr>
+<tr class='pass'><td>P.200</td><td>test_equipment::test_long_run_requires_continuous_traffic</td><td>PASS</td></tr>
+<tr class='pass'><td>P.201</td><td>test_equipment::test_management_uses_netconf</td><td>PASS</td></tr>
+<tr class='pass'><td>P.202</td><td>test_equipment::test_packet_validation_requires_neighbor_pe</td><td>PASS</td></tr>
+<tr class='pass'><td>P.203</td><td>test_equipment::test_robustness_includes_power_cycle</td><td>PASS</td></tr>
+<tr class='pass'><td>P.204</td><td>test_equipment::test_unknown_category_falls_back_safely</td><td>PASS</td></tr>
+<tr class='pass'><td>P.205</td><td>test_parity::test_rfc9785_word_parity_across_formats</td><td>PASS</td></tr>
+<tr class='pass'><td>P.206</td><td>test_parsers::test_block_types_are_correct</td><td>PASS</td></tr>
+<tr class='pass'><td>P.207</td><td>test_parsers::test_docx_table_structure</td><td>PASS</td></tr>
+<tr class='pass'><td>P.208</td><td>test_parsers::test_evpn_spec_finds_anchors</td><td>PASS</td></tr>
+<tr class='pass'><td>P.209</td><td>test_parsers::test_evpn_spec_has_cli_blocks</td><td>PASS</td></tr>
+<tr class='pass'><td>P.210</td><td>test_parsers::test_parse_returns_document[tier_a/EVPN CLI 1.00.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.211</td><td>test_parsers::test_parse_returns_document[tier_a/EVPN System Specification 1.00.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.212</td><td>test_parsers::test_parse_returns_document[tier_a/rfc9785.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.213</td><td>test_parsers::test_parse_returns_document[tier_a/rfc9785.pdf]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.214</td><td>test_parsers::test_parse_returns_document[tier_a/rfc9785.txt]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.215</td><td>test_parsers::test_parse_returns_document[tier_b/rfc7432bis-13.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.216</td><td>test_parsers::test_parse_returns_document[tier_b/rfc7432bis-13.txt]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.217</td><td>test_parsers::test_pdf_no_text_layer_rejected</td><td>PASS</td></tr>
+<tr class='pass'><td>P.218</td><td>test_planner::test_cli_plan_accepts_repeated_rfc_flag</td><td>PASS</td></tr>
+<tr class='pass'><td>P.219</td><td>test_planner::test_cli_plan_command_works</td><td>PASS</td></tr>
+<tr class='pass'><td>P.220</td><td>test_planner::test_cli_plan_handles_bad_input</td><td>PASS</td></tr>
+<tr class='pass'><td>P.221</td><td>test_planner::test_coverage_sheet_links_reqs_to_flows</td><td>PASS</td></tr>
+<tr class='pass'><td>P.222</td><td>test_planner::test_delta_pointer_markers_surface_in_comment_column</td><td>PASS</td></tr>
+<tr class='pass'><td>P.223</td><td>test_planner::test_extractor_dedupes_repeated_anchors</td><td>PASS</td></tr>
+<tr class='pass'><td>P.224</td><td>test_planner::test_extracts_evpn_anchors_from_evpn_spec</td><td>PASS</td></tr>
+<tr class='pass'><td>P.225</td><td>test_planner::test_flow_row_count_is_bounded</td><td>PASS</td></tr>
+<tr class='pass'><td>P.226</td><td>test_planner::test_no_synthesized_review_sheet</td><td>PASS</td></tr>
+<tr class='pass'><td>P.227</td><td>test_planner::test_plan_applies_categories_per_flow_not_uniformly</td><td>PASS</td></tr>
+<tr class='pass'><td>P.228</td><td>test_planner::test_plan_dedupes_overlapping_rfc_paths</td><td>PASS</td></tr>
+<tr class='pass'><td>P.229</td><td>test_planner::test_plan_from_evpn_spec_uses_template_categories</td><td>PASS</td></tr>
+<tr class='pass'><td>P.230</td><td>test_planner::test_plan_handles_doc_without_anchors</td><td>PASS</td></tr>
+<tr class='pass'><td>P.231</td><td>test_planner::test_plan_rows_are_traced_to_a_requirement</td><td>PASS</td></tr>
+<tr class='pass'><td>P.232</td><td>test_planner::test_plan_with_rfcs_adds_rfc_anchored_rows</td><td>PASS</td></tr>
+<tr class='pass'><td>P.233</td><td>test_planner::test_planner_is_deterministic</td><td>PASS</td></tr>
+<tr class='pass'><td>P.234</td><td>test_planner::test_rfc_only_flow_rows_skip_platform_categories</td><td>PASS</td></tr>
+<tr class='pass'><td>P.235</td><td>test_planner::test_rfc_orphan_rows_carry_rfc_anchor_in_xlsx</td><td>PASS</td></tr>
+<tr class='pass'><td>P.236</td><td>test_planner::test_rfc_orphans_are_first_class_planrows</td><td>PASS</td></tr>
+<tr class='pass'><td>P.237</td><td>test_planner::test_xlsx_columns_match_template_schema</td><td>PASS</td></tr>
+<tr class='pass'><td>P.238</td><td>test_planner::test_xlsx_contains_evpn_anchors</td><td>PASS</td></tr>
+<tr class='pass'><td>P.239</td><td>test_planner::test_xlsx_is_written_and_readable</td><td>PASS</td></tr>
+<tr class='pass'><td>P.240</td><td>test_planner::test_xlsx_with_rfcs_contains_both_anchor_styles</td><td>PASS</td></tr>
+<tr class='pass'><td>P.241</td><td>test_regression::test_normalized_ir_matches_golden[tier_a/EVPN CLI 1.00.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.242</td><td>test_regression::test_normalized_ir_matches_golden[tier_a/EVPN System Specification 1.00.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.243</td><td>test_regression::test_normalized_ir_matches_golden[tier_a/rfc9785.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.244</td><td>test_regression::test_normalized_ir_matches_golden[tier_a/rfc9785.pdf]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.245</td><td>test_regression::test_normalized_ir_matches_golden[tier_a/rfc9785.txt]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.246</td><td>test_regression::test_normalized_ir_matches_golden[tier_b/rfc7432bis-13.docx]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.247</td><td>test_regression::test_normalized_ir_matches_golden[tier_b/rfc7432bis-13.txt]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.248</td><td>test_req_classifier::test_base_sfs_when_no_rfc_refs</td><td>PASS</td></tr>
+<tr class='pass'><td>P.249</td><td>test_req_classifier::test_classify_all_populates_kind_and_links</td><td>PASS</td></tr>
+<tr class='pass'><td>P.250</td><td>test_req_classifier::test_classify_idempotent</td><td>PASS</td></tr>
+<tr class='pass'><td>P.251</td><td>test_req_classifier::test_delta_when_description_says_instead_of</td><td>PASS</td></tr>
+<tr class='pass'><td>P.252</td><td>test_req_classifier::test_delta_when_description_says_replaces</td><td>PASS</td></tr>
+<tr class='pass'><td>P.253</td><td>test_req_classifier::test_overlay_when_description_says_in_addition_to</td><td>PASS</td></tr>
+<tr class='pass'><td>P.254</td><td>test_req_classifier::test_pointer_when_short_with_see_rfc</td><td>PASS</td></tr>
+<tr class='pass'><td>P.255</td><td>test_req_classifier::test_rfc_links_resolve_against_catalog</td><td>PASS</td></tr>
+<tr class='pass'><td>P.256</td><td>test_req_classifier::test_rfc_source_classified_as_rfc</td><td>PASS</td></tr>
+<tr class='pass'><td>P.257</td><td>test_req_classifier::test_sfs_with_rfc_context_for_long_descriptions</td><td>PASS</td></tr>
+<tr class='pass'><td>P.258</td><td>test_requirements_builder::test_cli_inheritance_emits_seven_bgp_subconfigs</td><td>PASS</td></tr>
+<tr class='pass'><td>P.259</td><td>test_requirements_builder::test_dedupes_repeated_rfc_paths</td><td>PASS</td></tr>
+<tr class='pass'><td>P.260</td><td>test_requirements_builder::test_mark_claimed_promotes_unclaimed_rfc_to_synth</td><td>PASS</td></tr>
+<tr class='pass'><td>P.261</td><td>test_requirements_builder::test_rfc_requirements_get_rfc_provenance</td><td>PASS</td></tr>
+<tr class='pass'><td>P.262</td><td>test_requirements_builder::test_sfs_only_catalog_has_provenance_sfs</td><td>PASS</td></tr>
+<tr class='pass'><td>P.263</td><td>test_requirements_builder::test_synth_anchor_only_contains_rfc_sources</td><td>PASS</td></tr>
+<tr class='pass'><td>P.264</td><td>test_rfc_crosscheck::test_bis_matches_base_rfc</td><td>PASS</td></tr>
+<tr class='pass'><td>P.265</td><td>test_rfc_crosscheck::test_cited_numbers_normalises_forms</td><td>PASS</td></tr>
+<tr class='pass'><td>P.266</td><td>test_rfc_crosscheck::test_ingested_numbers_from_filenames</td><td>PASS</td></tr>
+<tr class='pass'><td>P.267</td><td>test_rfc_crosscheck::test_missing_and_boilerplate_handling</td><td>PASS</td></tr>
+<tr class='pass'><td>P.268</td><td>test_rfc_crosscheck::test_no_gap_warning_is_empty</td><td>PASS</td></tr>
+<tr class='pass'><td>P.269</td><td>test_rfc_crosscheck::test_real_evpn_sfs_flags_rfc4364</td><td>PASS</td></tr>
+<tr class='pass'><td>P.270</td><td>test_rfc_extractor::test_boilerplate_sections_are_skipped</td><td>PASS</td></tr>
+<tr class='pass'><td>P.271</td><td>test_rfc_extractor::test_problem_statement_section_does_not_leak</td><td>PASS</td></tr>
+<tr class='pass'><td>P.272</td><td>test_rfc_extractor::test_rfc7432bis_carries_rfc_ref_back_to_chapter</td><td>PASS</td></tr>
+<tr class='pass'><td>P.273</td><td>test_rfc_extractor::test_rfc7432bis_every_req_has_must_statement</td><td>PASS</td></tr>
+<tr class='pass'><td>P.274</td><td>test_rfc_extractor::test_rfc7432bis_extracts_substantial_normative_set</td><td>PASS</td></tr>
+<tr class='pass'><td>P.275</td><td>test_rfc_extractor::test_rfc7432bis_req_ids_use_short_name_and_section</td><td>PASS</td></tr>
+<tr class='pass'><td>P.276</td><td>test_rfc_extractor::test_rfc9785_extracts_at_least_three_requirements</td><td>PASS</td></tr>
+<tr class='pass'><td>P.277</td><td>test_rfc_extractor::test_rfc9785_section_numbers_are_well_formed</td><td>PASS</td></tr>
+<tr class='pass'><td>P.278</td><td>test_rfc_extractor::test_rfc_extractor_is_deterministic</td><td>PASS</td></tr>
+<tr class='pass'><td>P.279</td><td>test_rfc_extractor::test_rfc_req_ids_are_unique_within_an_rfc</td><td>PASS</td></tr>
+<tr class='pass'><td>P.280</td><td>test_rfc_extractor::test_rfc_reqs_carry_source_marker</td><td>PASS</td></tr>
+<tr class='pass'><td>P.281</td><td>test_rfc_extractor::test_rfc_reqs_get_at_least_one_tag</td><td>PASS</td></tr>
+<tr class='pass'><td>P.282</td><td>test_rfc_extractor::test_short_name_strips_draft_prefix_and_revision[draft-ietf-bess-rfc7432bis-13.docx-RFC7432bis]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.283</td><td>test_rfc_extractor::test_short_name_strips_draft_prefix_and_revision[draft-ietf-bess-rfc7432bis-13.txt-RFC7432bis]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.284</td><td>test_rfc_extractor::test_short_name_strips_draft_prefix_and_revision[rfc9785.docx-RFC9785]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.285</td><td>test_rfc_extractor::test_short_name_strips_draft_prefix_and_revision[rfc9785.txt-RFC9785]</td><td>PASS</td></tr>
+<tr class='pass'><td>P.286</td><td>test_rfc_extractor::test_umbrella_parent_sections_are_dropped</td><td>PASS</td></tr>
+<tr class='group'><td colspan='3'><b>Code Coverage (pytest-cov) (40 pass / 5 fail / 0 skip)</b></td></tr>
+<tr class='pass'><td>CC.01</td><td>ate/__init__.py — 100.0% covered (1 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='fail'><td>CC.02</td><td>ate/cli.py — 37.1% covered (423 stmts, 266 missing)</td><td>FAIL</td></tr>
+<tr class='fail'><td>CC.03</td><td>ate/codegen/__init__.py — 38.4% covered (73 stmts, 45 missing)</td><td>FAIL</td></tr>
+<tr class='pass'><td>CC.04</td><td>ate/codegen/capture.py — 72.5% covered (149 stmts, 41 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.05</td><td>ate/codegen/command_deriver.py — 96.8% covered (157 stmts, 5 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.06</td><td>ate/codegen/commands.py — 93.8% covered (32 stmts, 2 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.07</td><td>ate/codegen/device_config.py — 90.4% covered (114 stmts, 11 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.08</td><td>ate/codegen/evpn_scripts.py — 88.5% covered (52 stmts, 6 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.09</td><td>ate/codegen/fake_pass.py — 96.1% covered (77 stmts, 3 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.10</td><td>ate/codegen/java_emitter.py — 91.1% covered (214 stmts, 19 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.11</td><td>ate/codegen/lab.py — 92.0% covered (88 stmts, 7 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.12</td><td>ate/codegen/patterns.py — 79.3% covered (87 stmts, 18 missing)</td><td>PASS</td></tr>
+<tr class='fail'><td>CC.13</td><td>ate/codegen/plan_scripts.py — 58.3% covered (168 stmts, 70 missing)</td><td>FAIL</td></tr>
+<tr class='pass'><td>CC.14</td><td>ate/codegen/queue.py — 80.3% covered (137 stmts, 27 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.15</td><td>ate/codegen/script_ir.py — 100.0% covered (50 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='fail'><td>CC.16</td><td>ate/codegen/verify.py — 48.5% covered (194 stmts, 100 missing)</td><td>FAIL</td></tr>
+<tr class='pass'><td>CC.17</td><td>ate/errors.py — 100.0% covered (8 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.18</td><td>ate/ir.py — 100.0% covered (72 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.19</td><td>ate/normalize.py — 96.9% covered (32 stmts, 1 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.20</td><td>ate/parsers/__init__.py — 100.0% covered (2 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.21</td><td>ate/parsers/dispatch.py — 80.8% covered (52 stmts, 10 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.22</td><td>ate/parsers/docx_parser.py — 89.9% covered (148 stmts, 15 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.23</td><td>ate/parsers/pdf_parser.py — 85.4% covered (157 stmts, 23 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.24</td><td>ate/parsers/txt_parser.py — 73.7% covered (114 stmts, 30 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.25</td><td>ate/planner/__init__.py — 100.0% covered (3 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.26</td><td>ate/planner/ai_enricher.py — 70.6% covered (248 stmts, 73 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.27</td><td>ate/planner/atomic_rows.py — 90.7% covered (150 stmts, 14 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.28</td><td>ate/planner/categories.py — 74.8% covered (107 stmts, 27 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.29</td><td>ate/planner/cli_crosscheck.py — 89.7% covered (165 stmts, 17 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.30</td><td>ate/planner/cli_extractor.py — 92.0% covered (237 stmts, 19 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.31</td><td>ate/planner/cli_inheritance.py — 100.0% covered (50 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.32</td><td>ate/planner/cli_rows.py — 74.7% covered (549 stmts, 139 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.33</td><td>ate/planner/curated.py — 100.0% covered (28 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.34</td><td>ate/planner/equipment.py — 90.0% covered (20 stmts, 2 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.35</td><td>ate/planner/extractor.py — 97.5% covered (80 stmts, 2 missing)</td><td>PASS</td></tr>
+<tr class='fail'><td>CC.36</td><td>ate/planner/feature_catalog.py — 69.8% covered (63 stmts, 19 missing)</td><td>FAIL</td></tr>
+<tr class='pass'><td>CC.37</td><td>ate/planner/flows.py — 96.4% covered (55 stmts, 2 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.38</td><td>ate/planner/generator.py — 92.8% covered (139 stmts, 10 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.39</td><td>ate/planner/model.py — 100.0% covered (50 stmts, 0 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.40</td><td>ate/planner/req_classifier.py — 97.6% covered (41 stmts, 1 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.41</td><td>ate/planner/requirements_builder.py — 98.7% covered (77 stmts, 1 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.42</td><td>ate/planner/rfc_crosscheck.py — 98.1% covered (54 stmts, 1 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.43</td><td>ate/planner/rfc_extractor.py — 92.0% covered (75 stmts, 6 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.44</td><td>ate/planner/xlsx_writer.py — 92.5% covered (548 stmts, 41 missing)</td><td>PASS</td></tr>
+<tr class='pass'><td>CC.TOTAL</td><td>OVERALL coverage = 79.9%</td><td>PASS</td></tr>
+<tr class='group'><td colspan='3'><b>Code Quality (ruff lint) (1 pass / 0 fail / 0 skip)</b></td></tr>
+<tr class='pass'><td>L.OK</td><td>ruff: 0 issues across ate/, scripts/, tests/</td><td>PASS</td></tr>
+<tr class='group'><td colspan='3'><b>Performance (parse-time per corpus file) (7 pass / 0 fail / 0 skip)</b></td></tr>
+<tr class='pass'><td>PF.01</td><td>tier_a/rfc9785.docx (63 KB) — parsed in 677 ms (217 blocks)</td><td>PASS</td></tr>
+<tr class='pass'><td>PF.02</td><td>tier_a/rfc9785.txt (44 KB) — parsed in 6 ms (184 blocks)</td><td>PASS</td></tr>
+<tr class='pass'><td>PF.03</td><td>tier_a/rfc9785.pdf (143 KB) — parsed in 1849 ms (72 blocks)</td><td>PASS</td></tr>
+<tr class='pass'><td>PF.04</td><td>tier_a/EVPN System Specification 1.00.docx (926 KB) — parsed in 897 ms (674 blocks)</td><td>PASS</td></tr>
+<tr class='pass'><td>PF.05</td><td>tier_a/EVPN CLI 1.00.docx (356 KB) — parsed in 236 ms (109 blocks)</td><td>PASS</td></tr>
+<tr class='pass'><td>PF.06</td><td>tier_b/rfc7432bis-13.docx (222 KB) — parsed in 4416 ms (982 blocks)</td><td>PASS</td></tr>
+<tr class='pass'><td>PF.07</td><td>tier_b/rfc7432bis-13.txt (182 KB) — parsed in 17 ms (977 blocks)</td><td>PASS</td></tr>
+<tr class='group'><td colspan='3'><b>Corpus Inventory (references/) (8 pass / 0 fail / 2 skip)</b></td></tr>
+<tr class='skip'><td>C.01</td><td>DHCP-snoopy_TP_with_PW.xlsx (74 KB) — skipped (format .xlsx)</td><td>SKIP</td></tr>
+<tr class='pass'><td>C.02</td><td>EVPN/Command Reference Guide v8.X.0.pdf (9022 KB) — pdf, 4672 blocks, 1242 headings, 1298 tables, 125 code blocks</td><td>PASS</td></tr>
+<tr class='pass'><td>C.03</td><td>EVPN/EVPN CLI 1.00.docx (356 KB) — docx, 109 blocks, 50 headings, 43 tables, 1 code blocks</td><td>PASS</td></tr>
+<tr class='pass'><td>C.04</td><td>EVPN/EVPN System Specification 1.00.docx (926 KB) — docx, 674 blocks, 102 headings, 17 tables, 10 code blocks</td><td>PASS</td></tr>
+<tr class='pass'><td>C.05</td><td>EVPN/draft-ietf-bess-rfc7432bis-13.docx (222 KB) — docx, 982 blocks, 116 headings, 3 tables, 32 code blocks</td><td>PASS</td></tr>
+<tr class='pass'><td>C.06</td><td>EVPN/draft-ietf-bess-rfc7432bis-13.txt (182 KB) — txt, 977 blocks, 98 headings, 0 tables, 183 code blocks</td><td>PASS</td></tr>
+<tr class='pass'><td>C.07</td><td>EVPN/rfc9785.docx (63 KB) — docx, 217 blocks, 40 headings, 1 tables, 0 code blocks</td><td>PASS</td></tr>
+<tr class='pass'><td>C.08</td><td>EVPN/rfc9785.pdf (143 KB) — pdf, 72 blocks, 26 headings, 3 tables, 3 code blocks</td><td>PASS</td></tr>
+<tr class='pass'><td>C.09</td><td>EVPN/rfc9785.txt (44 KB) — txt, 184 blocks, 15 headings, 0 tables, 49 code blocks</td><td>PASS</td></tr>
+<tr class='skip'><td>C.10</td><td>Feature Name Test Plan Template.xlsx (15 KB) — skipped (format .xlsx)</td><td>SKIP</td></tr>
+<tr class='group'><td colspan='3'><b>Output Files (out/) (17 pass / 0 fail / 0 skip)</b></td></tr>
+<tr class='pass'><td>O.01</td><td>EVPN CLI 1.00.docx.json — 158 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.02</td><td>EVPN System Specification 1.00.docx.json — 150 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.03</td><td>captured_expectations.json — 7 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.04</td><td>captures_2ac.json — 5 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.05</td><td>captures_3ac.json — 10 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.06</td><td>cfgtest — 4 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.07</td><td>codegen_queue.json — 1 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.08</td><td>draft-ietf-bess-rfc7432bis-13.docx.json — 219 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.09</td><td>draft-ietf-bess-rfc7432bis-13.txt.json — 238 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.10</td><td>e2e — 4 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.11</td><td>rfc9785.docx.json — 51 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.12</td><td>rfc9785.pdf.json — 47 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.13</td><td>rfc9785.txt.json — 55 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.14</td><td>sel — 4 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.15</td><td>tc02 — 4 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.16</td><td>verified_commands.json — 42 KB</td><td>PASS</td></tr>
+<tr class='pass'><td>O.17</td><td>verified_commands_pc3080.json — 50 KB</td><td>PASS</td></tr>
+</table>
+<div class="footer">Generated by <code>modular_tools.sh run-tests</code> — Codevalue / ATE</div>
+</body></html>

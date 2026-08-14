@@ -17,10 +17,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ate.codegen.commands import validate_grounding
+from ate.codegen.commands import UngroundedCommandError, validate_grounding
 from ate.codegen.evpn_scripts import evpn_scripts
 from ate.codegen.java_emitter import JavaFile, emit_all
-from ate.codegen.lab import SINGLE_DUT_3AC, LabProfile
+from ate.codegen.lab import (
+    SINGLE_DUT_3AC,
+    LabProfile,
+    underlay_symmetry_violations,
+)
 from ate.codegen.script_ir import TestScript
 
 __all__ = ["GenerationResult", "generate_evpn_suite"]
@@ -122,7 +126,6 @@ def generate_evpn_suite(sfs_path: str | Path,
     )
     # A one-sided underlay is invisible until an adjacency quietly fails to
     # form, so refuse it here rather than ship it.
-    from ate.codegen.lab import underlay_symmetry_violations  # noqa: PLC0415
     asymmetric = underlay_symmetry_violations(lab)
     if asymmetric:
         raise UngroundedCommandError(
