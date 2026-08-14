@@ -80,6 +80,9 @@ public enum EvpnCommands implements ICmpCliCmd {
     /** CLI doc: show bgp l2vpn evpn table evi - show bgp l2vpn evpn table evi [evi-name evi-name [evpn-prefix]] [brief | detail] */
     SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL("show bgp l2vpn evpn table evi detail"),
 
+    /** CLI doc:  - show bgp neighbor [neighbor-ip] */
+    SHOW_BGP_NEIGHBOR_$_EVPN_CAPABILITY("show bgp neighbor %s | include EVPN"),
+
     /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
     SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL("show bgp l2vpn evpn neighbors advertised-routes %s detail"),
 

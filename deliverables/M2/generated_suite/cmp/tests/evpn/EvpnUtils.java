@@ -29,6 +29,15 @@ public class EvpnUtils implements loggerImp {
     /** intPool in the SUT file that backs the attachment circuits. */
     private static final String AC_POOL = "data1";
 
+    /**
+     * Where the attachment circuits start in that pool.
+     *
+     * Non-zero when a link is spent on the EVPN core: pc-3080's data1 pool is
+     * three DUT<->IXIA links, and binding the EVI from index 0 put it on the
+     * core port, which is L3 and not l2-transport.
+     */
+    private static final int AC_POOL_OFFSET = 0;
+
     /** Index into the SUT's `general/vlans` list for the AC VLAN. */
     private static final int AC_VLAN_INDEX = 0;
 
@@ -41,6 +50,24 @@ public class EvpnUtils implements loggerImp {
     public String acInterface(int index) throws Exception {
         return cmp.getIntPool(AC_POOL).getInter(index).getIntName()
                + "." + acVlan();
+    }
+
+    /**
+     * The same circuit in the form the device PRINTS it: no space.
+     *
+     * DEVICE QUIRK, verified on pc-3080 8.7.0 LAB 22. Configuration accepts
+     * the spaced form:
+     *     l2-services evpn evi-1 interface x-eth 0/0/8.3380      OK
+     * but the show command's `source` filter does not:
+     *     ... mac-address-table name evi-1 source x-eth 0/0/8.3380
+     *         syntax error: unknown argument
+     *     ... mac-address-table name evi-1 source x-eth0/0/8.3380   OK
+     *
+     * Same interface, same device, two spellings - which is why the capture
+     * half and the assertion half of this step disagreed for a whole run.
+     */
+    public String acInterfaceCompact(int index) throws Exception {
+        return acInterface(index).replace(" ", "");
     }
 
     /**
@@ -114,6 +141,46 @@ public class EvpnUtils implements loggerImp {
      * device": the command is still run and its output reported, but the
      * result is a warning, never a pass.
      */
+    /**
+     * Assert the given lines are GONE from the command's output.
+     *
+     * The mirror of verifyShowLines, for steps whose whole point is that
+     * something stopped being there: MACs after the aging time, a Type-2
+     * after withdrawal. Those cannot be expressed by a capture - `ate
+     * capture` records state while it EXISTS and refuses empty output, so the
+     * captured lines are exactly the rows that ought to disappear. Asserting
+     * their presence asserts that aging never happened, which is how TC03
+     * failed while the device was behaving correctly.
+     *
+     * Falsifiable in the right direction: it fails if the rows are still
+     * there, and it refuses to pass on an empty expectation, because
+     * "nothing was supposed to vanish" proves nothing.
+     */
+    public void verifyShowLinesAbsent(ICmpCliCmd command, String[] goneLines)
+            throws Exception {
+        String output = cmp.runCommandAndSwitch(command.toString(), command);
+        if (goneLines == null || goneLines.length == 0) {
+            CompassReporter.warning("No validated expectation for '"
+                    + command.toString() + "' yet - nothing asserted absent.");
+            logMsg.info(output);
+            return;
+        }
+        java.util.List<String> stillThere = new java.util.ArrayList<String>();
+        for (String pattern : goneLines) {
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
+            if (p.matcher(output).find()) {
+                stillThere.add(pattern);
+            }
+        }
+        falsifiableAssertions++;
+        CompassReporter.passFailByCondition(stillThere.isEmpty(),
+                "The output of " + command.toString()
+                        + " no longer contains the expected-gone lines.",
+                "The output of " + command.toString()
+                        + " STILL contains lines that should have gone: "
+                        + stillThere);
+    }
+
     public void verifyShowLines(ICmpCliCmd command, String[] expectedLines)
             throws Exception {
         String output = cmp.runCommandAndSwitch(command.toString(), command);
@@ -213,6 +280,14 @@ public class EvpnUtils implements loggerImp {
                     name, "stream", "1", "framesPerSecond",
                     params.TRAFFIC_RATE_FPS, "bytes", "bitsPerSec", "false"));
         }
+        // A raw item's frame is whatever its protocol stack says, and that
+        // stack is ethernet + fcs: UNTAGGED. Tagging the vport's interface
+        // does not change it - that governs protocol emulation, not raw frame
+        // content. Untagged frames never match a `vlan-id` sub-interface, so
+        // the DUT counted 219k frames on the port and 0 on the circuit, and
+        // the EVI learnt nothing while every call reported success.
+        tagTrafficItemsWithAcVlan();
+
         // GENERATE binds the physical MACs and interfaces onto each raw item -
         // their own enum says so ("generate traffic item to apply physical mac
         // and interfaces to traffic source and destanation"). Without it the
@@ -285,6 +360,58 @@ public class EvpnUtils implements loggerImp {
      * than assumed: an unapplied source MAC would leave the MAC-move flows
      * asserting something that never happened.
      */
+    /**
+     * Push a VLAN header onto every raw traffic item, carrying the AC VLAN.
+     *
+     * DEVICE-VERIFIED on pc-3080: with the header appended the circuit
+     * counters move off zero and the EVI learns; without it they stay at zero
+     * while the port counts hundreds of thousands of frames.
+     *
+     * Reads the stacks back afterwards rather than trusting the append.
+     */
+    public void tagTrafficItemsWithAcVlan() throws Exception {
+        String vlan = acVlan();
+        String tcl =
+            "set tpl {} ; "
+            + "foreach t [ixNet getL [ixNet getRoot]/traffic protocolTemplate] { "
+            +   "if {[string equal -nocase [ixNet getAtt $t -displayName] {VLAN}]} { "
+            +     "set tpl $t } } ; "
+            + "set tagged 0 ; set stacks {} ; "
+            + "foreach ti [ixNet getL [ixNet getRoot]/traffic trafficItem] { "
+            +   "foreach ce [ixNet getL $ti configElement] { "
+            +     "set has 0 ; "
+            +     "foreach st [ixNet getL $ce stack] { "
+            +       "if {[string match {*vlan*} $st]} { set has 1 } } ; "
+            +     "if {$has == 0 && $tpl ne {}} { "
+            +       "ixNet exec appendProtocol [lindex [ixNet getL $ce stack] 0] $tpl ; "
+            +       "ixNet commit } ; "
+            +     "foreach st [ixNet getL $ce stack] { "
+            +       "if {![string match {*vlan*} $st]} { continue } ; "
+            +       "incr tagged ; "
+            +       "foreach fld [ixNet getL $st field] { "
+            +         "if {[string match -nocase {*vlan-id*} "
+            +           "[ixNet getAtt $fld -displayName]]} { "
+            +           "ixNet setMultiAttr $fld -singleValue " + vlan
+            +             " -fieldValue " + vlan + " -valueType singleValue } } } ; "
+            +     "ixNet commit ; "
+            +     "append stacks [ixNet getL $ce stack] } } ; "
+            + "puts \"\" ; "
+            + "puts \"VLANTAGGED=$tagged VLANID=" + vlan + "\" ; "
+            + "puts \"\"";
+        String readBack = ixia.runCommand(new RawTcl(tcl));
+        boolean tagged = readBack != null && readBack.contains("VLANTAGGED=")
+                && !readBack.contains("VLANTAGGED=0");
+        CompassReporter.passFailByCondition(tagged,
+                "Traffic items carry the AC VLAN " + vlan + " ("
+                        + oneLine(readBack) + ").",
+                "Traffic items were NOT VLAN-tagged (" + oneLine(readBack)
+                        + ") - untagged frames never reach a vlan-id "
+                        + "sub-interface, so the EVI will learn nothing.");
+        if (!tagged) {
+            throw new Exception("could not VLAN-tag the traffic items");
+        }
+    }
+
     public void setTrafficItemSourceMac(String trafficItemName, String mac)
             throws Exception {
         // Find the field by NAME, do not guess its index. ixia_lib.tcl writes
@@ -396,8 +523,12 @@ public class EvpnUtils implements loggerImp {
         // A session that never loaded an .ixncfg has however many a previous
         // run happened to leave behind, so the names the suite uses may simply
         // not exist - "can't read ixia(vport3): no such element in array".
-        // Create them up to the number of ACs, then reload the object map.
-        int want = params.AC_VPORTS.length;
+        // Create them up to the HIGHEST vport the suite names, then reload the
+        // object map. Counting only the ACs is not enough once a link is spent
+        // on the core: the ACs are then vport2 and vport3, so creating two
+        // vports leaves $ixia(vport3) undefined and the chassis answers
+        // "can't read ixia(vport3): no such element in array".
+        int want = AC_POOL_OFFSET + params.AC_VPORTS.length;
         String created = ixia.runCommand(new RawTcl(
                 "set n [llength [ixNet getL [ixNet getRoot] vport]] ; "
                 + "while {$n < " + want + "} { ixNet add [ixNet getRoot] vport ; "
@@ -417,8 +548,9 @@ public class EvpnUtils implements loggerImp {
         ixia.performFunctions(IxiaFunctions.LOAD_IXIA_OBJECT);
 
         for (int i = 0; i < params.AC_VPORTS.length; i++) {
-            String card = ixia.getIntPool(AC_POOL).getInter(i).getCard();
-            String port = ixia.getIntPool(AC_POOL).getInter(i).getPort();
+            int poolIdx = i + AC_POOL_OFFSET;
+            String card = ixia.getIntPool(AC_POOL).getInter(poolIdx).getCard();
+            String port = ixia.getIntPool(AC_POOL).getInter(poolIdx).getPort();
             logMsg.info("Assigning " + params.AC_VPORTS[i]
                     + " to card " + card + " port " + port);
             ixia.performFunctions(
@@ -497,6 +629,31 @@ public class EvpnUtils implements loggerImp {
         ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_$_STATE_$
                 .args(trafficItemName, String.valueOf(enabled)));
         ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
+        if (enabled) {
+            // ENABLING AN ITEM IS NOT TRANSMITTING. `-enabled true` plus
+            // `trafficApply` leaves the chassis configured and silent: every
+            // DUT circuit counted zero frames and the EVI learnt nothing,
+            // while each call reported success. Transmission needs an
+            // explicit global start.
+            ixia.performFunctions(IxiaFunctions.START_TRAFFIC);
+            // ...and "start" is a request, not evidence. Read the state back
+            // before any assertion depends on frames having moved.
+            String state = ixia.runCommand(new RawTcl(
+                    "puts \"\" ; "
+                    + "puts \"TRAFFICSTATE=[ixNet getAtt "
+                    + "[ixNet getRoot]/traffic -state]\" ; "
+                    + "puts \"\""));
+            boolean running = state != null
+                    && state.toLowerCase().contains("trafficstate=started");
+            CompassReporter.passFailByCondition(running,
+                    "Traffic is transmitting (" + oneLine(state) + ").",
+                    "Traffic did NOT start (" + oneLine(state)
+                            + ") - no frame reaches the EVI and nothing can "
+                            + "be learnt.");
+            if (!running) {
+                throw new Exception("traffic did not start");
+            }
+        }
         logMsg.info("Traffic item " + trafficItemName + " enabled=" + enabled);
     }
 

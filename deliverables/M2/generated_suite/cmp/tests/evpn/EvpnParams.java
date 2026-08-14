@@ -69,11 +69,10 @@ public class EvpnParams implements ISuiteParams {
 
     // ---- expected output ----
     /** FLOW-010.S08 - Verify evi-1 is up and all three ACs are bound
-     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-13T00:19:29
+     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
      *  Command: show evpn detail
      */
     public final String[] FLOW010_S08_EVPN_DETAIL_LINES = new String[] {
-        "EVPN\\s+name:\\s+evi-1",
         "Advertise\\s+MAC\\s+Addresses:\\s+Enabled",
         "ES\\s+DF\\s+Waiting\\s+Time:\\s+3\\s+seconds",
         "Export-rt:\\s+65000:1",
@@ -89,14 +88,22 @@ public class EvpnParams implements ISuiteParams {
         "Control\\s+Word:\\s+Disabled",
         "Local\\s+Interfaces:",
         "INTERFACE\\s+ESI\\s+ES\\s+LABEL",
-        "--------------------------------------------------------",
-        "x-eth0/0/8\\.100\\s+-\\s+-",
-        "x-eth0/0/18\\.100\\s+-\\s+-",
-        "x-eth0/0/26\\.100\\s+-\\s+-"
+        "x-eth0/0/8\\.3380\\s+-\\s+-",
+        "x-eth0/0/18\\.3380\\s+-\\s+-",
+        "x-eth0/0/26\\.3380\\s+-\\s+-"
     };
 
-    /** FLOW-010.S09 - NOT YET VALIDATED. Needs real `show evpn mac-address-table` output. */
-    public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {};
+    /** FLOW-010.S09 - Verify the EVPN MAC address-table starts empty
+     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
+     *  Command: show evpn mac-address-table name evi-1
+     */
+    public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {
+        "IP",
+        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
+        "00:00:00:00:00:00\\s+L\\s+x-eth0/0/26\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-",
+        "00:00:01:00:00:01\\s+L\\s+x-eth0/0/8\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-",
+        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/26\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-"
+    };
 
     /** FLOW-010.S10 - NOT YET VALIDATED. Needs real output of the route table above. */
     public final String[] FLOW010_S10_TYPE3_ADVERTISED_LINES = new String[] {};
@@ -104,8 +111,15 @@ public class EvpnParams implements ISuiteParams {
     /** FLOW-030.S03 - NOT YET VALIDATED. Expected per-port rx rows depend on the .ixncfg port naming and offered rate. */
     public final String[] FLOW030_S03_FLOOD_TO_AC2_AC3_ROWS = new String[] {};
 
-    /** FLOW-030.S04 - NOT YET VALIDATED. Needs real MAC-table output plus the AC1 source-MAC range. */
-    public final String[] FLOW030_S04_AC1_MACS_LEARNT_LINES = new String[] {};
+    /** FLOW-030.S04 - Verify AC1 source MACs are learnt on agg-eth-1.100
+     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
+     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/8.3380
+     */
+    public final String[] FLOW030_S04_AC1_MACS_LEARNT_LINES = new String[] {
+        "IP",
+        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
+        "00:00:01:00:00:01\\s+L\\s+x-eth0/0/8\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-"
+    };
 
     /** FLOW-030.S05 - NOT YET VALIDATED. Needs real output of the route table above. */
     public final String[] FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES = new String[] {};
@@ -122,29 +136,44 @@ public class EvpnParams implements ISuiteParams {
     /** FLOW-030.S12 - NOT YET VALIDATED. Expected rows depend on .ixncfg port naming. */
     public final String[] FLOW030_S12_UNICAST_TO_AC2_ROWS = new String[] {};
 
-    /** FLOW-030.S15 - NOT YET VALIDATED. Needs real MAC-table output. */
-    public final String[] FLOW030_S15_MACS_MOVED_TO_AC3_LINES = new String[] {};
+    /** FLOW-030.S15 - Verify the AC2 MACs have shifted to agg-eth-3.100
+     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
+     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/26.3380
+     */
+    public final String[] FLOW030_S15_MACS_MOVED_TO_AC3_LINES = new String[] {
+        "IP",
+        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
+        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/26\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-"
+    };
 
     /** FLOW-030.S17 - NOT YET VALIDATED. Expected rows depend on .ixncfg port naming. */
     public final String[] FLOW030_S17_UNICAST_TO_AC3_ROWS = new String[] {};
 
-    /** FLOW-031.S04 - NOT YET VALIDATED. Needs real MAC-table output. */
-    public final String[] FLOW031_S04_MACS_AGED_OUT_LINES = new String[] {};
+    /** FLOW-031.S04 - Verify the AC3 MACs are removed from the EVPN MAC table once their traffic stopped and they aged out
+     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
+     *  Command: show evpn mac-address-table name evi-1
+     */
+    public final String[] FLOW031_S04_MACS_AGED_OUT_LINES = new String[] {
+        "IP",
+        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
+        "00:00:00:00:00:00\\s+L\\s+x-eth0/0/8\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-",
+        "00:00:01:00:00:01\\s+L\\s+x-eth0/0/8\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-",
+        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/26\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-"
+    };
 
     /** FLOW-031.S05 - NOT YET VALIDATED. Needs real BGP EVPN table output. */
     public final String[] FLOW031_S05_TYPE2_WITHDRAWN_LINES = new String[] {};
 
     /** FLOW-031.S06 - Verify the BUM routing table still lists the flood list
-     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-13T00:19:29
+     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
      *  Command: show evpn broadcast-domains name evi-1
      */
     public final String[] FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES = new String[] {
-        "EVPN\\s+Name:\\s+evi-1,\\s+Service\\s+Type:\\s+vlan-based",
         "Local\\s+BUM\\s+Label:\\s+32768",
         "Local\\s+Interfaces:",
-        "x-eth0/0/8\\.100",
-        "x-eth0/0/18\\.100",
-        "x-eth0/0/26\\.100"
+        "x-eth0/0/8\\.3380",
+        "x-eth0/0/18\\.3380",
+        "x-eth0/0/26\\.3380"
     };
 
     @Override

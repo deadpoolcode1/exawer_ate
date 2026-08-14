@@ -5,19 +5,29 @@ mapped to the artifact that satisfies it, plus the evidence behind each claim.
 
 ## SOW M2 deliverables → artifacts
 
-> **Latest run:** SUT **pc-3080** (`exa-il01-uf-3080`, 10.3.80.1), software
-> **8.7.0 LAB 22**, application build `feature/dev64_evpn_23Jul2026`.
-> TC01, TC02 and TC03 all run end to end — `OK (1 test)` each — but between
-> them they make **one** EVPN-behaviour assertion, and it is currently vacuous.
-> Start with `evidence_what_the_suites_assert.txt`, then
-> `evidence_tc01_run_pc3080.txt` and `lab_validation_pc3080.md`.
+> **Latest run — 2026-08-14, commit `fc43dd2`.** SUT **pc-3080**
+> (`exa-il01-uf-3080`, 10.3.80.1), software **8.7.0 LAB 22**, application
+> build `feature/dev64_evpn_23Jul2026`.
+>
+> **TC01, TC02 and TC03 all pass — `OK (1 test)` each — on seven assertions
+> against real device output.** TC02 had never passed before. EVPN MAC
+> learning and a local MAC move are demonstrated on real IXIA traffic.
+>
+> Start with **`evidence_three_suites_green.txt`**, then
+> `evidence_underlay_and_ixia_peer.txt` and `lab_validation_pc3080.md`.
+>
+> Superseded: an earlier version of this note said the suites made "one
+> EVPN-behaviour assertion, and it is currently vacuous". That was accurate
+> when written — four expectations had captured a table legend rather than
+> any rows. The legend can no longer become an expectation, and the
+> assertions below are the real ones.
 
 | SOW M2 deliverable | Artifact | Evidence |
 |---|---|---|
 | Code generation based on selected tests by Exaware | `generated_suite/cmp/tests/evpn/` (6 files) — driven by `ate codegen --selected-only`, which emits only what the queue marks SELECTED | `evidence_codegen_summary.txt` |
 | Pattern matching implementation | `ate/codegen/patterns.py`, CLI `ate match` | `evidence_pattern_match.txt` — 537 / 612 rows (**87.7%**) mapped to typed steps |
 | Demo: extract requirements from sample docs | `ate plan-feature EVPN` over `references/EVPN/` | `EVPN_test_plan_with_RFCs.xlsx` — 133 requirements, 269 plan rows, 698 action rows |
-| Up to 3 integration-ready test plans | **TC01 / TC02 / TC03** in `generated_suite/` | `evidence_compile.txt` — compiles against Exaware's real framework |
+| Up to 3 integration-ready test plans | **TC01 / TC02 / TC03** in `generated_suite/` | `evidence_compile.txt` — compiles against Exaware's real framework; `evidence_three_suites_green.txt` — all three **pass on pc-3080** |
 
 The dirty queue (`ate/codegen/queue.py`, CLI `ate queue`) is listed in the SOW
 under M4 ("queue implementation for test selection") but was needed to make

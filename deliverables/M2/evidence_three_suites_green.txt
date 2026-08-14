@@ -1,0 +1,145 @@
+TC01, TC02 and TC03 — all three green on hardware
+SUT: pc-3080 (exa-il01-uf-3080), 8.7.0 LAB 22, feature/dev64_evpn_23Jul2026
+IXIA: chassis 10.1.70.108, app server 10.1.90.80 (IxNetwork 9.00.1915.16)
+Lab profile: lab-1dut-3ac      Commit: fc43dd2      Date: 2026-08-14
+
+
+1. VERDICTS
+------------
+    TC01_EvpnVlanBasedBringUp         OK (1 test)    2 falsifiable assertions
+    TC02_EvpnType2MacIpAdvertisement  OK (1 test)    3 falsifiable assertions
+    TC03_EvpnType3ImetFlooding        OK (1 test)    2 falsifiable assertions
+
+TC02 had never passed before this run.
+
+
+2. WHAT EACH SUITE ACTUALLY ASSERTED
+-------------------------------------
+Not "the test went green" — these are the comparisons against real device
+output that could have failed and did not:
+
+TC01
+    Pass: The output of show evpn detail is as expected.
+    Pass: The output of show evpn mac-address-table name evi-1
+          no longer contains the expected-gone lines.
+
+TC02
+    Pass: ... mac-address-table name evi-1 source x-eth0/0/8.3380  is as expected.
+    Pass: ... mac-address-table name evi-1 source x-eth0/0/8.3380  is as expected.
+    Pass: ... mac-address-table name evi-1 source x-eth0/0/26.3380 is as expected.
+
+TC03
+    Pass: ... mac-address-table name evi-1 source x-eth0/0/26.3380
+          no longer contains the expected-gone lines.
+    Pass: The output of show evpn broadcast-domains name evi-1 is as expected.
+
+A generated test that verifies nothing FAILS by construction
+(`assertSomethingWasVerified`), so a green run here means assertions ran.
+
+
+3. CHASSIS VALUES READ BACK DURING THE RUNS
+--------------------------------------------
+Every one of these is read from the chassis after the call, not inferred from
+the call returning without error:
+
+    VPORTS=3                          three vports exist and are assigned
+    ACVLAN=3380/true                  vport interfaces tagged with the AC VLAN
+    VLANTAGGED=30 / 33                traffic items carry a VLAN header
+    SET=10 / SET=11                   source-MAC field writes that took effect
+    TRAFFICSTATE=startedWaitingForStats   traffic is actually transmitting
+
+
+4. EVPN BEHAVIOUR DEMONSTRATED
+-------------------------------
+MAC learning on the DUT, from real IXIA traffic:
+
+    VLAN  MAC ADDRESS        LOC  SOURCE
+    ---------------------------------------------
+          00:00:01:00:00:01  L    x-eth0/0/8.3380
+          00:00:02:00:00:01  L    x-eth0/0/18.3380
+
+Local MAC move — AC2 and AC3 deliberately source the same MAC, so shifting
+traffic from AC2 to AC3 is a purely local move:
+
+    before   00:00:02:00:00:01  L  x-eth0/0/18.3380     (traffic on AC2)
+    after    00:00:02:00:00:01  L  x-eth0/0/26.3380     (traffic on AC3)
+
+Aging — with that traffic stopped, the entry leaves the table, which is what
+TC03's absence assertion checks.
+
+
+5. FIVE DEFECTS THIS RUN CLOSED
+--------------------------------
+Each of these previously presented as success: the config committed, the
+`show` output looked right, and every call returned without error.
+
+(a) SOURCE MAC — settable all along.
+    The field is `ethernet.header.sourceAddress-2`, not `-1`. The suffix is
+    the field's POSITION in the ethernet stack, read off the chassis:
+        field:"...destinationAddress-1"  ->  'Destination MAC Address'
+        field:"...sourceAddress-2"       ->  'Source MAC Address'
+    This dissolves the previously reported dependency on a source-MAC proc in
+    ixia_lib.tcl. No change to Exaware's infrastructure file is required.
+
+(b) AC SUB-INTERFACES NEED `vlan-id`.
+        interface x-eth 0/0/18.3380
+         l2-transport enable            <- admin-up, bound, and inert
+    The port counted 219,000 frames received while the sub-interface counted
+    0, and `show evpn detail` still listed it as a bound attachment circuit.
+    The sub-interface NUMBER does not select the VLAN; VPLS_N1.cfg pairs
+    `int2.1` with `vlan-id 2` the same way.
+
+(c) RAW TRAFFIC ITEMS WERE UNTAGGED.
+    A raw item's frame is its protocol stack, and that stack was
+    ethernet + fcs. Tagging the vport's interface governs protocol emulation,
+    not raw frame content, so every frame arrived untagged and matched no
+    vlan-id sub-interface.
+
+(d) ENABLING A TRAFFIC ITEM IS NOT TRANSMITTING.
+    `trafficItem -enabled true` plus `trafficApply` leaves the chassis
+    configured and silent. An explicit start is required, and the state is now
+    read back before any assertion depends on frames having moved.
+
+(e) ABSENCE STEPS WERE ASSERTING PRESENCE.
+    "MACs aged out", "Type-2 withdrawn" and "MAC table starts empty" are
+    claims about something being GONE. Capture records state while it EXISTS
+    and refuses empty output, so each of those steps had been filled with
+    exactly the rows that ought to disappear. They now assert absence, scoped
+    to the circuit whose traffic stopped rather than to the whole table.
+
+
+6. SEPARATELY VERIFIED: THE UNDERLAY AND THE EVPN CAPABILITY
+-------------------------------------------------------------
+On the `lab-1dut-2ac-core` profile, where one IXIA link is used as an L3 core
+instead of a third attachment circuit:
+
+  * the generated underlay commits on the DUT — `routing ospf 3029`,
+    `mpls ldp default`, and `routing bgp 3029` with `af-l2vpn evpn`;
+  * OSPF reaches FULL with the IXIA-emulated router;
+  * the BGP session reaches Established, and the DUT reports
+
+        L2VPN EVPN:     advertised
+
+    which is the capability check, and needs no BGP EVPN licence.
+
+Negative control for that assertion: removing `af-l2vpn evpn` from the
+generated configuration makes the device answer `L2VPN EVPN: none` and turns
+TC01 RED on the missing lines; restoring it returns it to green.
+
+NOTE: those results are from a different profile and therefore a different
+run than section 1. Both are real; they are not the same configuration.
+
+
+7. KNOWN LIMITS, STATED PLAINLY
+--------------------------------
+  * No Type-2/Type-3 ROUTE EXCHANGE has been demonstrated. IXIA cannot
+    emulate a BGP EVPN speaker on this chassis: starting one fails with
+    "ERROR-1005 ... There is no license available for BGP EVPN". Isolated to
+    that feature — the same neighbour starts and establishes with plain
+    ipv4-unicast. Per Exaware, the current TCs do not need it.
+  * The three attachment circuits and the L3 core link cannot coexist:
+    pc-3080 has exactly three DUT<->IXIA links, so a profile with a core has
+    two ACs and cannot run FLOW-030's MAC move. `ate codegen` reports the
+    flow as not generated rather than emitting fewer tests silently.
+  * 5 of 11 expectations on the 2ac-core profile remain empty, all of them
+    BGP-table reads, for the licence reason above.

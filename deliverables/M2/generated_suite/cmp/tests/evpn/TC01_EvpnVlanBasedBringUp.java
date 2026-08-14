@@ -68,8 +68,7 @@ public class TC01_EvpnVlanBasedBringUp extends CmpTestCase {
 
         // FLOW-010.S09 - covers EVPNS-REQ#30, EVPNS-REQ#40, EVPNS-REQ#50, EVPNS-REQ#380
         CompassReporter.stopAndStartLevel(++level + ". Verify the EVPN MAC address-table starts empty");
-        evpnUtils.verifyShowLines(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$.args("evi-1"), testParams.FLOW010_S09_MAC_TABLE_EMPTY_LINES);
-        CompassReporter.warning("FLOW-010.S09: Needs real `show evpn mac-address-table` output.");
+        evpnUtils.verifyShowLinesAbsent(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$.args("evi-1"), testParams.FLOW010_S09_MAC_TABLE_EMPTY_LINES);
 
         // FLOW-010.S10 - covers RFC7432bis-section 7.3, RFC7432bis-section 11
         CompassReporter.stopAndStartLevel(++level + ". Verify the Type-3 IMET route for this EVI is originated into the local EVI table (no BGP peer on this rig)");
