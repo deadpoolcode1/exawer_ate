@@ -80,6 +80,17 @@ class Step(BaseModel):
     args: list[str] = Field(default_factory=list)
     #: Name of the `EvpnParams` constant holding the expected-line array.
     expect_key: str = ""
+    #: The step asserts those lines are GONE, not present.
+    #:
+    #: "Verify the MACs aged out" and "verify the Type-2 was withdrawn" are
+    #: assertions about ABSENCE. Filling them from a capture is not merely
+    #: useless, it inverts them: `ate capture` records state while it exists -
+    #: it refuses empty output precisely so nobody freezes "nothing here" as
+    #: an expectation - so the captured lines are the MACs that were present,
+    #: and asserting their presence after aging asserts that aging did NOT
+    #: happen. Seen on pc-3080: TC03 failed with the aged-out step demanding
+    #: the very rows the test had just waited for the device to remove.
+    expect_absent: bool = False
 
     # ── traffic ──────────────────────────────────────────────────────────
     traffic_items: list[str] = Field(default_factory=list)

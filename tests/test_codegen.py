@@ -461,9 +461,15 @@ def test_real_output_is_captured_without_echo_or_prompt():
            "router[2026-08-11-18:38:43]# ")
     status, lines, _ = _classify(raw, "show system alarm")
     assert status == OK
-    assert len(lines) == 3
     assert not any("router[" in ln for ln in lines), "prompt leaked"
     assert not any(ln.strip() == "show system alarm" for ln in lines), "echo leaked"
+    # The separator rule is furniture and is NOT asserted on: its width tracks
+    # the widest row, so the same table prints a different number of dashes
+    # from one run to the next. Only state-bearing lines become expectations.
+    assert not any(set(ln.strip()) <= {"-"} for ln in lines if ln.strip()), \
+        "a separator rule became part of the expectation"
+    assert any("PSU-1 is Failed" in ln for ln in lines), "lost the real content"
+    assert any("SEVERITY" in ln for ln in lines), "lost the column header"
 
 
 def test_only_ok_captures_are_offered_as_expectations():
@@ -1233,9 +1239,17 @@ def test_a_no_change_assertion_refuses_an_empty_baseline(files):
 
 
 def test_only_the_non_empty_path_counts_as_an_assertion(files):
+    """Exactly three paths may count as having asserted something.
+
+    verifyShowLines (lines present), verifyShowLinesAbsent (lines gone, for
+    aging and withdrawal, which a capture can never express as a presence
+    check) and the no-change comparison. Anything else that increments this
+    is a path that can report a green run without checking behaviour.
+    """
     utils = next(f for f in files if f.class_name == "EvpnUtils").content
-    assert utils.count("falsifiableAssertions++") == 2, \
-        "exactly the show-lines and the no-change paths may count"
+    assert utils.count("falsifiableAssertions++") == 3, \
+        "only show-lines, show-lines-absent and no-change may count"
+    assert "verifyShowLinesAbsent" in utils
 
 
 def test_legend_only_bgp_table_is_refused_as_an_expectation() -> None:

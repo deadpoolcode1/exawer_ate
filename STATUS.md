@@ -230,7 +230,57 @@ Cost of the core link: two attachment circuits instead of three, so FLOW-030's
 MAC move cannot run on this rig. `ate codegen` says so rather than quietly
 emitting fewer tests. `SINGLE_DUT_3AC` keeps the spec topology.
 
-## Both suites now pass on hardware, with real assertions
+## All three suites pass on hardware, with real assertions
+
+`--lab 3ac` on pc-3080, 2026-08-14:
+
+| Suite | Verdict | Real assertions |
+|---|---|---|
+| TC01 bring-up | **`OK (1 test)`** | 2 |
+| TC02 Type-2 MAC/IP + local move | **`OK (1 test)`** | 3 |
+| TC03 Type-3 IMET + aging | **`OK (1 test)`** | 2 |
+
+**TC02 had never passed before.** What was blocking it was not the topology
+and not Exaware — it was three defects that each made the rig look like it was
+working:
+
+1. **The source MAC could be set all along.** The field is
+   `ethernet.header.sourceAddress-`**`2`**, not `-1`: the suffix is the
+   field's POSITION in the stack (destination is 1, source is 2). The
+   by-display-name lookup committed at `4b01557` finds it, and the chassis
+   confirms `SRCMAC=... SET=2`. AC2 and AC3 can now share a source MAC, which
+   is FLOW-030's entire premise. The "blocked on a src-MAC proc in
+   `ixia_lib.tcl`" item is dissolved.
+2. **AC sub-interfaces had no `vlan-id`.** `interface x-eth 0/0/18.3380` with
+   only `l2-transport enable` is admin-up, is listed by `show evpn detail` as
+   a bound AC — and classifies nothing. The port counted 219k frames received
+   while the circuit counted 0. The sub-interface NUMBER does not select the
+   VLAN; VPLS_N1.cfg has said so all along (`interface int2.1` / `vlan-id 2`).
+3. **Raw traffic items were untagged.** A raw item's frame is its protocol
+   stack, and that stack was ethernet + fcs. Tagging the vport's interface
+   governs protocol emulation, not raw frame content, so every frame arrived
+   untagged and matched no circuit.
+
+With all three fixed the DUT learns MACs, and the MAC move is observable:
+`00:00:02:00:00:01` moves from `x-eth0/0/18.3380` to `x-eth0/0/26.3380` when
+traffic shifts from AC2 to AC3.
+
+Two assertion bugs the greens exposed, both the "looks right, means the
+opposite" kind:
+
+* **`setTrafficItemState(x, true)` never transmitted.** Enabling an item and
+  applying leaves the chassis configured and silent. It now issues an explicit
+  `START_TRAFFIC` and reads `TRAFFICSTATE` back before anything depends on
+  frames having moved.
+* **Absence steps were asserting presence.** "Verify the MACs aged out",
+  "verify the Type-2 was withdrawn" and "verify the table starts empty" are
+  claims about something being GONE. `ate capture` records state while it
+  exists and refuses empty output, so those steps were filled with exactly the
+  rows that ought to disappear — asserting that aging never happened. They now
+  carry `expect_absent` and emit `verifyShowLinesAbsent`, scoped to the
+  circuit whose traffic stopped rather than the whole table.
+
+## Earlier: the 2ac-core profile
 
 Run on pc-3080 on 2026-08-13 with `--lab 2ac-core`, after the underlay landed:
 

@@ -46,7 +46,11 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from ate.codegen.commands import all_commands
-from ate.codegen.fake_pass import has_furniture_marker, is_structural
+from ate.codegen.fake_pass import (
+    has_furniture_marker,
+    is_furniture,
+    is_structural,
+)
 from ate.codegen.script_ir import StepKind, TestScript
 
 __all__ = ["CaptureSession", "CapturedCommand", "capture_for_scripts",
@@ -170,11 +174,22 @@ class CaptureSession:
         )
 
 
-def commands_needed(scripts: list[TestScript]) -> list[tuple[str, str]]:
+def commands_needed(scripts: list[TestScript],
+                    ac_map: dict[str, str] | None = None,
+                    ) -> list[tuple[str, str]]:
     """`(expect_key, rendered CLI)` for every step that asserts show output.
 
     Steps with no `expect_key` are skipped: nothing would consume the capture.
+
+    `ac_map` replaces the lab profile's PLACEHOLDER interface names with what
+    the testbed actually calls them. Without it capture asks the device about
+    `agg-eth-1.100`, which exists on no rig here, so the answer is empty and
+    the expectation is silently lost - while the generated Java asks the same
+    question through `acInterface(i)`, which DOES resolve from the SUT. The
+    two halves were asking different questions and only the capture half came
+    back blank, so the step just quietly never got an expectation.
     """
+    subs = ac_map or {}
     out: list[tuple[str, str]] = []
     seen: set[str] = set()
     for sc in scripts:
@@ -190,6 +205,8 @@ def commands_needed(scripts: list[TestScript]) -> list[tuple[str, str]]:
                 text = cmd.template % tuple(st.args)
             except TypeError:
                 continue
+            for placeholder, real in subs.items():
+                text = text.replace(placeholder, real)
             seen.add(st.expect_key)
             out.append((st.expect_key, text))
     return out
@@ -237,7 +254,11 @@ def _classify(raw: str, command: str) -> tuple[str, list[str], str]:
         return EMPTY, [], ("the command printed only its legend, headers and "
                            "the scope it was asked about — no rows, so there "
                            "is no expectation here that could ever fail")
-    return OK, body, ""
+    # Keep the state-bearing lines only. `raw` still holds the full answer for
+    # provenance; what becomes an ASSERTION is just the part that could differ
+    # between a working device and a broken one.
+    kept = [ln for ln in body if not is_furniture(ln)]
+    return OK, (kept or body), ""
 
 
 def _read_until_prompt(chan, timeout: float = 60.0) -> str:
@@ -292,12 +313,13 @@ def at_value_prompt(raw: str) -> bool:
 
 
 def capture_on_channel(chan, scripts: list[TestScript], host: str = "",
-                       build: str = "", now: str = "") -> CaptureSession:
+                       build: str = "", now: str = "",
+                       ac_map: dict[str, str] | None = None) -> CaptureSession:
     """Drive an already-open shell channel. Split out from the connect path so
     the orchestration — which command runs, how its answer is classified, what
     becomes an expectation — is testable without a device."""
     session = CaptureSession(host=host, build=build, captured_at=now)
-    for expect_key, command in commands_needed(scripts):
+    for expect_key, command in commands_needed(scripts, ac_map):
         chan.send(command + "\n")
         raw = _read_until_prompt(chan, timeout=120)
         status, lines, note = _classify(raw, command)
@@ -309,6 +331,7 @@ def capture_on_channel(chan, scripts: list[TestScript], host: str = "",
 
 def capture_for_scripts(scripts: list[TestScript], host: str, user: str,
                         password: str, jump: str | None = None,
+                        ac_map: dict[str, str] | None = None,
                         ) -> CaptureSession:
     """Run each needed command on `host` and classify what comes back.
 
@@ -363,7 +386,7 @@ def capture_for_scripts(scripts: list[TestScript], host: str, user: str,
 
     session = capture_on_channel(
         chan, scripts, host=host, build=build,
-        now=time.strftime("%Y-%m-%dT%H:%M:%S"))
+        now=time.strftime("%Y-%m-%dT%H:%M:%S"), ac_map=ac_map)
 
     chan.close()
     transport.close()

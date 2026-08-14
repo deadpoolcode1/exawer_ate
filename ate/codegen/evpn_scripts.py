@@ -137,6 +137,7 @@ def _bring_up(lab: LabProfile) -> TestScript:
             command="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$",
             args=[evi],
             expect_key="FLOW010_S09_MAC_TABLE_EMPTY_LINES",
+            expect_absent=True,
             req_ids=_R_BRINGUP,
             todo="Needs real `show evpn mac-address-table` output.",
         ),
@@ -412,10 +413,17 @@ def _type3(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-031.S04",
             kind=StepKind.VERIFY_CLI,
-            text="Verify the AC2 MACs are removed from the EVPN MAC table",
-            command="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$",
-            args=[evi],
+            text=(f"Verify the {aging.src} MACs are removed from the EVPN "
+                  "MAC table once their traffic stopped and they aged out"),
+            # Scoped to the circuit whose traffic was stopped, NOT the whole
+            # table. Only one traffic item stops here; the others keep
+            # refreshing their own MACs, so asserting the entire table empties
+            # asserts something the flow never asked for and that the device
+            # is right to refuse.
+            command="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
+            args=[evi, lab.ac(aging.src).ac_interface],
             expect_key="FLOW031_S04_MACS_AGED_OUT_LINES",
+            expect_absent=True,
             req_ids=_R_TYPE2,
             todo="Needs real MAC-table output.",
         ),
@@ -427,6 +435,7 @@ def _type3(lab: LabProfile) -> TestScript:
             command="SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL",
             args=[],
             expect_key="FLOW031_S05_TYPE2_WITHDRAWN_LINES",
+            expect_absent=True,
             req_ids=_R_TYPE2,
             todo="Needs real BGP EVPN table output.",
         ),

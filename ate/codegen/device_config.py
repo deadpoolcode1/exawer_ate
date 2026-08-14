@@ -125,6 +125,17 @@ def _attachment_circuits(lab: LabProfile) -> list[str]:
             "!",
             f"interface int{n}.vlan1",
             " l2-transport enable",
+            # The sub-interface NUMBER does not select the VLAN. Naming it
+            # `.3380` and stopping there produces a circuit that is admin-up,
+            # is listed under `show evpn detail` as a bound AC, and classifies
+            # not one frame: the physical port counted 219k received while the
+            # sub-interface counted 0, and the MAC table stayed empty.
+            #
+            # Exaware's VPLS_N1.cfg has said so all along - `interface int2.1`
+            # carries `vlan-id 2`, an index and a VLAN that need not match.
+            # DEVICE-VERIFIED on pc-3080: adding this line is what makes the
+            # circuit forward and the EVI learn.
+            " vlan-id      vlan1",
             "!",
         ]
     return lines

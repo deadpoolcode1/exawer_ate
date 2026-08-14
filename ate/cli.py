@@ -132,6 +132,14 @@ def main(argv: list[str] | None = None) -> int:
                             "pass to `ate codegen`, or the expectations "
                             "describe a topology the suite does not run "
                             "(default: 3ac)")
+    p_cap.add_argument("--ac-interfaces", default=None, metavar="IF1,IF2,IF3",
+                       help="What this testbed actually calls the attachment "
+                            "circuits, in lab.acs order, e.g. "
+                            "'x-eth0/0/8.3380,x-eth0/0/18.3380'. The lab "
+                            "profile's names are PLACEHOLDERS the SUT "
+                            "overrides at run time; without this capture asks "
+                            "the device about an interface that does not "
+                            "exist and quietly records no expectation")
     p_cap.add_argument("--out", default="out/captured_expectations.json")
     p_cap.add_argument("--sfs",
                        default="references/EVPN/EVPN System Specification 1.00.docx")
@@ -252,8 +260,16 @@ def _cmd_capture(args) -> int:
     lab = SINGLE_DUT_2AC_CORE if args.lab == "2ac-core" else SINGLE_DUT_3AC
     print(f"lab   : {lab.id}")
     scripts = evpn_scripts(lab)
+    ac_map = None
+    if args.ac_interfaces:
+        real = [s.strip() for s in args.ac_interfaces.split(",") if s.strip()]
+        ac_map = {ac.ac_interface: r
+                  for ac, r in zip(lab.acs, real, strict=False)}
+        for placeholder, r in ac_map.items():
+            print(f"        {placeholder} -> {r}")
     session = capture_for_scripts(scripts, args.host, args.user,
-                                  args.password, jump=args.jump)
+                                  args.password, jump=args.jump,
+                                  ac_map=ac_map)
     print(f"host  : {session.host}")
     print(f"build : {session.build}")
     for c in session.results:

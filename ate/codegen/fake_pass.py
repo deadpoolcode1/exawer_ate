@@ -93,6 +93,29 @@ def is_structural(line: str) -> bool:
 _is_structural = is_structural
 
 
+def is_furniture(line: str) -> bool:
+    """A line that is positively table furniture: rule, legend, or scope echo.
+
+    Narrower than `is_structural`, which also treats a bare all-caps token as
+    a column header. Used to STRIP furniture out of captured expectations,
+    because asserting on it buys nothing and costs reliability twice over:
+
+      * the legend is written with EN-DASHES (`L - local` is really
+        `L – local`), and the emitter ASCII-folds expectations, so the
+        assertion could never match the device it was captured from;
+      * the separator rule's width tracks the widest row, so the same table
+        prints 97 dashes one run and 98 the next.
+
+    Both produce a test that fails for reasons having nothing to do with the
+    feature - the mirror image of a legend that always passes.
+    """
+    s = line.strip()
+    if not s:
+        return True
+    return bool(_RULE.match(s) or _LEGEND.match(s) or _SCOPE_ECHO.match(s)
+                or len(_GLOSSARY_PAIR.findall(s)) >= 2)
+
+
 def has_furniture_marker(lines: list[str]) -> bool:
     """Does this output carry a POSITIVE sign of being a table's furniture?
 
