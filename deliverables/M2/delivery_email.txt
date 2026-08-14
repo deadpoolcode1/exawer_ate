@@ -1,0 +1,103 @@
+Subject: ATE M2 — TC01/TC02/TC03 all passing on pc-3080, with evidence
+
+Hi,
+
+M2 is updated and re-delivered. All three generated suites now run green on
+pc-3080, TC02 for the first time.
+
+  TC01_EvpnVlanBasedBringUp          OK (1 test)
+  TC02_EvpnType2MacIpAdvertisement   OK (1 test)
+  TC03_EvpnType3ImetFlooding         OK (1 test)
+
+Between them they make seven assertions against real device output. That
+number matters more than the colour: a generated test that verifies nothing
+fails by construction in this pipeline, so a green run means assertions
+actually ran and could have failed.
+
+EVPN behaviour demonstrated on real IXIA traffic:
+
+  - MAC learning per attachment circuit
+  - a local MAC move: AC2 and AC3 source the same MAC, and the entry moves
+    from x-eth0/0/18.3380 to x-eth0/0/26.3380 when traffic shifts
+  - aging: with that traffic stopped the entry leaves the table
+
+SUT pc-3080, 8.7.0 LAB 22, build feature/dev64_evpn_23Jul2026.
+Package: deliverables/M2/ — start with evidence_three_suites_green.txt.
+
+
+What was actually blocking TC02
+
+Not the testbed, and nothing on your side. Three of these are worth your
+attention because they are properties of the product or the framework rather
+than of our generator:
+
+1. A vlan-based attachment circuit needs an explicit `vlan-id`. Configuring
+   `interface x-eth 0/0/18.3380` with only `l2-transport enable` gives a
+   circuit that is admin-up, is listed by `show evpn detail` as bound, and
+   classifies nothing: the port counted 219,000 frames received while the
+   sub-interface counted 0. The sub-interface number does not select the VLAN.
+
+2. `show evpn mac-address-table name <evi> source x-eth 0/0/8.3380` is
+   rejected with "syntax error: unknown argument", while every configuration
+   command accepts the same interface written with the space. The show filter
+   wants the spelling the table prints (`x-eth0/0/8.3380`). If that asymmetry
+   is not intentional it may be worth a look.
+
+3. The IXIA source MAC was settable all along. The field is
+   ethernet.header.sourceAddress-2, not -1 — the suffix is the field's
+   position in the ethernet stack, not part of its name. This removes the
+   dependency we had previously reported on a source-MAC proc being added to
+   ixia_lib.tcl. No change to your infrastructure file is needed.
+
+
+The underlay
+
+Ilan's point that the configuration was missing BGP and IGP was correct, and
+it is fixed. The generated EVPN config previously stated in its own header
+that the underlay had to arrive from cleanBaseConfig, and it never did — a
+clean base configures no IGP and no BGP, so EVPN could not come up as an
+overlay at all. That is also why the `show bgp l2vpn evpn table` expectations
+were always empty: there was no BGP session, rather than no peer.
+
+The generator now emits OSPF, LDP and BGP with `af-l2vpn evpn`, modelled on
+your VPLS_N1.cfg, and it commits on the device. Per your note we assert EVPN
+in the session capabilities rather than route exchange:
+
+    L2VPN EVPN:     advertised
+
+Verified both ways — removing `af-l2vpn evpn` from the generated config makes
+the device answer `L2VPN EVPN: none` and turns the test red.
+
+Also per your note, the IXIA now runs OSPF and LDP as well as BGP, and OSPF
+reaches FULL with the DUT. That was a real gap: we were configuring the
+device to speak three protocols into a port configured for none of them.
+
+
+Two limits, stated plainly
+
+- No Type-2/Type-3 route exchange has been demonstrated. Emulating a BGP EVPN
+  speaker on the IXIA fails with "ERROR-1005 ... There is no license available
+  for BGP EVPN" on chassis 10.1.70.108. It is specific to that feature — the
+  same neighbour starts and establishes with plain ipv4-unicast. Not needed
+  for the current TCs, per your guidance; it would be needed to assert
+  advertisement and withdrawal against a real peer.
+
+- pc-3080 has exactly three DUT<->IXIA links. Using one as the L3 core leaves
+  two attachment circuits, so the three-AC MAC-move flow and the core link
+  cannot both run in one configuration. Both configurations are delivered and
+  both are green; they are separate runs. A fourth link would remove the
+  choice.
+
+
+Open on your side
+
+  - A ticket ID (AUT-nnn / EM-nnnn) so the branch can be pushed under its
+    real name.
+  - Confirmation on the EVI knobs and multi-homing configuration absent from
+    LAB 22 — we report what the device offers rather than guess.
+  - Optional: the BGP EVPN licence, if you want route-exchange assertions.
+
+Happy to walk through any of it, or to re-run anything on request.
+
+Best regards,
+Ilan
