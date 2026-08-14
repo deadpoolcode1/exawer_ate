@@ -46,6 +46,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
 from ate.codegen.commands import all_commands
+from ate.codegen.fake_pass import has_furniture_marker, is_structural
 from ate.codegen.script_ir import StepKind, TestScript
 
 __all__ = ["CaptureSession", "CapturedCommand", "capture_for_scripts",
@@ -222,6 +223,19 @@ def _classify(raw: str, command: str) -> tuple[str, list[str], str]:
         # learn, so every row was legend.
         return EMPTY, [], ("the MAC table printed its legend but no MAC "
                            "addresses — nothing has been learnt yet, so there "
+                           "is no expectation here that could ever fail")
+    # The general form of the rule above, for every other table.
+    #
+    # The MAC-table check was command-specific, so the same defect walked in
+    # again through a different command: `show bgp l2vpn evpn table evi detail`
+    # prints a three-line flags legend plus "EVI Name = evi-1" and no routes,
+    # and that was recorded as a usable expectation and asserted on. Anything
+    # whose every line is furniture — rule, header, legend, or an echo of the
+    # scope we asked about — is refused here regardless of which command
+    # produced it.
+    if all(is_structural(ln) for ln in body) and has_furniture_marker(body):
+        return EMPTY, [], ("the command printed only its legend, headers and "
+                           "the scope it was asked about — no rows, so there "
                            "is no expectation here that could ever fail")
     return OK, body, ""
 

@@ -184,11 +184,47 @@ Verified against chassis 10.1.70.108:
 
 The verified sequence is committed as `scripts/ixia_evpn_peer.tcl`.
 
-**It will not start**, and only at the start step:
+**The EVPN emulation will not start**, and only at the start step:
 `ERROR-1005 ... There is no license available for BGP EVPN`. Isolated to the
-EVPN feature: remove `ethernetSegments`, start the same neighbour with plain
-ipv4-unicast, and BGP runs and the session establishes. So the ask on Exaware
-is a **licence**, not a peer and not a TCL proc.
+EVPN feature by a controlled test — same session, same port, only the
+`ethernetSegments` object differing: plain ipv4-unicast starts and the session
+establishes, EVPN does not. `licensingServers`/`mode`/`tier` were all populated
+and the server was demonstrably granting BGP licences, so this is the feature,
+not a misconfigured client.
+
+**But the current TCs do not need it** (Exaware, 2026-08-14): they check EVPN
+in the BGP **capabilities**, which the DUT advertises on its own. Verified on
+the session:
+
+    L2VPN EVPN:    advertised
+
+That is falsifiable where the empty EVI route table was not — drop
+`af-l2vpn evpn` from the neighbour and it reads `none`. TC01 asserts it via
+`show bgp neighbor <peer> | include EVPN`, filtered because the unfiltered
+output carries uptime and counters that would make the test flaky.
+
+## The underlay was one-sided, and nothing could have caught it
+
+Exaware, 2026-08-14: *"you configured ospf on the device, but not on the Ixia."*
+Correct, and it was visible for hours as `show ospf neighbor` → *No entries
+found*, which read as "not wired up yet" rather than as a defect.
+
+The root cause is a pipeline gap, not an oversight in one config: **the
+generator emitted the DUT side and nothing for the tester**, so there was no
+model of the far end and nothing that could notice the DUT was speaking OSPF,
+LDP and BGP into a port configured for none of them. The IXIA side had to be
+hand-built in TCL, which is exactly how the two drifted.
+
+Fixed structurally:
+
+* `CoreLink` now declares `dut_protocols` and `tester_protocols`;
+* `underlay_symmetry_violations` **fails generation** when the DUT runs a
+  protocol the tester cannot answer;
+* `ate codegen` emits `configurations/ixia/evpn_tester_setup.tcl` from the same
+  profile the `.cfg` is rendered from, so both ends cannot disagree.
+
+On hardware after this: OSPF **Full** with 29.60.0.2 on x-eth 0/0/8, LDP and
+BGP started, session Established.
 
 Cost of the core link: two attachment circuits instead of three, so FLOW-030's
 MAC move cannot run on this rig. `ate codegen` says so rather than quietly
@@ -206,11 +242,18 @@ Run on pc-3080 on 2026-08-13 with `--lab 2ac-core`, after the underlay landed:
 `VPORTS=3`, `ACVLAN=3380/true`, and raw endpoints bound to
 `/vport:2/protocols|/vport:3/protocols` — vport1 correctly left as the core.
 
-**Usable expectations went 2 → 6 of 11**, and the four that moved are exactly
-the `show bgp l2vpn evpn table evi detail` ones that were called blocked. They
-return real content now because the EVI finally has a BGP EVPN control plane
-to originate into. The old "ceiling: 7 of 11, needs a peer this testbed does
-not have" was wrong on its stated cause.
+**Usable expectations: 3 of 7 on this profile** — and an earlier claim here of
+"2 → 6 of 11" was wrong and is withdrawn. Four of those six were
+`show bgp l2vpn evpn table evi detail` returning nothing but a flags legend and
+`EVI Name = evi-1`. That is an assertion which passes on any device with an EVI
+of that name, working or broken, and TC01 and TC03 were resting on it.
+
+The guard that should have refused them only recognised SHORT ALL-CAPS legend
+labels (`LOC:`, `R-FL:`), so the BGP table's mixed-case `Flags:` / `Origin:`
+walked straight past it — the same defect as the MAC-table legend arriving
+through a different command. `fake_pass.is_structural` now matches the *shape*
+of a glossary rather than one spelling of a label, and `capture` applies it to
+every command instead of only `mac-address-table`.
 
 Three bugs the run exposed, all ours, all fixed:
 
@@ -295,7 +338,7 @@ Harmless, but it is why that error still appears.
 
 | # | Item | Impact |
 |---|---|---|
-| 1 | **A BGP EVPN licence on IXIA chassis 10.1.70.108** | The emulated peer builds and commits but will not start: `ERROR-1005 ... There is no license available for BGP EVPN`. This is now the single thing between us and Type-2/Type-3 assertions |
+| 1 | **A BGP EVPN licence on IXIA chassis 10.1.70.108** — *not needed for the current TCs* | Only blocks IXIA **emulating** an EVPN speaker, i.e. real Type-2/Type-3 exchange. Per Exaware 2026-08-14 the current TCs check EVPN in the session **capabilities**, which needs no licence and is now asserted |
 | 2 | **A src-MAC proc in `ixia_lib.tcl`** (their infra file) *or* the `.ixncfg` | Blocks only FLOW-030's MAC-move premise, not MAC learning generally |
 | 3 | **Ticket ID** for the branch (`AUT-nnn` / `EM-nnnn`) | Blocks handover under its real name; push path solved via tate (10.1.70.200) |
 | 4 | **Confirmation on the EVI knobs and multi-homing config absent from LAB 22** | Either the CLI doc is ahead of the build or the build lacks them — we report, we do not guess |

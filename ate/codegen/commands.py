@@ -51,6 +51,16 @@ class EvpnCommand:
     #: True when the documented syntax looks like a doc typo. Emitted with a
     #: visible warning comment instead of a silent fix.
     doc_suspect: str = ""
+    #: Grounding for a BASE-CLI command, documented in the Command Reference
+    #: Guide rather than the EVPN CLI doc.
+    #:
+    #: `source` is checked against the EVPN CLI doc catalog, so a base command
+    #: like `show bgp neighbor` can never match it. Without this field the only
+    #: way to add one was to leave `source` empty - which `validate_grounding`
+    #: silently accepted, i.e. the ungrounded-command hole the cross-check
+    #: exists to close. Naming the other document keeps grounding explicit and
+    #: auditable instead of absent.
+    base_cli_source: str = ""
 
 
 EVPN_COMMANDS: list[EvpnCommand] = [
@@ -225,6 +235,36 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         doc_syntax=("show bgp l2vpn evpn table evi [evi-name evi-name "
                     "[evpn-prefix]] [brief | detail]"),
     ),
+    # The EVPN address family as NEGOTIATED on the session, rather than the
+    # routes carried over it.
+    #
+    # Exaware (2026-08-14): the current TCs need EVPN checked in the
+    # capabilities section, not route exchange - which is what makes them
+    # runnable on this testbed, since emulating an EVPN speaker on the IXIA
+    # needs a BGP EVPN licence the chassis does not have.
+    #
+    # DEVICE-VERIFIED on pc-3080 (8.7.0 LAB 22) with the session Established:
+    #     Capabilities
+    #       Multiprotocol (1)
+    #         IPv4 Unicast:     advertised and received
+    #         L2VPN EVPN:       advertised
+    # This is falsifiable in the way the EVI route table was not: remove
+    # `af-l2vpn evpn` from the neighbour and the line goes to `none`.
+    # Filtered on purpose. The unfiltered output carries the session uptime,
+    # the ephemeral TCP port and message counters, so capturing it whole would
+    # produce an expectation that fails on its own second run - a flaky test,
+    # which is just a fake pass with the colours reversed. `| include EVPN`
+    # answers four stable lines, device-verified:
+    #       L2VPN EVPN table:
+    #       L2VPN EVPN parameters
+    #       L2VPN EVPN:    advertised
+    #       L2VPN EVPN:    none          (under Graceful Restart)
+    EvpnCommand(
+        key="SHOW_BGP_NEIGHBOR_$_EVPN_CAPABILITY",
+        template="show bgp neighbor %s | include EVPN",
+        base_cli_source="Command Reference Guide v8.X.0 - show bgp neighbor",
+        doc_syntax="show bgp neighbor [neighbor-ip]",
+    ),
     EvpnCommand(
         key="SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
         template="show bgp l2vpn evpn neighbors advertised-routes %s detail",
@@ -273,6 +313,17 @@ def validate_grounding(cli_commands: list[CliCommand]) -> list[str]:
         raise UngroundedCommandError(
             "EvpnCommands entries reference CLI commands absent from the "
             f"extracted catalog: {missing}"
+        )
+    # An entry with NO grounding at all used to pass silently, because the
+    # check above only looks at entries that name a source. That is the hole
+    # this validator exists to close, so name it.
+    unsourced = sorted(c.key for c in all_commands()
+                       if not c.source and not c.base_cli_source)
+    if unsourced:
+        raise UngroundedCommandError(
+            "EvpnCommands entries cite no document at all (set `source` for "
+            "the EVPN CLI doc, or `base_cli_source` for the Command "
+            f"Reference Guide): {unsourced}"
         )
     return [f"{c.key}: {c.doc_suspect}" for c in all_commands() if c.doc_suspect]
 

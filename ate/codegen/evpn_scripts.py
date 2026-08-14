@@ -151,6 +151,19 @@ def _bring_up(lab: LabProfile) -> TestScript:
             todo="Needs real output of the route table above.",
         ),
     ]
+    if lab.core is not None:
+        steps.append(Step(
+            id="FLOW-010.S11",
+            kind=StepKind.VERIFY_CLI,
+            text=("Verify the BGP session to the peer carries the L2VPN EVPN "
+                  "address family in its negotiated capabilities"),
+            command="SHOW_BGP_NEIGHBOR_$_EVPN_CAPABILITY",
+            args=[lab.core.peer_ipv4],
+            expect_key="FLOW010_S11_EVPN_CAPABILITY_LINES",
+            req_ids=_R_BRINGUP,
+            todo=("Needs a BGP session in Established state; the capabilities "
+                  "block is absent while the peer is down."),
+        ))
     return TestScript(
         flow_id="FLOW-010",
         class_name="TC01_EvpnVlanBasedBringUp",

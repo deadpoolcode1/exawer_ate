@@ -159,6 +159,23 @@ class CoreLink:
     #: The DUT's own router ID / LDP transport address.
     loopback_ipv4: str = "29.30.30.30"
     loopback_id: int = 0
+    #: Routed protocols the DUT runs ACROSS this link.
+    #:
+    #: Every one of these needs something at the other end to talk to. Naming
+    #: them here is what lets `underlay_symmetry_violations` check that the
+    #: tester side was configured to match, instead of the mismatch showing up
+    #: as an adjacency that silently never forms.
+    #:
+    #: This list is the fix for a real miss: the generator emitted OSPF, LDP
+    #: and BGP on the DUT and nothing at all for the IXIA, so the DUT was
+    #: speaking three protocols into a port configured for none of them.
+    #: `show ospf neighbor` answered "No entries found" for hours and that
+    #: read as "not wired up yet" rather than as a defect (Exaware, 2026-08-14:
+    #: "you configured ospf on the device, but not on the Ixia").
+    dut_protocols: tuple[str, ...] = ("ospf", "ldp", "bgp")
+    #: Protocols the tester emulates back. Generation fails if this does not
+    #: cover `dut_protocols`.
+    tester_protocols: tuple[str, ...] = ("ospf", "ldp", "bgp")
 
 
 @dataclass(frozen=True)
@@ -266,6 +283,28 @@ SINGLE_DUT_3AC = LabProfile(
         "transmission rather than origination.",
     ],
 )
+
+def underlay_symmetry_violations(lab: LabProfile) -> list[str]:
+    """Protocols the DUT runs across the core link with nobody to talk to.
+
+    A one-sided underlay is invisible at generation time and nearly invisible
+    at run time: the DUT comes up, the config commits, every `show` command
+    answers, and the only symptom is an adjacency that never forms — which
+    reads as "not wired up yet" rather than as a defect. This is the same
+    class as a test that asserts nothing: it looks like it works.
+
+    So the asymmetry is made a generation-time error, where it is cheap.
+    """
+    if lab.core is None:
+        return []
+    missing = [p for p in lab.core.dut_protocols
+               if p not in lab.core.tester_protocols]
+    return [
+        f"the DUT runs {p!r} across the core link but the tester emulates no "
+        f"{p!r} peer, so that adjacency can never form"
+        for p in missing
+    ]
+
 
 # ---------------------------------------------------------------------------
 # The rig as it is actually cabled, as opposed to the topology the flows assume.

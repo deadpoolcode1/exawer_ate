@@ -118,8 +118,20 @@ def generate_evpn_suite(sfs_path: str | Path,
     from ate.codegen.device_config import (  # noqa: PLC0415
         emit_bringup_params,
         emit_dut_config,
+        emit_tester_config,
     )
+    # A one-sided underlay is invisible until an adjacency quietly fails to
+    # form, so refuse it here rather than ship it.
+    from ate.codegen.lab import underlay_symmetry_violations  # noqa: PLC0415
+    asymmetric = underlay_symmetry_violations(lab)
+    if asymmetric:
+        raise UngroundedCommandError(
+            "the generated underlay is one-sided: "
+            + "; ".join(asymmetric))
     files += [emit_bringup_params(scripts, lab), emit_dut_config(scripts, lab)]
+    tester = emit_tester_config(lab)
+    if tester is not None:
+        files.append(tester)
     todos = [f"{s.id}: {s.todo}" for sc in scripts for s in sc.open_todos]
 
     return GenerationResult(files=files, scripts=scripts,

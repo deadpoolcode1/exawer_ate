@@ -126,6 +126,12 @@ def main(argv: list[str] | None = None) -> int:
     p_cap.add_argument("--jump", default=None, metavar="USER@HOST",
                        help="SSH through this host (the lab is not routable "
                             "from a laptop), e.g. ilan@192.168.31.226")
+    p_cap.add_argument("--lab", choices=["3ac", "2ac-core"], default="3ac",
+                       help="Lab profile whose steps decide which commands "
+                            "are captured. Must match the profile you then "
+                            "pass to `ate codegen`, or the expectations "
+                            "describe a topology the suite does not run "
+                            "(default: 3ac)")
     p_cap.add_argument("--out", default="out/captured_expectations.json")
     p_cap.add_argument("--sfs",
                        default="references/EVPN/EVPN System Specification 1.00.docx")
@@ -238,8 +244,14 @@ def _cmd_capture(args) -> int:
     """Record real device output as expectations for the generated suite."""
     from ate.codegen.capture import capture_for_scripts  # noqa: PLC0415
     from ate.codegen.evpn_scripts import evpn_scripts  # noqa: PLC0415
+    from ate.codegen.lab import (  # noqa: PLC0415
+        SINGLE_DUT_2AC_CORE,
+        SINGLE_DUT_3AC,
+    )
 
-    scripts = evpn_scripts()
+    lab = SINGLE_DUT_2AC_CORE if args.lab == "2ac-core" else SINGLE_DUT_3AC
+    print(f"lab   : {lab.id}")
+    scripts = evpn_scripts(lab)
     session = capture_for_scripts(scripts, args.host, args.user,
                                   args.password, jump=args.jump)
     print(f"host  : {session.host}")

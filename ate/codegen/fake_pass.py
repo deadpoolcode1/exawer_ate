@@ -48,9 +48,33 @@ _RULE = re.compile(r"^[-=_+\s|]*$")
 _LEGEND = re.compile(r"^[A-Z][A-Z0-9 _-]{0,7}:\s")
 _ALL_CAPS_HEADER = re.compile(r"^[A-Z][A-Z0-9 _()/-]*$")
 
+#: A glossary pair as these CLIs print above a table: "s - suppressed",
+#: "i - IGP", "L – local". Two or more on one line means the line is the key
+#: to the table rather than a row of it.
+#:
+#: The narrow `_LEGEND` above only caught SHORT ALL-CAPS labels ("LOC:",
+#: "R-FL:"), which is how the BGP table's legend slipped through for weeks:
+#: `Flags:` and `Origin:` are mixed case, and the continuation line starts
+#: lowercase. Four such lines were captured as a "usable" expectation for
+#: `show bgp l2vpn evpn table evi detail` and asserted on by TC01 and TC03 —
+#: an assertion that passes on any device with an EVI of that name, working or
+#: broken. Match the SHAPE of a glossary, not a spelling of one label.
+_GLOSSARY_PAIR = re.compile(r"[^\s,]{1,8}\s+[-–]\s+\w")
 
-def _is_structural(line: str) -> bool:
-    """Is this line printed regardless of what the device is doing?"""
+#: A line that only restates the scope the command was already asked about,
+#: e.g. "EVI Name = evi-1". It confirms the object exists and nothing about
+#: whether the feature works.
+_SCOPE_ECHO = re.compile(r"^[A-Za-z][\w /-]*\bnames?\b\s*[=:]", re.IGNORECASE)
+
+
+def is_structural(line: str) -> bool:
+    """Is this line printed regardless of what the device is doing?
+
+    Structural lines are the furniture around the data: rules, column
+    headers, legends, and echoes of the query. An expectation built only from
+    these cannot tell a working device from a broken one, which is the whole
+    thing this module exists to refuse.
+    """
     s = line.strip()
     if not s:
         return True
@@ -58,7 +82,35 @@ def _is_structural(line: str) -> bool:
         return True
     if _LEGEND.match(s):        # "LOC:  L - local, R - remote"
         return True
+    if len(_GLOSSARY_PAIR.findall(s)) >= 2:   # "Flags: s - suppressed, ..."
+        return True
+    if _SCOPE_ECHO.match(s):    # "EVI Name = evi-1"
+        return True
     return bool(_ALL_CAPS_HEADER.match(s))   # "INTERFACE  ESI  ES LABEL"
+
+
+#: Kept for callers that predate the rename.
+_is_structural = is_structural
+
+
+def has_furniture_marker(lines: list[str]) -> bool:
+    """Does this output carry a POSITIVE sign of being a table's furniture?
+
+    `is_structural` also treats a bare all-caps word as a column header, which
+    is right inside a table and too eager on its own: a one-line answer like
+    "GOOD" or "ESTABLISHED" is a value, not a header. So declaring a whole
+    output to be furniture needs a strong marker as well - a rule, a legend, a
+    glossary, or an echo of the scope asked about. The BGP table's legend has
+    three of them; a lone all-caps token has none.
+    """
+    for line in lines:
+        s = line.strip()
+        if not s:
+            continue
+        if (_RULE.match(s) or _LEGEND.match(s) or _SCOPE_ECHO.match(s)
+                or len(_GLOSSARY_PAIR.findall(s)) >= 2):
+            return True
+    return False
 
 
 @dataclass
