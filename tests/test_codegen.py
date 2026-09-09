@@ -14,6 +14,8 @@ sources and their jars. See `.claude/skills/exaware-framework`.
 """
 from __future__ import annotations
 
+import pathlib
+import re
 import time
 
 import pytest
@@ -1406,10 +1408,16 @@ def test_the_shipped_m2_package_would_be_refused_today() -> None:
     # TC is missing"). It could not be called a regression until the third
     # circuit was proven possible on the rig, which it now is - two
     # sub-interfaces of one port, pc-3080, 8.7.0 LAB 0.
+    # `traffic.statistics_view` joined it on 2026-09-09 for the same reason:
+    # that package's traffic items carry no tracking either, so its traffic
+    # assertions could never have passed on any rig - which is precisely what
+    # TC02 then demonstrated.
     assert lost == {"underlay.igp", "underlay.mpls", "underlay.bgp",
-                    "underlay.bgp_evpn_af", "topology.three_acs"}, (
-        "the shipped M2 package lost exactly the underlay capabilities plus "
-        f"the third attachment circuit; detected {sorted(lost)}")
+                    "underlay.bgp_evpn_af", "topology.three_acs",
+                    "traffic.statistics_view"}, (
+        "the shipped M2 package lost exactly the underlay capabilities, the "
+        "third attachment circuit and the traffic statistics view; "
+        f"detected {sorted(lost)}")
 
 
 def test_a_capability_needs_both_ends_before_it_counts() -> None:
@@ -1775,6 +1783,317 @@ def test_every_test_case_creates_the_evi_it_uses() -> None:
             f"{script.id} creates the EVI without first proving it absent; "
             "that is the 2026-09-08 defect (a create that cannot fail)")
         assert kinds, "script has no steps"
+
+
+def test_traffic_items_are_tracked_before_generate() -> None:
+    """Untracked traffic items make every traffic assertion unpassable.
+
+    Found on hardware, 2026-09-09, pc-3099 / chassis 10.1.70.108. TC02 failed
+    every traffic step with
+
+        Fail: No results where:  TRAFFIC_ITEM: TI_AC1_TO_AC2
+        error in state view name, fail to find view.
+
+    while the traffic was running perfectly. IxNetwork only builds the
+    "Traffic Item Statistics" view for items that carry tracking, and ours
+    carried none (trackBy=''), so the view did not exist - and ixia_lib's own
+    `trafficApply` throws reading that view's page, which is where the
+    misleading ERROR-7008 "Could not apply traffic" came from.
+
+    Setting trackBy=trackingenabled0 before generate produced the view and the
+    rows FLOW-030 needs, on the same rig and the same .ixncfg:
+
+        TI_AC1_TO_AC2  Tx 9983  Rx 19966   (flooded to BOTH ACs)
+        TI_AC2_TO_AC1  Tx 9983  Rx  9983   Loss 0
+
+    Both emitter branches must set it, and it must come BEFORE generate:
+    tracking is part of what generate binds. Evidence:
+    deliverables/M2/evidence_traffic_item_tracking.txt
+    """
+    from ate.codegen.java_emitter import emit_utils
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+
+    src = emit_utils(SINGLE_DUT_3AC_CORE).content
+
+    assert "enableTrafficItemTracking" in src, (
+        "the generated suite never enables traffic-item tracking, so the "
+        '"Traffic Item Statistics" view will not exist and every traffic '
+        "assertion fails against running traffic")
+    assert "trackingenabled0" in src, (
+        "tracking is set to something other than track-by-traffic-item")
+
+    # Order matters, in BOTH branches: generate binds the tracking.
+    calls = [i for i, line in enumerate(src.splitlines())
+             if "enableTrafficItemTracking();" in line]
+    gens = [i for i, line in enumerate(src.splitlines())
+            if "IxiaFunctions.GENERATE_TRAFFIC" in line]
+    assert len(calls) == 2, (
+        f"expected tracking in both the .ixncfg and the build branch, "
+        f"found {len(calls)} call(s)")
+    assert len(gens) == 2, f"expected two generate calls, found {len(gens)}"
+    for call, gen in zip(calls, gens, strict=True):
+        assert call < gen, (
+            "enableTrafficItemTracking() must run BEFORE GENERATE_TRAFFIC; "
+            "tracking set afterwards is not bound and the view stays absent")
+
+    # And the readable TCL must carry it too, or a regenerated .ixncfg is
+    # saved without tracking and reintroduces the same defect.
+    from ate.codegen.device_config import emit_traffic_config
+
+    tcl = emit_traffic_config(SINGLE_DUT_3AC_CORE).content
+    assert "configTrafficItemTracking" in tcl, (
+        "EVPN_traffic.tcl builds the .ixncfg; without tracking the saved "
+        "file reintroduces the 2026-09-09 defect")
+    tcl_lines = tcl.splitlines()
+    track_at = min(i for i, ln in enumerate(tcl_lines)
+                   if ln.startswith("configTrafficItemTracking"))
+    gen_at = min(i for i, ln in enumerate(tcl_lines)
+                 if ln.startswith("ixNet exec generate"))
+    assert track_at < gen_at, (
+        "tracking must be configured before generate in EVPN_traffic.tcl")
+
+
+def test_traffic_expectations_are_per_step_and_match_the_topology() -> None:
+    """Each traffic step asserts what is true AT THAT POINT, not "all running".
+
+    Two defects, both found on pc-3099 on 2026-09-09 once the statistics view
+    existed at all (see test_traffic_items_are_tracked_before_generate):
+
+    1. Every VERIFY_IXIA step emitted ALL_TRAFFIC_ITEMS_RUNNING, discarding
+       the expectation the step declared. That asserts three items at
+       1000/1000 at points where only one is unsuspended, so the step could
+       not pass on a correctly behaving device.
+
+    2. Expected Rx was assumed equal to Tx. It is not. The frames are
+       broadcast - this build reports "Unknown MAC Flooding: Disabled" with no
+       CLI to enable it, so an unknown unicast never reaches the bridge domain
+       - and the EVI floods each one to every other circuit. An item's Rx
+       belongs to its destination VPORT, and AC2 and AC3 are two
+       sub-interfaces of ONE port. So TI_AC1_TO_AC2 reads Tx 1000 / Rx 2000,
+       measured identically on three separate chassis runs.
+
+       That 2x IS the flooding assertion. Asserting 1000 fails against a
+       device doing the right thing; asserting 2000 fails if flooding stops
+       reaching one of the circuits.
+    """
+    from ate.codegen.evpn_scripts import evpn_scripts
+    from ate.codegen.java_emitter import emit_params, emit_test
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+    from ate.codegen.script_ir import StepKind
+
+    lab = SINGLE_DUT_3AC_CORE
+    scripts = evpn_scripts(lab)
+
+    ixia = [st for sc in scripts for st in sc.steps
+            if st.kind is StepKind.VERIFY_IXIA]
+    assert ixia, "no traffic verification steps at all"
+    for st in ixia:
+        assert st.expect_key, f"{st.id} has no expectation of its own"
+        assert st.expect_rows, (
+            f"{st.id} declares no expected rows, so it would fall back to a "
+            "suite-wide 'everything is running' assertion that cannot pass")
+
+    params = emit_params(scripts, lab).content
+
+    # Each step's own constant is emitted, and the test uses it.
+    for st in ixia:
+        assert f"RowDataTable[] {st.expect_key}" in params, (
+            f"{st.expect_key} is not emitted as a RowDataTable[]")
+
+    for sc in scripts:
+        body = emit_test(sc, lab).content
+        for st in sc.steps:
+            if st.kind is StepKind.VERIFY_IXIA:
+                assert f"testParams.{st.expect_key}" in body, (
+                    f"{sc.class_name} does not use {st.expect_key}; it has "
+                    "fallen back to the suite-wide table again")
+
+    # The topology-derived Rx multiple.
+    dst_vport = lab.ac("AC2").vport
+    sharing = [ac.name for ac in lab.acs if ac.vport == dst_vport]
+    assert len(sharing) == 2, (
+        f"this test encodes the shared-port rig; {dst_vport} backs {sharing}")
+    assert ('"TI_AC1_TO_AC2", "1000", "2000"' in params), (
+        "TI_AC1_TO_AC2 must expect Rx = 2x Tx, because its destination vport "
+        "backs two attachment circuits and a broadcast is flooded to both")
+    assert ('"TI_AC2_TO_AC1", "1000", "1000"' in params), (
+        "TI_AC2_TO_AC1's destination vport backs one circuit, so Rx = Tx")
+
+
+def test_every_expected_row_is_declared_before_the_table_is_frozen() -> None:
+    """A RowDataTable declared after the SuiteTableParams indexes past its end.
+
+    Found on hardware, pc-3099, 2026-09-09. TC02 threw
+
+        java.lang.ArrayIndexOutOfBoundsException: 6 >= 6
+            at java.util.Vector.elementAt
+            at javax.swing.table.DefaultTableModel.getValueAt
+            at cmp.tests.evpn.EvpnUtils.verifyTrafficItemStatistics
+
+    at the first step to use a per-step expectation. `RowDataTable.add()`
+    appends a row to the shared table NAME and hands back an index into it;
+    `new SuiteTableParams(name, headers)` freezes the rows that exist at that
+    moment. Java runs field initialisers in declaration order, so the six
+    RUNNING/SUSPENDED rows were in the model and every per-step row declared
+    below it was not.
+
+    It is invisible in review and it compiles perfectly, so it is asserted on
+    the emitted text instead.
+    """
+    from ate.codegen.evpn_scripts import evpn_scripts
+    from ate.codegen.java_emitter import emit_params
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+
+    lab = SINGLE_DUT_3AC_CORE
+    params = emit_params(evpn_scripts(lab), lab).content
+    lines = params.splitlines()
+
+    freeze = [i for i, ln in enumerate(lines)
+              if "new SuiteTableParams(" in ln]
+    assert len(freeze) == 1, (
+        f"expected exactly one SuiteTableParams, found {len(freeze)}")
+    frozen_at = freeze[0]
+
+    adds = [i for i, ln in enumerate(lines) if "RowDataTable.add(" in ln]
+    assert adds, "no expected rows emitted at all"
+    late = [lines[i].strip()[:70] for i in adds if i > frozen_at]
+    assert not late, (
+        "these rows are declared after the SuiteTableParams is constructed, "
+        f"so their index is past the end of the table model: {late}")
+
+
+def test_an_absence_expectation_carries_no_furniture_and_no_innocent_rows(
+) -> None:
+    """An absence assertion must name only the state that should disappear.
+
+    Two ways a captured absence expectation asserts something a healthy device
+    will never do, both found on pc-3099 on 2026-09-09:
+
+    1. **Table furniture.** The capture of `show evpn mac-address-table ...`
+       carried `IP` and `VLAN MAC ADDRESS LOC SOURCE ...` alongside the MAC
+       row. Those column headers are printed whether or not a single entry is
+       left, so "verify the MACs aged out" demanded that the words
+       `MAC ADDRESS` vanish from the output. `fake_pass.is_structural` existed
+       for exactly this and was never called by the emitter.
+
+    2. **Rows that are still there, correctly.** FLOW-031 ages out ONE
+       circuit's MACs while AC1 keeps transmitting. The capture of the
+       unscoped `show bgp l2vpn evpn table evi detail` therefore also held
+       AC1's Type-2 route, and asserting its withdrawal fails against a device
+       behaving perfectly. Absence steps on an unscoped command now declare an
+       `expect_subject` and keep only the lines naming it.
+    """
+    from ate.codegen import _load_captures
+    from ate.codegen.evpn_scripts import evpn_scripts
+    from ate.codegen.fake_pass import is_structural
+    from ate.codegen.java_emitter import emit_params
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+
+    cap_file = pathlib.Path("out/captured_3099_traffic.json")
+    if not cap_file.is_file():
+        pytest.skip("the traffic-running capture is not in this checkout")
+    # The pipeline's own normalisation, keyed by expect_key. Passing the raw
+    # JSON leaves every constant empty and the assertions below vacuous.
+    captures, _ = _load_captures(cap_file)
+
+    lab = SINGLE_DUT_3AC_CORE
+    scripts = evpn_scripts(lab)
+    params = emit_params(scripts, lab, captures).content
+
+    absent = {st.expect_key: st for sc in scripts for st in sc.steps
+              if st.expect_absent and st.expect_key}
+    assert absent, "no absence steps at all"
+
+    for key, st in absent.items():
+        block = re.search(
+            rf"String\[\] {re.escape(key)} = new String\[\] \{{(.*?)\}};",
+            params, re.S)
+        if block is None:          # not captured on this rig; stays empty
+            continue
+        rows = [m for m in re.findall(r'"((?:[^"\\]|\\.)*)"', block.group(1))]
+        for row in rows:
+            plain = row.replace("\\s+", " ").replace("\\.", ".")
+            assert not is_structural(plain), (
+                f"{key} asserts the ABSENCE of {plain!r}, which is table "
+                "furniture printed whether or not any row remains")
+        if st.expect_subject:
+            for row in rows:
+                assert st.expect_subject in row.replace("\\", ""), (
+                    f"{key} asserts the absence of {row!r}, which is not "
+                    f"about {st.expect_subject} and may still be present")
+
+
+def test_steps_sharing_one_command_do_not_share_one_expectation() -> None:
+    """A capture is a snapshot; an unscoped command shows everything at once.
+
+    `show bgp l2vpn evpn table evi detail` prints every route in the EVI, and
+    three steps run it: the Type-3 IMET check, "AC1's MACs are advertised" and
+    "AC2's MACs are also advertised". Captured from one device state they came
+    out BYTE-IDENTICAL, each asserting every route the table happened to hold.
+
+    On pc-3099, 2026-09-09, that failed exactly where it should have:
+
+        Fail: The output of show bgp l2vpn evpn table evi detail is not as
+        expected. Missing lines: [Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01]
+
+    at the step that verifies AC1's route, on a device where AC2 had not yet
+    transmitted a frame. Identical expectations for steps that are about
+    different things is the tell, so that is what this asserts.
+    """
+    from ate.codegen import _load_captures
+    from ate.codegen.evpn_scripts import evpn_scripts
+    from ate.codegen.java_emitter import emit_params
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+
+    cap_file = pathlib.Path("out/captured_3099_traffic.json")
+    if not cap_file.is_file():
+        pytest.skip("the traffic-running capture is not in this checkout")
+    captures, _ = _load_captures(cap_file)
+
+    lab = SINGLE_DUT_3AC_CORE
+    scripts = evpn_scripts(lab)
+    params = emit_params(scripts, lab, captures).content
+
+    def body_of(key: str) -> str | None:
+        m = re.search(
+            rf"String\[\] {re.escape(key)} = new String\[\] \{{(.*?)\}};",
+            params, re.S)
+        return None if m is None else " ".join(m.group(1).split())
+
+    # Grouped per SCRIPT. Two flows may legitimately make the identical check
+    # - every test asserts `evi-1` absent before creating it - and that is not
+    # the defect. The defect is one flow running the same command at different
+    # points, about different things, and expecting the same output.
+    by_command: dict[tuple[str, ...], list] = {}
+    for sc in scripts:
+        for st in sc.steps:
+            if st.expect_key and st.command:
+                key = (sc.flow_id, st.command, *st.args)
+                by_command.setdefault(key, []).append(st)
+
+    checked = 0
+    for cmd, steps in by_command.items():
+        if len(steps) < 2:
+            continue
+        seen: dict[str, str] = {}
+        for st in steps:
+            body = body_of(st.expect_key)
+            if not body or body.strip() in {"", "};"}:
+                continue          # empty: warns, asserts nothing
+            checked += 1
+            clash = seen.get(body)
+            if clash == st.expect_key:
+                # The same constant deliberately reused by two steps that make
+                # the same check (FLOW-030 verifies AC1's MACs are still
+                # intact after AC2 starts). Same intent, same expectation.
+                continue
+            assert clash is None, (
+                f"{st.expect_key} and {clash} run the same command "
+                f"{cmd[1]} at different points of {cmd[0]} and expect "
+                "byte-identical output, so at least one of them asserts "
+                "state that is not there yet")
+            seen[body] = st.expect_key
+    assert checked, "no shared-command expectations were actually compared"
 
 
 def test_a_capture_must_show_the_route_type_its_step_is_about() -> None:

@@ -1,0 +1,145 @@
+======================================================================
+SOLVED: what the traffic steps should have been asserting
+======================================================================
+pc-3099 (10.3.99.1), 8.7.0 LAB 935. Chassis 10.1.70.108, app server
+10.1.90.108, IxNetwork 9.00. 2026-09-09.
+
+Once the statistics view existed at all
+(evidence_traffic_item_tracking.txt), the view returned numbers, and the
+numbers said the expectations were wrong. Three independent chassis
+runs agreed to the frame:
+
+  TI_AC1_TO_AC2   Tx 1000   Rx 2000
+  TI_AC2_TO_AC1   Tx 1000   Rx 1000    Loss 0
+  TI_AC3_TO_AC1   Tx 1000   Rx 1000    Loss 0
+
+DEFECT 1 - every step asserted "everything is running"
+  The emitter computed the step's own expectation and then discarded it,
+  emitting ALL_TRAFFIC_ITEMS_RUNNING for all four traffic steps. At most
+  of those points exactly ONE item is unsuspended, so the assertion
+  could not pass on a device behaving correctly:
+
+    Fail: Expected:(TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[0]),
+          Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1)
+
+  Each VERIFY_IXIA step now carries its own `expect_rows`, emitted as
+  its own RowDataTable[]. A step with no rows is emitted EMPTY, which
+  EvpnUtils reports as a warning rather than a pass - the fake-pass rule
+  applied to traffic exactly as it is applied to show output.
+
+DEFECT 2 - expected Rx is not expected Tx
+  AC2 and AC3 are two sub-interfaces of ONE vport, told apart only by
+  their VLAN tag (Exaware, 2026-09-08: "An AC can reside as a tagged
+  interface"). A traffic item's Rx counter belongs to its destination
+  VPORT. The frames are broadcast - this build reports "Unknown MAC
+  Flooding: Disabled" and offers no CLI to enable it, so an unknown
+  unicast is dropped before the bridge domain - so the EVI floods each
+  frame to both circuits and the destination port counts it twice.
+
+  Rx = 2x Tx is therefore not an anomaly to be tolerated. It IS the
+  flooding assertion: if the EVI stopped flooding to one circuit it
+  reads 1000 and the step fails. The multiple is now derived from the
+  lab profile, so a rig with one circuit per port gets 1x with no edit.
+
+WHAT THE RIG CANNOT PROVE, AND WHERE THE PROOF ACTUALLY IS
+  Three step titles claimed things these counters cannot show, and
+  under the project's own rule a step title may not apologise for the
+  rig. They were rewritten to state what they genuinely establish:
+
+  - "flooding to AC3 ceases once AC2's MACs are known" - impossible.
+    The frames are broadcast and broadcast is always flooded. AC1's rx
+    stayed at 2000 through every later step, exactly as it should.
+  - "AC1 -> AC2 still forwards to AC2 (no flooding)" - same reason.
+  - "AC1 -> AC2 now forwards out AC3" - invisible here: AC2 and AC3
+    share a vport, so traffic leaving by either lands in the same rx
+    bucket.
+
+  Egress tracking was tested as a way to split that bucket by VLAN. The
+  chassis refused the encapsulation ("The list of available offsets is:
+  Custom, CustomByField, CustomByFieldAutoValues") and a Custom bit
+  offset at the VLAN field did not separate the counters either. Flow
+  Statistics breaks down by Tx/Rx PORT, which does not help when both
+  circuits are on one port.
+
+  The MAC move is asserted where the evidence really is, on the DUT,
+  and those steps pass today:
+    FLOW-030.S15  show evpn mac-address-table ... source  (MACs on AC3)
+    FLOW-030.S16  no new Type-2 triggered vs the snapshot
+
+DEFECT 3 - TC03 aged out MACs it had never learnt
+  FLOW-031 went straight to "stop the traffic, wait out the aging time,
+  assert the MACs are gone" from a prep that starts every item
+  SUSPENDED. Nothing was ever learnt, so the aged-out check, the
+  withdrawn-route check and the flooding check were all trivially true
+  on an empty MAC table. The flow now starts AC1 and AC3 traffic and
+  asserts the MACs ARE learnt before it tests that they age out.
+
+Locked by:
+  tests/test_codegen.py::test_traffic_expectations_are_per_step_and_match_the_topology
+  tests/test_codegen.py::test_traffic_items_are_tracked_before_generate
+
+
+======================================================================
+CAPTURED WITH TRAFFIC RUNNING - 16 of 16
+======================================================================
+2026-09-09 21:13, pc-3099, 8.7.0 LAB 935.
+
+Nine expectations had shipped EMPTY because they are about MAC-table
+and BGP-route CONTENT, which does not exist on an idle device. An empty
+expectation reports a warning and never a pass, so those steps asserted
+nothing. The assertion census read:
+
+    7 of 26 verification steps can actually fail; 19 only warn
+
+The chassis was driven to the state the flow describes - EVI up, three
+circuits bound, all three traffic items transmitting, MACs learnt on
+AC1 and moved onto AC3 - and `ate capture` was run against it:
+
+    ok=16   usable expectations: 16 of 16   (0 dropped)
+
+    FLOW030_S04_AC1_MACS_LEARNT_LINES     show evpn mac-address-table ... source x-eth0/0/32.1001
+    FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES
+    FLOW030_S09_AC2_MACS_LEARNT_LINES
+    FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES
+    FLOW030_S15_MACS_MOVED_TO_AC3_LINES   show evpn mac-address-table ... source x-eth0/0/40.1003
+    FLOW031_S01Q_MACS_LEARNT_LINES
+    FLOW031_S04_MACS_AGED_OUT_LINES
+    FLOW031_S05_TYPE2_WITHDRAWN_LINES
+    ... and eight already-usable ones re-captured
+
+Census after:
+
+    17 of 26 verification steps can actually fail; 9 only warn
+
+The device state that made this possible, read back directly:
+
+    00:00:01:00:00:01  L  x-eth0/0/32.1001  D     (AC1)
+    00:00:02:00:00:01  L  x-eth0/0/40.1003  D     (moved onto AC3)
+
+TWO WAYS A CAPTURED ABSENCE EXPECTATION LIES, BOTH FIXED
+  `verifyShowLinesAbsent` demands its lines be GONE, so what goes into
+  one matters more than for a presence check.
+
+  1. Table furniture. The MAC-table capture carried `IP` and
+     `VLAN MAC ADDRESS LOC SOURCE ...` next to the MAC row. Column
+     headers are printed whether or not a single entry remains, so
+     "verify the MACs aged out" demanded that the words MAC ADDRESS
+     disappear - it could never pass. `fake_pass.is_structural` existed
+     for precisely this and the emitter never called it.
+
+  2. Rows that are still present, correctly. FLOW-031 ages out ONE
+     circuit while AC1 keeps transmitting, so the capture of the
+     unscoped `show bgp l2vpn evpn table evi detail` also held AC1's
+     Type-2 route. Asserting its withdrawal fails against a healthy
+     device. Absence steps on an unscoped command now carry an
+     `expect_subject` and keep only the lines naming it:
+
+       FLOW031_S05_TYPE2_WITHDRAWN_LINES
+         before: Type=2: ... MAC=00:00:01:00:00:01   (AC1 - never withdrawn)
+                 ESI=0:0000.0000.0000.0000.0000
+                 ... 
+         after : Type=2: ... MAC=00:00:02:00:00:01   (the aged MAC, only)
+
+  Locked by
+  tests/test_codegen.py::test_an_absence_expectation_carries_no_furniture_and_no_innocent_rows,
+  proved to fail with the filter weakened.

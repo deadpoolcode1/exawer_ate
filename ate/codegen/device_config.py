@@ -743,6 +743,23 @@ def emit_traffic_config(lab: LabProfile) -> JavaFile:
             "",
         ]
     lines += [
+        "# Track every item BY TRAFFIC ITEM, before generate.",
+        "#",
+        "# DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108. This is what",
+        "# makes IxNetwork build the \"Traffic Item Statistics\" view. With",
+        "# `trackBy` empty the view does not exist at all, ixia_lib's own",
+        "# trafficApply throws reading its page, and every traffic assertion",
+        "# reports",
+        "#     Fail: No results where: TRAFFIC_ITEM: <name>",
+        "# on a rig where the traffic is running perfectly. The .ixncfg saved",
+        "# without this is why TC02 was red on 2026-09-09.",
+    ]
+    for ti in lab.traffic_items:
+        lines.append(
+            f"configTrafficItemTracking {ti.name} null null trackingenabled0 "
+            "null null null")
+    lines += [
+        "",
         "# GENERATE, and it must happen HERE - after every item has its",
         "# endpoints and before anything touches a stream, a rate, a VLAN or",
         "# a source MAC.",

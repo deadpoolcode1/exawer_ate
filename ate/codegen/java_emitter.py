@@ -244,7 +244,45 @@ def _captured_expectation(key: str, st: Step, cap: dict) -> list[str]:
         "     */",
         f"    public final String[] {key} = new String[] {{",
     ]
-    body = cap.get("lines") or []
+    # Strip the table's furniture before it becomes an assertion.
+    #
+    # `fake_pass.is_furniture` exists for exactly this and was never called
+    # here. Asserting on a rule, a legend or a column header buys nothing when
+    # the step is about PRESENCE, and it is fatal when the step is about
+    # ABSENCE: a header is printed whether or not a single row is left, so
+    # "verify the MACs aged out" would demand that the words `MAC ADDRESS`
+    # disappear from the output and could never pass.
+    # An ABSENCE step uses the stricter test. `is_furniture` deliberately does
+    # not treat a bare all-caps token as a header, because "ESTABLISHED" is a
+    # value; but in a table `IP` and `VLAN MAC ADDRESS LOC SOURCE ...` are
+    # column headers, and they are printed even when the table has emptied.
+    from ate.codegen.fake_pass import is_furniture, is_structural
+
+    drop = is_structural if st.expect_absent else is_furniture
+    body = [ln for ln in (cap.get("lines") or []) if not drop(ln)]
+
+    # An assertion on an UNSCOPED command must name only its own subject.
+    #
+    # `show bgp l2vpn evpn table evi detail` prints every route in the EVI, and
+    # a capture is a snapshot of one moment. Both directions of that hurt, and
+    # both were seen on pc-3099 on 2026-09-09:
+    #
+    #   * ABSENCE - FLOW-031 ages out ONE circuit's MACs while AC1 keeps
+    #     transmitting, so the capture also held AC1's Type-2, and asserting
+    #     its withdrawal fails against a healthy device.
+    #   * PRESENCE - the capture was taken with every MAC learnt, so
+    #     FLOW-030.S05 ("AC1's MACs are advertised") froze AC2's route too.
+    #     At S05 only AC1 has transmitted, so the run failed with
+    #         Missing lines: [Type=2:\s+VLAN-ID=0,\s+MAC=00:00:02:00:00:01]
+    #     against a device that was correct: that MAC had not been sourced
+    #     yet. The three steps sharing this command had byte-identical
+    #     expectations, which is the tell.
+    #
+    # So the subject filter applies to both. A step on a command already
+    # scoped to one object (`... source x-eth0/0/40.1003`) needs no subject.
+    if st.expect_subject:
+        body = [ln for ln in body if st.expect_subject in ln]
+
     for i, raw in enumerate(body):
         sep = "," if i < len(body) - 1 else ""
         lines.append(f"        {_jstr(_line_to_regex(raw))}{sep}")
@@ -264,6 +302,10 @@ def emit_params(scripts: list[TestScript], lab: LabProfile,
     seen: dict[str, Step] = {}
     for sc in scripts:
         for st in sc.steps:
+            # VERIFY_IXIA keys are RowDataTable[], emitted further down; a
+            # String[] of the same name would not compile.
+            if st.kind is StepKind.VERIFY_IXIA:
+                continue
             if st.expect_key and st.expect_key not in seen:
                 seen[st.expect_key] = st
 
@@ -364,7 +406,7 @@ def emit_params(scripts: list[TestScript], lab: LabProfile,
                  + ", ".join(_jstr(str(v)) for _, _, v in vports) + "};")
     lines.append(f"    public final String TRAFFIC_RATE_FPS = "
                  f"\"{lab.traffic_rate_fps}\";")
-    lines.extend(_traffic_statistics_table(lab))
+    lines.extend(_traffic_statistics_table(lab, scripts))
 
     lines += [
         "",
@@ -661,6 +703,9 @@ _UTILS_BODY = '''
             // model. One `generate` before apply, and the same rig produced
             //     x-eth0/0/32.1001  RX 107.45 k
             //     00:00:01:00:00:01  L  x-eth0/0/32.1001  D
+            // Tracking first: the saved .ixncfg carries none, and without
+            // it the statistics view every step below reads never exists.
+            enableTrafficItemTracking();
             ixia.performFunctions(IxiaFunctions.GENERATE_TRAFFIC);
             Thread.sleep(8000);
             // Their VPLS prep, and the piece that was missing: unsuspending
@@ -713,6 +758,11 @@ _UTILS_BODY = '''
         // the DUT counted 219k frames on the port and 0 on the circuit, and
         // the EVI learnt nothing while every call reported success.
         tagTrafficItemsWithAcVlan();
+
+        // Track by traffic item before generating, for the same reason as the
+        // .ixncfg branch above: no tracking, no statistics view, no traffic
+        // assertion that can pass.
+        enableTrafficItemTracking();
 
         // GENERATE binds the physical MACs and interfaces onto each raw item -
         // their own enum says so ("generate traffic item to apply physical mac
@@ -794,6 +844,59 @@ _UTILS_BODY = '''
      * than assumed: an unapplied source MAC would leave the MAC-move flows
      * asserting something that never happened.
      */
+    /**
+     * Track every traffic item BY TRAFFIC ITEM, which is what creates the
+     * "Traffic Item Statistics" view.
+     *
+     * DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108. IxNetwork only
+     * builds that view for items that carry tracking; with `trackBy` empty
+     * the view does not exist at all, and every read of it answers
+     *     error in state view name, fail to find view
+     * which ixia_lib's own trafficApply turns into an exception, because its
+     * last line reads the view's page. So an untracked suite reports
+     *     Fail: No results where: TRAFFIC_ITEM: TI_AC1_TO_AC2
+     * on a rig where the traffic is running perfectly - the .ixncfg we ship
+     * was saved without tracking, and TC01 never noticed because it is the
+     * one test that reads no traffic statistics.
+     *
+     * With this set, the same rig answers:
+     *     TI_AC1_TO_AC2  Tx 9983  Rx 19966   (flooded to BOTH ACs)
+     *     TI_AC2_TO_AC1  Tx 9983  Rx  9983   Loss 0
+     *
+     * Must run BEFORE `generate`: tracking is part of what generate binds.
+     */
+    public void enableTrafficItemTracking() throws Exception {
+        for (String trafficItem : params.ALL_TRAFFIC_ITEMS) {
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_TRACKING
+                    .args(trafficItem, "null", "null", "trackingenabled0",
+                          "null", "null", "null"));
+        }
+        // Read it back. `performFunctions` reports "ended without errors" for
+        // a proc that did nothing, and this is the setting the whole traffic
+        // verification rests on.
+        int tracked = 0;
+        for (String trafficItem : params.ALL_TRAFFIC_ITEMS) {
+            String got = ixia.runCommand(new RawTcl(
+                    "ixNet getAtt [getTraffic " + trafficItem
+                    + "]/tracking -trackBy"));
+            if (got != null && got.contains("trackingenabled0")) {
+                tracked++;
+            }
+        }
+        boolean all = tracked == params.ALL_TRAFFIC_ITEMS.length;
+        CompassReporter.passFailByCondition(all,
+                "All " + tracked + " traffic items are tracked by traffic "
+                        + "item, so the statistics view exists.",
+                "Only " + tracked + " of " + params.ALL_TRAFFIC_ITEMS.length
+                        + " traffic items are tracked - the Traffic Item "
+                        + "Statistics view will not exist and every traffic "
+                        + "assertion below would fail against running "
+                        + "traffic.");
+        if (!all) {
+            throw new Exception("could not enable traffic-item tracking");
+        }
+    }
+
     /**
      * Push a VLAN header onto every raw traffic item, carrying the AC VLAN.
      *
@@ -1776,10 +1879,9 @@ def _render_step(step: Step, lab: LabProfile,
                    f"testParams.MAC_AGING_TIME_IN_SEC, {_jstr(step.text)});")
     elif step.kind is StepKind.VERIFY_IXIA:
         expect = (f"testParams.{step.expect_key}" if step.expect_key
-                  else "new String[] {}")
+                  else "testParams.ALL_TRAFFIC_ITEMS_RUNNING")
         out.append(f"        evpnUtils.verifyIxiaStatistics("
-                   f"{_jstr(step.text)}, "
-                   f"testParams.ALL_TRAFFIC_ITEMS_RUNNING);")
+                   f"{_jstr(step.text)}, {expect});")
     elif step.kind is StepKind.VERIFY_NO_EVENT:
         # Snapshot steps are emitted by `emit_test` (they need to assign into a
         # method-scoped local); anything else compares against that snapshot.
@@ -1895,7 +1997,8 @@ def emit_all(scripts: list[TestScript], lab: LabProfile,
     return files
 
 
-def _traffic_statistics_table(lab: LabProfile) -> list[str]:
+def _traffic_statistics_table(lab: LabProfile,
+                              scripts: list[TestScript]) -> list[str]:
     """Expected Tx/Rx frame rates per traffic item, in the VPLS table shape.
 
     Exaware, 2026-08-16 (Eyal Ozeri): "The Ixia Traffic Items are built in an
@@ -1936,14 +2039,38 @@ def _traffic_statistics_table(lab: LabProfile) -> list[str]:
         "            TrafficItemStatisticsHeaders.Tx_Frame_Rate,",
         "            TrafficItemStatisticsHeaders.Rx_Frame_Rate);",
     ]
-    rate = "1000"
+    rate = 1000
+    # Expected Rx is NOT always Tx.
+    #
+    # DEVICE-MEASURED, pc-3099 / chassis 10.1.70.108, 2026-09-09. The frames
+    # are broadcast (this build has "Unknown MAC Flooding: Disabled" and no
+    # CLI to enable it, so an unknown unicast is dropped before the bridge
+    # domain), so the EVI floods each one to every other attachment circuit.
+    # An item's Rx counter belongs to its destination VPORT, and a vport can
+    # back more than one circuit: AC2 and AC3 are two sub-interfaces of the
+    # same port, told apart only by their VLAN tag. So a frame flooded to both
+    # is counted twice on that port.
+    #
+    # TI_AC1_TO_AC2 therefore reads Tx 1000 / Rx 2000, which is exactly the
+    # evidence that flooding reached BOTH circuits - assert 1000 there and the
+    # step fails against a device doing the right thing, which is what pc-3099
+    # showed. Derived from the profile rather than hard-coded so a rig with
+    # one circuit per port gets 1x without an edit.
     for ti in lab.traffic_items:
+        dst_vport = lab.ac(ti.dst).vport
+        fanout = sum(1 for ac in lab.acs
+                     if ac.vport == dst_vport and ac.name != ti.src)
+        rx = rate * max(fanout, 1)
+        note = ("" if rx == rate else
+                f" Rx is {max(fanout, 1)}x Tx: {dst_vport} backs "
+                f"{max(fanout, 1)} circuits, and a broadcast is flooded to "
+                "each of them.")
         out.append(
-            f"    /** {ti.name} transmitting and being received. */")
+            f"    /** {ti.name} transmitting and being received.{note} */")
         out.append(
             f"    public final RowDataTable {ti.name}_RUNNING = "
             f"RowDataTable.add(TRAFFIC_STATISTICS_TABLE, {_jstr(ti.name)}, "
-            f'"{rate}", "{rate}");')
+            f'"{rate}", "{rx}");')
     for ti in lab.traffic_items:
         out.append(
             f"    /** {ti.name} suspended: nothing sent, nothing received. */")
@@ -1951,6 +2078,42 @@ def _traffic_statistics_table(lab: LabProfile) -> list[str]:
             f"    public final RowDataTable {ti.name}_SUSPENDED = "
             f"RowDataTable.add(TRAFFIC_STATISTICS_TABLE, {_jstr(ti.name)}, "
             f'"0", "0");')
+    # Per-step expected statistics rows.
+    #
+    # MUST be emitted before the SuiteTableParams below. RowDataTable.add()
+    # appends to the shared table and returns an index into it, and
+    # `new SuiteTableParams(...)` freezes the rows present at that point;
+    # Java runs field initialisers in declaration order. A row declared after
+    # it therefore indexes past the end of the model - pc-3099, 2026-09-09:
+    #     java.lang.ArrayIndexOutOfBoundsException: 6 >= 6
+    #         at cmp.tests.evpn.EvpnUtils.verifyTrafficItemStatistics
+    #
+    # Each VERIFY_IXIA step states what should be true AT THAT POINT, which is
+    # not "everything is running": most have exactly one item unsuspended.
+    ixia_steps = [st for sc in scripts for st in sc.steps
+                  if st.kind is StepKind.VERIFY_IXIA and st.expect_key]
+    if ixia_steps:
+        out += ["", "    // ---- per-step IXIA statistics expectations ----"]
+    emitted: set[str] = set()
+    for st in ixia_steps:
+        if st.expect_key in emitted:
+            continue
+        emitted.add(st.expect_key)
+        out.append(f"    /** {st.id} - {st.text} */")
+        if not st.expect_rows:
+            # Empty stays empty: EvpnUtils warns instead of passing, so an
+            # unmeasured step can never show green. This is the fake-pass rule
+            # applied to traffic exactly as it is applied to show output.
+            out.append(f"    public final RowDataTable[] {st.expect_key} "
+                       "= new RowDataTable[] {};")
+            continue
+        rows = ", ".join(
+            f'RowDataTable.add(TRAFFIC_STATISTICS_TABLE, {_jstr(item)}, '
+            f'{_jstr(tx)}, {_jstr(rx)})'
+            for item, tx, rx in st.expect_rows)
+        out.append(f"    public final RowDataTable[] {st.expect_key} = {{"
+                   f"{rows}}};")
+
     out += [
         "    public SuiteTableParams trafficTable =",
         "            new SuiteTableParams(TRAFFIC_STATISTICS_TABLE, headersTraffic);",
@@ -1968,4 +2131,5 @@ def _traffic_statistics_table(lab: LabProfile) -> list[str]:
         "    public final RowDataTable[] ALL_TRAFFIC_ITEMS_RUNNING = {"
         + ", ".join(f"{t.name}_RUNNING" for t in lab.traffic_items) + "};",
     ]
+
     return out

@@ -202,6 +202,11 @@ def _bring_up(lab: LabProfile) -> TestScript:
             command=_adv_cmd,
             args=list(_adv_args),
             expect_key="FLOW010_S10_TYPE3_ADVERTISED_LINES",
+            # The route table is not scoped to one route, and a capture is a
+            # snapshot. This step is about the Type-3 IMET; freezing whatever
+            # Type-2s were present when the capture was taken asserts MACs
+            # this test never sources.
+            expect_subject="Type=3",
             req_ids=_R_TYPE3,
             todo="Needs real output of the route table above.",
         ),
@@ -362,12 +367,29 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S03",
             kind=StepKind.VERIFY_IXIA,
-            text=("Verify the unknown-unicast from AC1 floods to BOTH AC2 and "
-                  "AC3 (IXIA rx counters)"),
+            # DEVICE-MEASURED, pc-3099 / chassis 10.1.70.108, 2026-09-09.
+            #
+            # The title says BROADCAST, not unknown-unicast, and that is not a
+            # softening: this build reports "Unknown MAC Flooding: Disabled"
+            # and offers no CLI to enable it, so an unknown-unicast frame is
+            # taken by the port and dropped before the bridge domain. The
+            # traffic items therefore carry a broadcast destination, and what
+            # this step proves is BUM flooding, which is what _R_TYPE3 is
+            # about.
+            #
+            # Rx = 2 x Tx is the assertion. AC2 and AC3 are two sub-interfaces
+            # of the same vport, so a frame flooded to both is received twice
+            # on the destination port. If the EVI stopped flooding to one of
+            # them, this reads 1000 and the step fails.
+            text=("Verify the broadcast from AC1 is flooded to BOTH AC2 and "
+                  "AC3 (rx = 2x tx on the shared destination port)"),
             expect_key="FLOW030_S03_FLOOD_TO_AC2_AC3_ROWS",
+            expect_rows=[
+                ("TI_AC1_TO_AC2", "1000", "2000"),
+                ("TI_AC2_TO_AC1", "0", "0"),
+                ("TI_AC3_TO_AC1", "0", "0"),
+            ],
             req_ids=_R_TYPE3,
-            todo=("Expected per-port rx rows depend on the .ixncfg port naming "
-                  "and offered rate."),
         ),
         Step(
             id="FLOW-030.S04",
@@ -387,6 +409,10 @@ def _type2(lab: LabProfile) -> TestScript:
             command=_adv_cmd,
             args=list(_adv_args),
             expect_key="FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES",
+            # AC1's MAC ONLY. At this step AC2 has not transmitted, so its
+            # route is legitimately absent - pc-3099, 2026-09-09:
+            #   Missing lines: [Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01]
+            expect_subject=lab.traffic_item("TI_AC1_TO_AC2").src_mac,
             req_ids=_R_TYPE2,
             todo="Needs real output of the route table above.",
         ),
@@ -401,11 +427,26 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S07",
             kind=StepKind.VERIFY_IXIA,
-            text=("Verify flooding to AC3 ceases once AC2's MACs are known "
-                  "(AC3 rx returns to zero)"),
-            expect_key="FLOW030_S07_NO_FLOOD_TO_AC3_ROWS",
+            # This step used to claim "flooding to AC3 ceases once AC2's MACs
+            # are known". It cannot: the frames are broadcast (see S03) and
+            # broadcast is flooded whatever the MAC table says. The device was
+            # unambiguous - AC1's rx stayed at 2000 through every later step.
+            # Rather than leave a title that describes something the rig
+            # cannot do, the step asserts what it genuinely establishes: AC2
+            # now forwards to AC1, and AC1's flooding is unchanged.
+            #
+            # That the MAC was LEARNT is asserted, on the DUT, by S04/S09
+            # (show evpn mac-address-table ... source) and S05/S10 (the Type-2
+            # advertisement). Those are the right place for it.
+            text=("Verify AC2 -> AC1 forwards once AC2's MACs are learnt, "
+                  "while AC1's broadcast still reaches both ACs"),
+            expect_key="FLOW030_S07_AC2_FORWARDS_ROWS",
+            expect_rows=[
+                ("TI_AC1_TO_AC2", "1000", "2000"),
+                ("TI_AC2_TO_AC1", "1000", "1000"),
+                ("TI_AC3_TO_AC1", "0", "0"),
+            ],
             req_ids=_R_TYPE3,
-            todo="Expected rows depend on .ixncfg port naming.",
         ),
         Step(
             id="FLOW-030.S08",
@@ -434,6 +475,7 @@ def _type2(lab: LabProfile) -> TestScript:
             command=_adv_cmd,
             args=list(_adv_args),
             expect_key="FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES",
+            expect_subject=lab.traffic_item("TI_AC2_TO_AC1").src_mac,
             req_ids=_R_TYPE2,
             todo="Needs real output of the route table above.",
         ),
@@ -448,10 +490,19 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S12",
             kind=StepKind.VERIFY_IXIA,
-            text="Verify AC1 → AC2 traffic still forwards to AC2 (no flooding)",
-            expect_key="FLOW030_S12_UNICAST_TO_AC2_ROWS",
+            # "still forwards to AC2 (no flooding)" was not observable either,
+            # for the same reason as S07. What IS observable, and worth
+            # asserting, is that stopping AC2's stream does not disturb AC1's:
+            # a broken EVI would show AC1's rx collapsing here.
+            text=("Verify AC1's traffic is unaffected by AC2's stream "
+                  "stopping, and AC2 has indeed stopped"),
+            expect_key="FLOW030_S12_AC1_UNAFFECTED_ROWS",
+            expect_rows=[
+                ("TI_AC1_TO_AC2", "1000", "2000"),
+                ("TI_AC2_TO_AC1", "0", "0"),
+                ("TI_AC3_TO_AC1", "0", "0"),
+            ],
             req_ids=_R_TYPE2,
-            todo="Expected rows depend on .ixncfg port naming.",
         ),
         Step(
             id="FLOW-030.S13",
@@ -493,10 +544,22 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S17",
             kind=StepKind.VERIFY_IXIA,
-            text="Verify AC1 → AC2 traffic now forwards out AC3",
-            expect_key="FLOW030_S17_UNICAST_TO_AC3_ROWS",
+            # "AC1 -> AC2 now forwards out AC3" is invisible to these
+            # counters: AC2 and AC3 share a vport, so traffic leaving by
+            # either lands in the same rx bucket. The MOVE is asserted on the
+            # DUT by S15 (the MACs now show against AC3's sub-interface) and
+            # S16 (no new Type-2 was triggered), which is where the evidence
+            # actually is. Here we assert that AC3 is now the one sourcing,
+            # and that the EVI kept forwarding throughout.
+            text=("Verify AC3 now sources the moved MACs and AC1's traffic "
+                  "keeps flowing throughout the move"),
+            expect_key="FLOW030_S17_AC3_SOURCES_ROWS",
+            expect_rows=[
+                ("TI_AC1_TO_AC2", "1000", "2000"),
+                ("TI_AC2_TO_AC1", "0", "0"),
+                ("TI_AC3_TO_AC1", "1000", "1000"),
+            ],
             req_ids=_R_TYPE2,
-            todo="Expected rows depend on .ixncfg port naming.",
         ),
     ]
     return TestScript(
@@ -539,6 +602,39 @@ def _type3(lab: LabProfile) -> TestScript:
     aging = _aging_source(lab)
     steps = [
         *_requires_evi("FLOW-031", lab),
+        # Learn something before asserting it ages out.
+        #
+        # This flow used to go straight to "stop the traffic, wait, assert the
+        # MACs are gone" from a prep that starts every item SUSPENDED. So
+        # nothing was ever learnt, and every assertion below passed on an
+        # empty MAC table: the aged-out check, the withdrawn-route check and
+        # the flooding check were all trivially true. That is the fake-pass
+        # rule (ate/codegen/fake_pass.py) in the one place it was not being
+        # applied - a test that "passes" against a device doing nothing.
+        #
+        # NOT named S00*: _with_traffic_setup inserts the TRAFFIC_CREATE step
+        # after the whole ".S00" block, so an S00 name here would use traffic
+        # items before they exist.
+        Step(
+            id="FLOW-031.S01P",
+            kind=StepKind.TRAFFIC_STATE,
+            text=("Start AC1 and " + aging.src + " traffic so there are MACs "
+                  "to age out"),
+            traffic_items=["TI_AC1_TO_AC2", aging.name],
+            enabled=True,
+            req_ids=_R_TYPE2,
+        ),
+        Step(
+            id="FLOW-031.S01Q",
+            kind=StepKind.VERIFY_CLI,
+            text=(f"Verify the {aging.src} MACs ARE learnt before the aging "
+                  "test begins"),
+            command="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
+            args=[evi, lab.ac(aging.src).ac_interface],
+            expect_key="FLOW031_S01Q_MACS_LEARNT_LINES",
+            req_ids=_R_TYPE2,
+            todo="Needs real MAC-table output for the aging source circuit.",
+        ),
         Step(
             id="FLOW-031.S01",
             kind=StepKind.TRAFFIC_STATE,
@@ -558,9 +654,18 @@ def _type3(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-031.S03",
             kind=StepKind.VERIFY_IXIA,
-            text=("Verify AC1 → AC2 traffic floods to BOTH AC2 and AC3 again "
-                  "now the MACs have aged out"),
-            expect_key="FLOW030_S03_FLOOD_TO_AC2_AC3_ROWS",
+            # AC1's broadcast is still flooded to both circuits (rx = 2x tx)
+            # while the aged circuit is silent. Measured on pc-3099,
+            # 2026-09-09; see FLOW-030.S03 for why the traffic is broadcast
+            # and why the shared destination port doubles the rx count.
+            text=("Verify AC1's traffic still floods to BOTH AC2 and AC3 "
+                  f"while {aging.src} stays silent after aging"),
+            expect_key="FLOW031_S03_FLOOD_AFTER_AGING_ROWS",
+            expect_rows=[
+                ("TI_AC1_TO_AC2", "1000", "2000"),
+                ("TI_AC2_TO_AC1", "0", "0"),
+                ("TI_AC3_TO_AC1", "0", "0"),
+            ],
             req_ids=_R_TYPE3,
         ),
         Step(
@@ -589,6 +694,10 @@ def _type3(lab: LabProfile) -> TestScript:
             args=[],
             expect_key="FLOW031_S05_TYPE2_WITHDRAWN_LINES",
             expect_absent=True,
+            # `show bgp l2vpn evpn table evi detail` is not scoped to a
+            # circuit, and only THIS item's MACs stop being refreshed. AC1
+            # keeps transmitting, so its Type-2 stays advertised and must.
+            expect_subject=aging.src_mac,
             req_ids=_R_TYPE2,
             todo="Needs real BGP EVPN table output.",
         ),

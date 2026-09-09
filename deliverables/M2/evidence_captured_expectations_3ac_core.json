@@ -1,19 +1,19 @@
 {
   "host": "10.3.99.1",
   "build": "8.7.0: LAB 935",
-  "captured_at": "2026-09-09T12:07:22",
+  "captured_at": "2026-09-09T21:13:07",
   "results": [
     {
       "expect_key": "FLOW010_S00A_EVI_ABSENT_LINES",
       "command": "show evpn summary",
       "status": "ok",
       "lines": [
-        "  Number of Local MAC Routes:     0",
+        "  Number of Local MAC Routes:     2",
         "  Number of Static MAC Routes:    0",
         "  Number of Remote MAC Routes:    0",
         "  Number of Ethernet Segments:"
       ],
-      "raw": "show evpn summary\r\nEVPN NAME: evi-1\r\n  Number of Local MAC Routes:     0\r\n  Number of Static MAC Routes:    0\r\n  Number of Remote MAC Routes:    0\r\n  Number of Ethernet Segments:    \r\nrouter[2026-09-09-12:07:22]#",
+      "raw": "show evpn summary\r\nEVPN NAME: evi-1\r\n  Number of Local MAC Routes:     2\r\n  Number of Static MAC Routes:    0\r\n  Number of Remote MAC Routes:    0\r\n  Number of Ethernet Segments:    \r\nrouter[2026-09-09-21:13:07]#",
       "note": ""
     },
     {
@@ -40,22 +40,49 @@
         "x-eth0/0/40.1002  -                          -",
         "x-eth0/0/40.1003  -                          -"
       ],
-      "raw": "show evpn detail\r\nEVPN name: evi-1\r\nAdvertise MAC Addresses: Enabled\r\nES DF Waiting Time: 3 seconds\r\nExport-rt: 65000:1\r\nImport-rt: 65000:1\r\nService Type: vlan-based\r\nHost MAC Address Duplicate Detection: Disabled\r\n  Move Interval: 180 seconds\r\n  Move Counter: 5\r\nFreeze Time: 30 seconds\r\nMAC Aging Time: 300 seconds\r\nMAC Limit: 65520\r\nUnknown MAC Flooding: Disabled\r\nControl Word: Disabled\r\n\r\nLocal Interfaces:\r\nINTERFACE         ESI                        ES LABEL    \r\n---------------------------------------------------------\r\nx-eth0/0/32.1001  -                          -           \r\nx-eth0/0/40.1002  -                          -           \r\nx-eth0/0/40.1003  -                          -           \r\n\r\nrouter[2026-09-09-12:07:23]#",
+      "raw": "show evpn detail\r\nEVPN name: evi-1\r\nAdvertise MAC Addresses: Enabled\r\nES DF Waiting Time: 3 seconds\r\nExport-rt: 65000:1\r\nImport-rt: 65000:1\r\nService Type: vlan-based\r\nHost MAC Address Duplicate Detection: Disabled\r\n  Move Interval: 180 seconds\r\n  Move Counter: 5\r\nFreeze Time: 30 seconds\r\nMAC Aging Time: 300 seconds\r\nMAC Limit: 65520\r\nUnknown MAC Flooding: Disabled\r\nControl Word: Disabled\r\n\r\nLocal Interfaces:\r\nINTERFACE         ESI                        ES LABEL    \r\n---------------------------------------------------------\r\nx-eth0/0/32.1001  -                          -           \r\nx-eth0/0/40.1002  -                          -           \r\nx-eth0/0/40.1003  -                          -           \r\n\r\nrouter[2026-09-09-21:13:08]#",
       "note": ""
     },
     {
       "expect_key": "FLOW010_S09_MAC_TABLE_EMPTY_LINES",
       "command": "show evpn mac-address-table name evi-1",
-      "status": "empty",
-      "lines": [],
-      "raw": "show evpn mac-address-table name evi-1\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-09-09-12:07:23]#",
-      "note": "the MAC table printed its legend but no MAC addresses \u2014 nothing has been learnt yet, so there is no expectation here that could ever fail"
+      "status": "ok",
+      "lines": [
+        "                                                                            IP",
+        "VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL",
+        "      00:00:01:00:00:01  L    x-eth0/0/32.1001  0    D     -    -      -",
+        "      00:00:02:00:00:01  L    x-eth0/0/40.1002  0    D     -    -      -"
+      ],
+      "raw": "show evpn mac-address-table name evi-1\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\n    \r\n                                                                            IP                    \r\nVLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  \r\n--------------------------------------------------------------------------------------------------\r\n      00:00:01:00:00:01  L    x-eth0/0/32.1001  0    D     -    -      -                          \r\n      00:00:02:00:00:01  L    x-eth0/0/40.1002  0    D     -    -      -                          \r\n\r\nrouter[2026-09-09-21:13:08]#",
+      "note": ""
     },
     {
       "expect_key": "FLOW010_S10_TYPE3_ADVERTISED_LINES",
       "command": "show bgp l2vpn evpn table evi detail",
       "status": "ok",
       "lines": [
+        "Type=2: VLAN-ID=0, MAC=00:00:01:00:00:01",
+        "  ESI=0:0000.0000.0000.0000.0000",
+        "  MPLS Label= 40960",
+        "  Static Flag: 0",
+        "  Sequence Number: 0",
+        "  Peer IP: 0.0.0.0",
+        "  Flags: *>",
+        "  Metric:",
+        "  Local Preference:",
+        "  Weight: 32768",
+        "  AS Path:",
+        "Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01",
+        "  ESI=0:0000.0000.0000.0000.0000",
+        "  MPLS Label= 40960",
+        "  Static Flag: 0",
+        "  Sequence Number: 0",
+        "  Peer IP: 0.0.0.0",
+        "  Flags: *>",
+        "  Metric:",
+        "  Local Preference:",
+        "  Weight: 32768",
+        "  AS Path:",
         "Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30",
         "  MPLS Label= 32768",
         "  Transmission Mode: Replication",
@@ -66,7 +93,7 @@
         "  Weight: 32768",
         "  AS Path:"
       ],
-      "raw": "show bgp l2vpn evpn table evi detail\r\nFlags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\ni - internal, S - stale, = - multipath, a - alternate\r\nOrigin:  i - IGP, e - EGP, ? - incomplete\r\nEVI Name = evi-1\r\nType=3: VLAN-ID=0, Originating Router's IP=29.30.30.30\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 32768\r\n  Transmission Mode: Replication\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 12:02:29 2026\r\nrouter[2026-09-09-12:07:24]#",
+      "raw": "show bgp l2vpn evpn table evi detail\r\nFlags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\ni - internal, S - stale, = - multipath, a - alternate\r\nOrigin:  i - IGP, e - EGP, ? - incomplete\r\nEVI Name = evi-1\r\nType=2: VLAN-ID=0, MAC=00:00:01:00:00:01\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  ESI=0:0000.0000.0000.0000.0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 40960\r\n  Static Flag: 0\r\n  Sequence Number: 0\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:06:39 2026\r\nType=2: VLAN-ID=0, MAC=00:00:02:00:00:01\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  ESI=0:0000.0000.0000.0000.0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 40960\r\n  Static Flag: 0\r\n  Sequence Number: 0\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:12:12 2026\r\nType=3: VLAN-ID=0, Originating Router's IP=29.30.30.30\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 32768\r\n  Transmission Mode: Replication\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:05:07 2026\r\nrouter[2026-09-09-21:13:08]#",
       "note": ""
     },
     {
@@ -74,9 +101,12 @@
       "command": "show bgp neighbor 29.60.0.2 | include EVPN",
       "status": "ok",
       "lines": [
-        "  L2VPN EVPN parameters"
+        "  L2VPN EVPN table:",
+        "  L2VPN EVPN parameters",
+        "    L2VPN EVPN:\t\t\tadvertised",
+        "    L2VPN EVPN:                 none"
       ],
-      "raw": "show bgp neighbor 29.60.0.2 | include EVPN\r\n  L2VPN EVPN parameters\r\nrouter[2026-09-09-12:07:24]#",
+      "raw": "show bgp neighbor 29.60.0.2 | include EVPN\r\n  L2VPN EVPN table:\r\n  L2VPN EVPN parameters\r\n    L2VPN EVPN:\t\t\tadvertised\r\n    L2VPN EVPN:                 none\r\nrouter[2026-09-09-21:13:09]#",
       "note": ""
     },
     {
@@ -84,27 +114,53 @@
       "command": "show evpn summary",
       "status": "ok",
       "lines": [
-        "  Number of Local MAC Routes:     0",
+        "  Number of Local MAC Routes:     2",
         "  Number of Static MAC Routes:    0",
         "  Number of Remote MAC Routes:    0",
         "  Number of Ethernet Segments:"
       ],
-      "raw": "show evpn summary\r\nEVPN NAME: evi-1\r\n  Number of Local MAC Routes:     0\r\n  Number of Static MAC Routes:    0\r\n  Number of Remote MAC Routes:    0\r\n  Number of Ethernet Segments:    \r\nrouter[2026-09-09-12:07:24]#",
+      "raw": "show evpn summary\r\nEVPN NAME: evi-1\r\n  Number of Local MAC Routes:     2\r\n  Number of Static MAC Routes:    0\r\n  Number of Remote MAC Routes:    0\r\n  Number of Ethernet Segments:    \r\nrouter[2026-09-09-21:13:09]#",
       "note": ""
     },
     {
       "expect_key": "FLOW030_S04_AC1_MACS_LEARNT_LINES",
       "command": "show evpn mac-address-table name evi-1 source x-eth0/0/32.1001",
-      "status": "empty",
-      "lines": [],
-      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/32.1001\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-09-09-12:07:25]#",
-      "note": "the MAC table printed its legend but no MAC addresses \u2014 nothing has been learnt yet, so there is no expectation here that could ever fail"
+      "status": "ok",
+      "lines": [
+        "                                                                            IP",
+        "VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL",
+        "      00:00:01:00:00:01  L    x-eth0/0/32.1001  0    D     -    -      -"
+      ],
+      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/32.1001\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\n    \r\n                                                                            IP                    \r\nVLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  \r\n--------------------------------------------------------------------------------------------------\r\n      00:00:01:00:00:01  L    x-eth0/0/32.1001  0    D     -    -      -                          \r\n\r\nrouter[2026-09-09-21:13:10]#",
+      "note": ""
     },
     {
       "expect_key": "FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES",
       "command": "show bgp l2vpn evpn table evi detail",
       "status": "ok",
       "lines": [
+        "Type=2: VLAN-ID=0, MAC=00:00:01:00:00:01",
+        "  ESI=0:0000.0000.0000.0000.0000",
+        "  MPLS Label= 40960",
+        "  Static Flag: 0",
+        "  Sequence Number: 0",
+        "  Peer IP: 0.0.0.0",
+        "  Flags: *>",
+        "  Metric:",
+        "  Local Preference:",
+        "  Weight: 32768",
+        "  AS Path:",
+        "Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01",
+        "  ESI=0:0000.0000.0000.0000.0000",
+        "  MPLS Label= 40960",
+        "  Static Flag: 0",
+        "  Sequence Number: 0",
+        "  Peer IP: 0.0.0.0",
+        "  Flags: *>",
+        "  Metric:",
+        "  Local Preference:",
+        "  Weight: 32768",
+        "  AS Path:",
         "Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30",
         "  MPLS Label= 32768",
         "  Transmission Mode: Replication",
@@ -115,22 +171,48 @@
         "  Weight: 32768",
         "  AS Path:"
       ],
-      "raw": "show bgp l2vpn evpn table evi detail\r\nFlags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\ni - internal, S - stale, = - multipath, a - alternate\r\nOrigin:  i - IGP, e - EGP, ? - incomplete\r\nEVI Name = evi-1\r\nType=3: VLAN-ID=0, Originating Router's IP=29.30.30.30\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 32768\r\n  Transmission Mode: Replication\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 12:02:29 2026\r\nrouter[2026-09-09-12:07:25]#",
+      "raw": "show bgp l2vpn evpn table evi detail\r\nFlags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\ni - internal, S - stale, = - multipath, a - alternate\r\nOrigin:  i - IGP, e - EGP, ? - incomplete\r\nEVI Name = evi-1\r\nType=2: VLAN-ID=0, MAC=00:00:01:00:00:01\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  ESI=0:0000.0000.0000.0000.0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 40960\r\n  Static Flag: 0\r\n  Sequence Number: 0\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:06:39 2026\r\nType=2: VLAN-ID=0, MAC=00:00:02:00:00:01\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  ESI=0:0000.0000.0000.0000.0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 40960\r\n  Static Flag: 0\r\n  Sequence Number: 0\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:12:12 2026\r\nType=3: VLAN-ID=0, Originating Router's IP=29.30.30.30\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 32768\r\n  Transmission Mode: Replication\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:05:07 2026\r\nrouter[2026-09-09-21:13:10]#",
       "note": ""
     },
     {
       "expect_key": "FLOW030_S09_AC2_MACS_LEARNT_LINES",
       "command": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1002",
-      "status": "empty",
-      "lines": [],
-      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1002\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-09-09-12:07:26]#",
-      "note": "the MAC table printed its legend but no MAC addresses \u2014 nothing has been learnt yet, so there is no expectation here that could ever fail"
+      "status": "ok",
+      "lines": [
+        "                                                                            IP",
+        "VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL",
+        "      00:00:02:00:00:01  L    x-eth0/0/40.1002  0    D     -    -      -"
+      ],
+      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1002\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\n    \r\n                                                                            IP                    \r\nVLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  \r\n--------------------------------------------------------------------------------------------------\r\n      00:00:02:00:00:01  L    x-eth0/0/40.1002  0    D     -    -      -                          \r\n\r\nrouter[2026-09-09-21:13:11]#",
+      "note": ""
     },
     {
       "expect_key": "FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES",
       "command": "show bgp l2vpn evpn table evi detail",
       "status": "ok",
       "lines": [
+        "Type=2: VLAN-ID=0, MAC=00:00:01:00:00:01",
+        "  ESI=0:0000.0000.0000.0000.0000",
+        "  MPLS Label= 40960",
+        "  Static Flag: 0",
+        "  Sequence Number: 0",
+        "  Peer IP: 0.0.0.0",
+        "  Flags: *>",
+        "  Metric:",
+        "  Local Preference:",
+        "  Weight: 32768",
+        "  AS Path:",
+        "Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01",
+        "  ESI=0:0000.0000.0000.0000.0000",
+        "  MPLS Label= 40960",
+        "  Static Flag: 0",
+        "  Sequence Number: 0",
+        "  Peer IP: 0.0.0.0",
+        "  Flags: *>",
+        "  Metric:",
+        "  Local Preference:",
+        "  Weight: 32768",
+        "  AS Path:",
         "Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30",
         "  MPLS Label= 32768",
         "  Transmission Mode: Replication",
@@ -141,43 +223,85 @@
         "  Weight: 32768",
         "  AS Path:"
       ],
-      "raw": "show bgp l2vpn evpn table evi detail\r\nFlags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\ni - internal, S - stale, = - multipath, a - alternate\r\nOrigin:  i - IGP, e - EGP, ? - incomplete\r\nEVI Name = evi-1\r\nType=3: VLAN-ID=0, Originating Router's IP=29.30.30.30\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 32768\r\n  Transmission Mode: Replication\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 12:02:29 2026\r\nrouter[2026-09-09-12:07:26]#",
+      "raw": "show bgp l2vpn evpn table evi detail\r\nFlags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\ni - internal, S - stale, = - multipath, a - alternate\r\nOrigin:  i - IGP, e - EGP, ? - incomplete\r\nEVI Name = evi-1\r\nType=2: VLAN-ID=0, MAC=00:00:01:00:00:01\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  ESI=0:0000.0000.0000.0000.0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 40960\r\n  Static Flag: 0\r\n  Sequence Number: 0\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:06:39 2026\r\nType=2: VLAN-ID=0, MAC=00:00:02:00:00:01\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  ESI=0:0000.0000.0000.0000.0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 40960\r\n  Static Flag: 0\r\n  Sequence Number: 0\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:12:12 2026\r\nType=3: VLAN-ID=0, Originating Router's IP=29.30.30.30\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 32768\r\n  Transmission Mode: Replication\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:05:07 2026\r\nrouter[2026-09-09-21:13:11]#",
       "note": ""
     },
     {
       "expect_key": "FLOW030_S15_MACS_MOVED_TO_AC3_LINES",
       "command": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1003",
-      "status": "empty",
-      "lines": [],
-      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1003\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-09-09-12:07:27]#",
-      "note": "the MAC table printed its legend but no MAC addresses \u2014 nothing has been learnt yet, so there is no expectation here that could ever fail"
+      "status": "ok",
+      "lines": [
+        "                                                                            IP",
+        "VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL",
+        "      00:00:02:00:00:01  L    x-eth0/0/40.1003  0    D     -    -      -"
+      ],
+      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1003\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\n    \r\n                                                                            IP                    \r\nVLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  \r\n--------------------------------------------------------------------------------------------------\r\n      00:00:02:00:00:01  L    x-eth0/0/40.1003  0    D     -    -      -                          \r\n\r\nrouter[2026-09-09-21:13:12]#",
+      "note": ""
     },
     {
       "expect_key": "FLOW031_S00P_EVI_ABSENT_LINES",
       "command": "show evpn summary",
       "status": "ok",
       "lines": [
-        "  Number of Local MAC Routes:     0",
+        "  Number of Local MAC Routes:     2",
         "  Number of Static MAC Routes:    0",
         "  Number of Remote MAC Routes:    0",
         "  Number of Ethernet Segments:"
       ],
-      "raw": "show evpn summary\r\nEVPN NAME: evi-1\r\n  Number of Local MAC Routes:     0\r\n  Number of Static MAC Routes:    0\r\n  Number of Remote MAC Routes:    0\r\n  Number of Ethernet Segments:    \r\nrouter[2026-09-09-12:07:27]#",
+      "raw": "show evpn summary\r\nEVPN NAME: evi-1\r\n  Number of Local MAC Routes:     2\r\n  Number of Static MAC Routes:    0\r\n  Number of Remote MAC Routes:    0\r\n  Number of Ethernet Segments:    \r\nrouter[2026-09-09-21:13:12]#",
+      "note": ""
+    },
+    {
+      "expect_key": "FLOW031_S01Q_MACS_LEARNT_LINES",
+      "command": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1003",
+      "status": "ok",
+      "lines": [
+        "                                                                            IP",
+        "VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL",
+        "      00:00:02:00:00:01  L    x-eth0/0/40.1003  0    D     -    -      -"
+      ],
+      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1003\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\n    \r\n                                                                            IP                    \r\nVLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  \r\n--------------------------------------------------------------------------------------------------\r\n      00:00:02:00:00:01  L    x-eth0/0/40.1003  0    D     -    -      -                          \r\n\r\nrouter[2026-09-09-21:13:13]#",
       "note": ""
     },
     {
       "expect_key": "FLOW031_S04_MACS_AGED_OUT_LINES",
       "command": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1003",
-      "status": "empty",
-      "lines": [],
-      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1003\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\nrouter[2026-09-09-12:07:28]#",
-      "note": "the MAC table printed its legend but no MAC addresses \u2014 nothing has been learnt yet, so there is no expectation here that could ever fail"
+      "status": "ok",
+      "lines": [
+        "                                                                            IP",
+        "VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL",
+        "      00:00:02:00:00:01  L    x-eth0/0/40.1003  0    D     -    -      -"
+      ],
+      "raw": "show evpn mac-address-table name evi-1 source x-eth0/0/40.1003\r\n\r\nLOC:  L - local, R - remote\r\nL-FL: D - dynamic, S - static\r\nR-FL: N - learnt, U - Unlearnt\r\nACT:  S - Single-Active, A - All-Active\r\n\r\nEVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960\r\n    \r\n                                                                            IP                    \r\nVLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  \r\n--------------------------------------------------------------------------------------------------\r\n      00:00:02:00:00:01  L    x-eth0/0/40.1003  0    D     -    -      -                          \r\n\r\nrouter[2026-09-09-21:13:13]#",
+      "note": ""
     },
     {
       "expect_key": "FLOW031_S05_TYPE2_WITHDRAWN_LINES",
       "command": "show bgp l2vpn evpn table evi detail",
       "status": "ok",
       "lines": [
+        "Type=2: VLAN-ID=0, MAC=00:00:01:00:00:01",
+        "  ESI=0:0000.0000.0000.0000.0000",
+        "  MPLS Label= 40960",
+        "  Static Flag: 0",
+        "  Sequence Number: 0",
+        "  Peer IP: 0.0.0.0",
+        "  Flags: *>",
+        "  Metric:",
+        "  Local Preference:",
+        "  Weight: 32768",
+        "  AS Path:",
+        "Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01",
+        "  ESI=0:0000.0000.0000.0000.0000",
+        "  MPLS Label= 40960",
+        "  Static Flag: 0",
+        "  Sequence Number: 0",
+        "  Peer IP: 0.0.0.0",
+        "  Flags: *>",
+        "  Metric:",
+        "  Local Preference:",
+        "  Weight: 32768",
+        "  AS Path:",
         "Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30",
         "  MPLS Label= 32768",
         "  Transmission Mode: Replication",
@@ -188,7 +312,7 @@
         "  Weight: 32768",
         "  AS Path:"
       ],
-      "raw": "show bgp l2vpn evpn table evi detail\r\nFlags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\ni - internal, S - stale, = - multipath, a - alternate\r\nOrigin:  i - IGP, e - EGP, ? - incomplete\r\nEVI Name = evi-1\r\nType=3: VLAN-ID=0, Originating Router's IP=29.30.30.30\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 32768\r\n  Transmission Mode: Replication\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 12:02:29 2026\r\nrouter[2026-09-09-12:07:28]#",
+      "raw": "show bgp l2vpn evpn table evi detail\r\nFlags:   s - suppressed, d - damped, h - history, * - valid, > - best\r\ni - internal, S - stale, = - multipath, a - alternate\r\nOrigin:  i - IGP, e - EGP, ? - incomplete\r\nEVI Name = evi-1\r\nType=2: VLAN-ID=0, MAC=00:00:01:00:00:01\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  ESI=0:0000.0000.0000.0000.0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 40960\r\n  Static Flag: 0\r\n  Sequence Number: 0\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:06:39 2026\r\nType=2: VLAN-ID=0, MAC=00:00:02:00:00:01\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  ESI=0:0000.0000.0000.0000.0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 40960\r\n  Static Flag: 0\r\n  Sequence Number: 0\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:12:12 2026\r\nType=3: VLAN-ID=0, Originating Router's IP=29.30.30.30\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\u0000\r\n  MPLS Label= 32768\r\n  Transmission Mode: Replication\r\n  Peer IP: 0.0.0.0\r\n  Flags: *> \u0000\u0000\r\n  Metric: \r\n  Local Preference: \r\n  Weight: 32768\r\n  AS Path: \r\n  Last update: Wed Sep  9 21:05:07 2026\r\nrouter[2026-09-09-21:13:13]#",
       "note": ""
     },
     {
@@ -202,7 +326,7 @@
         "    x-eth0/0/40.1002",
         "    x-eth0/0/40.1003"
       ],
-      "raw": "show evpn broadcast-domains name evi-1\r\nEVPN Name: evi-1, Service Type: vlan-based\r\n Local BUM Label: 32768\r\n  Local Interfaces:\r\n    x-eth0/0/32.1001\r\n    x-eth0/0/40.1002\r\n    x-eth0/0/40.1003\r\nrouter[2026-09-09-12:07:29]#",
+      "raw": "show evpn broadcast-domains name evi-1\r\nEVPN Name: evi-1, Service Type: vlan-based\r\n Local BUM Label: 32768\r\n  Local Interfaces:\r\n    x-eth0/0/32.1001\r\n    x-eth0/0/40.1002\r\n    x-eth0/0/40.1003\r\nrouter[2026-09-09-21:13:14]#",
       "note": ""
     }
   ]

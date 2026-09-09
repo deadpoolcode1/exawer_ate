@@ -1,6 +1,10 @@
-import paramiko, warnings
+import warnings
+
+import paramiko
+
 warnings.filterwarnings("ignore")
-c = paramiko.SSHClient(); c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+c = paramiko.SSHClient()
+c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 c.connect("10.3.99.10", username="root", password="root", timeout=30,
           look_for_keys=False, allow_agent=False)
 def run(cmd):

@@ -99,6 +99,12 @@ class Step(BaseModel):
     #: happen. Seen on pc-3080: TC03 failed with the aged-out step demanding
     #: the very rows the test had just waited for the device to remove.
     expect_absent: bool = False
+    #: For an `expect_absent` step whose command is NOT scoped to one object:
+    #: the substring identifying the state that must disappear (a MAC, a
+    #: circuit). Captured output of an unscoped command also contains rows
+    #: that are still present and SHOULD be, and asserting their absence fails
+    #: against a healthy device.
+    expect_subject: str = ""
     #: Expected lines that are KNOWN AT GENERATION TIME, not captured.
     #:
     #: The normal path for an expectation is `ate capture`: run the command on
@@ -128,6 +134,22 @@ class Step(BaseModel):
 
     # ── traffic ──────────────────────────────────────────────────────────
     traffic_items: list[str] = Field(default_factory=list)
+    #: For VERIFY_IXIA: the expected statistics rows, as
+    #: (traffic item, Tx frame rate, Rx frame rate).
+    #:
+    #: Per STEP, never per suite. The emitter used to assert
+    #: ALL_TRAFFIC_ITEMS_RUNNING - all three items at 1000/1000 - at every
+    #: traffic verification, discarding whatever the step declared. At most of
+    #: those points only one item is unsuspended, so the assertion could not
+    #: pass on a device that was behaving correctly. It went unnoticed for as
+    #: long as it did because the statistics view did not exist at all, so
+    #: every one of those steps failed for a different reason first
+    #: (deliverables/M2/evidence_traffic_item_tracking.txt).
+    #:
+    #: An EMPTY list keeps the fake-pass contract: EvpnUtils warns rather than
+    #: passes, so a step whose rates are not yet known from a device cannot
+    #: show green.
+    expect_rows: list[tuple[str, str, str]] = Field(default_factory=list)
     #: For TRAFFIC_STATE: True → unsuspend, False → suspend.
     enabled: bool | None = None
 

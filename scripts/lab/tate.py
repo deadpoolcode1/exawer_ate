@@ -1,5 +1,9 @@
 """Run a command (or a TCL script) on tate, the IXIA application host."""
-import sys, paramiko, warnings
+import sys
+import warnings
+
+import paramiko
+
 warnings.filterwarnings("ignore")
 
 HOST, USER, PW = "10.1.70.200", "root", "1q2w3e"

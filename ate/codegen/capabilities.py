@@ -192,6 +192,24 @@ def _has_source_mac_control(files: Mapping[str, str]) -> bool:
     return "setTrafficItemSourceMac" in _utils(files)
 
 
+def _has_traffic_item_tracking(files: Mapping[str, str]) -> bool:
+    """Traffic items are tracked, so the statistics view exists.
+
+    Without `trackingenabled0` IxNetwork builds no "Traffic Item Statistics"
+    view, ixia_lib's own trafficApply throws reading that view's page, and
+    every traffic assertion reports "No results where: TRAFFIC_ITEM: ..." on
+    a rig where the traffic is running perfectly. Found on pc-3099,
+    2026-09-09, by TC02.
+
+    Read from the emitted files, never from the profile: the .ixncfg the suite
+    loads was itself saved without tracking, so "we set it somewhere" is not
+    the question - the question is whether these files set it.
+    """
+    utils = _utils(files)
+    return ("enableTrafficItemTracking" in utils
+            and "trackingenabled0" in utils)
+
+
 def _has_three_acs(files: Mapping[str, str]) -> bool:
     """Three attachment circuits are bound to the EVI.
 
@@ -218,6 +236,7 @@ def _has_three_acs(files: Mapping[str, str]) -> bool:
 _UNDERLAY_EVIDENCE = "deliverables/M2/evidence_underlay_and_ixia_peer.txt"
 _GREEN_EVIDENCE = "deliverables/M2/evidence_three_suites_green.txt"
 _SHARED_PORT_EVIDENCE = "deliverables/M2/evidence_shared_port_acs.txt"
+_TRACKING_EVIDENCE = "deliverables/M2/evidence_traffic_item_tracking.txt"
 
 CAPABILITIES: tuple[Capability, ...] = (
     Capability(
@@ -275,6 +294,18 @@ CAPABILITIES: tuple[Capability, ...] = (
         proof=Proof(host="pc-3080", build="8.7.0 LAB 22", date="2026-08-14",
                     evidence=_GREEN_EVIDENCE,
                     observed="SRCMAC=00:00:02:00:00:01 SET=2"),
+    ),
+    Capability(
+        id="traffic.statistics_view",
+        description=("traffic items are tracked by traffic item, which is "
+                     "what makes IxNetwork build the statistics view every "
+                     "traffic assertion reads"),
+        detector=_has_traffic_item_tracking,
+        proof=Proof(host="pc-3099", build="8.7.0 LAB 935", date="2026-09-09",
+                    evidence=_TRACKING_EVIDENCE,
+                    observed=("VIEW isReady=true; TI_AC1_TO_AC2 Tx 9983 "
+                              "Rx 19966 - the flood to both ACs, which the "
+                              "untracked run could not see at all")),
     ),
     Capability(
         id="topology.three_acs",

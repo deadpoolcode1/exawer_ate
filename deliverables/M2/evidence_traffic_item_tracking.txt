@@ -1,0 +1,109 @@
+======================================================================
+SOLVED: the IXIA traffic statistics view never existed
+======================================================================
+pc-3099 (10.3.99.1), 8.7.0 LAB 935. Chassis 10.1.70.108, app server
+10.1.90.108, IxNetwork 9.00. Found 2026-09-09 by running TC02.
+
+SYMPTOM
+  TC02 failed every traffic assertion:
+
+    Fail: slept: 30 seconds. Command: viewStatisticsPage not valid .
+    Fail: No results where:  TRAFFIC_ITEM: TI_AC1_TO_AC2
+    Fail: No results where:  TRAFFIC_ITEM: TI_AC2_TO_AC1
+    Fail: No results where:  TRAFFIC_ITEM: TI_AC3_TO_AC1
+    Fail: viewStatisticsPage results not as expected
+
+  and the chassis answered, on every call:
+
+    Warning: ixia1: Perform function: viewStatisticsPage - Ixia error:
+    error in state view name, fail to find view.
+    Warning: ixia1: Perform function: trafficApply - Ixia error:
+    ::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+
+  The traffic was running correctly the whole time.
+
+WHAT IT WAS NOT
+  Read in order, because each of these looked right and cost a run:
+
+  - not the apply. Replaying load -> generate -> apply by hand returns
+    ::ixNet::OK and the items go unapplied -> stopped with a
+    configElement each. ERROR-7008 is not raised by the apply.
+  - not `trafficItemConfig` invalidating the generate. It does reset the
+    item to `unapplied`, but the following apply still returns OK.
+  - not a missing `generate`. That was the 2026-09-09 morning fix and it
+    is present and correct in both branches.
+  - not the .ixncfg failing to load. `loadIxiaFile` loads it and all
+    three items are present and named correctly.
+
+THE CAUSE
+  ixia_lib.tcl's own trafficApply ends with
+
+    proc trafficApply {} {
+        ixNet exec apply [ixNet getRoot]traffic
+        after 5000
+        puts [ixNet getAtt [ixNet getRoot]traffic -state]
+        ixNet getAtt {::ixNet::OBJ-/statistics/view:"Traffic Item
+                      Statistics"/page} -isReady        <-- throws
+    }
+
+  so the proc reports the apply as failed when the only thing that
+  failed is reading a statistics view that does not exist:
+
+    ::ixNet::ERROR-Unable to find /statistics/view:"Traffic Item
+    Statistics"/page
+
+  IxNetwork builds that view only for traffic items that carry
+  tracking. Ours carried none:
+
+    TI_AC1_TO_AC2 trackBy=''
+    TI_AC2_TO_AC1 trackBy=''
+    TI_AC3_TO_AC1 trackBy=''
+
+  The .ixncfg was saved on 2026-09-09 from a session that never set it,
+  so the file the suite loads has no tracking either. Exaware's own
+  IxiaTraffic.configureTrafficTracking always sets a trackBy; ours never
+  did, and nothing noticed because TC01 - the only suite that was green
+  - is the one test that reads no traffic statistics.
+
+THE FIX, DEVICE-VERIFIED
+  Track by traffic item, before generate:
+
+    configTrafficItemTracking <item> null null trackingenabled0 null null null
+
+  Same rig, same .ixncfg, same generate/apply/start:
+
+    VIEW (before fix): ABSENT
+    VIEW (after apply): isReady=true
+
+    columns = {Traffic Item} {Tx Frames} {Rx Frames} {Frames Delta}
+              {Loss %} {Tx Frame Rate} {Rx Frame Rate} ...
+
+    TI_AC1_TO_AC2  Tx 9983  Rx 19966  delta 9983
+    TI_AC2_TO_AC1  Tx 9983  Rx  9983  delta 0  Loss 0
+    TI_AC3_TO_AC1  Tx 9983  Rx  9983  delta 0  Loss 0
+
+  Rx = 2x Tx on TI_AC1_TO_AC2 is the unknown-unicast being flooded to
+  BOTH other attachment circuits, which is exactly what FLOW-030 step 3
+  asserts. The rig could always do it; the suite could not see it.
+
+  In the generator:
+    ate/codegen/java_emitter.py   EvpnUtils.enableTrafficItemTracking(),
+                                  called before GENERATE_TRAFFIC in BOTH
+                                  the .ixncfg branch and the build branch,
+                                  and reading trackBy back afterwards.
+    ate/codegen/device_config.py  configTrafficItemTracking lines in
+                                  EVPN_traffic.tcl, so a regenerated
+                                  .ixncfg carries tracking from the start.
+
+WHY IT SURVIVED THIS LONG - the rule it breaks
+  Every call in the failing path reported success:
+
+    Pass: ixia1: Perform function: generateAllTrafficItems ended without errors
+    Pass: ixia1: Perform function: trafficItemConfig ended without errors
+    Pass: ixia1: Perform function: trafficStart ended without errors
+
+  "ended without errors" is Exaware's phrasing for "the TCL proc
+  returned", and it is the same false signal that hid 34 TCL calls that
+  never ran. The read-back in enableTrafficItemTracking exists because of
+  it: the setting the entire traffic verification rests on is now
+  asserted, not assumed.

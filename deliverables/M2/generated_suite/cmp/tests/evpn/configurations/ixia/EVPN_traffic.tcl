@@ -173,6 +173,20 @@ configTrafficItemEndpoints TI_AC2_TO_AC1 1 vport3 null null null null null null 
 configNewTrafficItem TI_AC3_TO_AC1 true null l2L3 false false raw TI_AC3_TO_AC1 interleaved null false false oneToOne
 configTrafficItemEndpoints TI_AC3_TO_AC1 1 vport3 null null null null null null vport2 null null null null null null null null null TI_AC3_TO_AC1 null null
 
+# Track every item BY TRAFFIC ITEM, before generate.
+#
+# DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108. This is what
+# makes IxNetwork build the "Traffic Item Statistics" view. With
+# `trackBy` empty the view does not exist at all, ixia_lib's own
+# trafficApply throws reading its page, and every traffic assertion
+# reports
+#     Fail: No results where: TRAFFIC_ITEM: <name>
+# on a rig where the traffic is running perfectly. The .ixncfg saved
+# without this is why TC02 was red on 2026-09-09.
+configTrafficItemTracking TI_AC1_TO_AC2 null null trackingenabled0 null null null
+configTrafficItemTracking TI_AC2_TO_AC1 null null trackingenabled0 null null null
+configTrafficItemTracking TI_AC3_TO_AC1 null null trackingenabled0 null null null
+
 # GENERATE, and it must happen HERE - after every item has its
 # endpoints and before anything touches a stream, a rate, a VLAN or
 # a source MAC.
@@ -200,7 +214,22 @@ configTrafficItemStream TI_AC3_TO_AC1 1 goodCRC manual TI_AC3_TO_AC1 8 auto fals
 configTrafficItemFrameRate TI_AC3_TO_AC1 stream 1 framesPerSecond $ateFrameRateFps bytes bitsPerSec false
 ateTagItemVlan TI_AC3_TO_AC1 1003
 
-# Source MACs last: `generate` overwrites them.
+# MACs last: `generate` resets them, so they are set after it and
+# never before.
+#
+# The destination is BROADCAST, and that is deliberate. A raw item
+# defaults to 00:00:00:00:00:00, and this build reports
+# "Unknown MAC Flooding: Disabled" with no CLI to turn it on. An
+# all-zero or unknown-unicast destination is therefore taken by the
+# port and dropped before the bridge domain - verified on pc-3099,
+# where the physical counter passed a billion frames while every
+# attachment circuit counted 0 and Discard/MAC-filtered/Unknown-vlan
+# were all 0. Broadcast is flooded regardless, so the circuit
+# classifies it and the SOURCE MAC is learnt, which is what the
+# FLOW-030 assertions actually need.
+editTrafficRawDestMacAddr TI_AC1_TO_AC2 ff:ff:ff:ff:ff:ff
+editTrafficRawDestMacAddr TI_AC2_TO_AC1 ff:ff:ff:ff:ff:ff
+editTrafficRawDestMacAddr TI_AC3_TO_AC1 ff:ff:ff:ff:ff:ff
 ateSetItemSrcMac TI_AC1_TO_AC2 00:00:01:00:00:01
 ateSetItemSrcMac TI_AC2_TO_AC1 00:00:02:00:00:01
 ateSetItemSrcMac TI_AC3_TO_AC1 00:00:02:00:00:01

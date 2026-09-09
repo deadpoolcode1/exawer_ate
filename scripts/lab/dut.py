@@ -1,4 +1,4 @@
-"""Minimal Exaware CLI driver.
+r"""Minimal Exaware CLI driver.
 
 Two things the first version got wrong, both of which cost a run:
   * the prompt is not always `name[timestamp]#` - config mode adds a suffix -
@@ -6,7 +6,10 @@ Two things the first version got wrong, both of which cost a run:
   * `commit` prints an ASCII spinner (`|/-\`) before its verdict, which the
     naive reader treated as content and never matched a prompt on.
 """
-import re, time, paramiko
+import re
+import time
+
+import paramiko
 
 ANSI = re.compile(r"\x1b\[[0-9;?]*[A-Za-z]")
 SPIN = re.compile(r"[|/\-\\]{2,}")
@@ -47,9 +50,9 @@ class Dut:
             self.sh.recv(65535)
         self.sh.send(cmd + "\n")
         raw = self._read(limit)
-        body = [l.rstrip() for l in raw.splitlines()
-                if l.strip() and l.strip() != cmd.strip()
-                and not PROMPT.search(l.rstrip())]
+        body = [ln.rstrip() for ln in raw.splitlines()
+                if ln.strip() and ln.strip() != cmd.strip()
+                and not PROMPT.search(ln.rstrip())]
         return "\n".join(body)
 
     def close(self):

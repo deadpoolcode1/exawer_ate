@@ -132,6 +132,34 @@ Two defects that run exposed matter more than the pass:
   on one port. `--lab 3ac-core` is the shippable profile now, it emits all
   three suites, and the client lost TC02 for a fortnight over arithmetic that
   was ours, not the rig's.
+- **The IXIA traffic assertions could never have passed, on any rig
+  (found 2026-09-09).** TC02 failed every traffic step with `No results where:
+  TRAFFIC_ITEM: ...` while the traffic was running perfectly. Three separate
+  causes, each hidden behind the one before it:
+
+  | | |
+  |---|---|
+  | The statistics view did not exist | IxNetwork builds "Traffic Item Statistics" only for items that carry tracking; ours had `trackBy=''`, and the `.ixncfg` we ship was saved without it. `ixia_lib`'s own `trafficApply` throws reading that view, which is where the misleading `ERROR-7008 Could not apply traffic` came from |
+  | Every step asserted "all three running" | the emitter discarded the expectation each step declared; at most steps exactly one item is unsuspended |
+  | Expected Rx assumed Rx = Tx | AC2 and AC3 share a vport, so a broadcast flooded to both is counted twice: `TI_AC1_TO_AC2` reads Tx 1000 / **Rx 2000**. That 2x *is* the flooding assertion |
+
+  TC01 was green throughout, because it is the one suite that reads no traffic
+  statistics. Fixed in the emitter, ratcheted as `traffic.statistics_view`,
+  and locked by two tests. Evidence:
+  `deliverables/M2/evidence_traffic_item_tracking.txt` and
+  `evidence_traffic_expectations.txt`.
+
+  Three step titles claimed things the rig cannot show (a broadcast cannot
+  stop being flooded; a MAC move between two circuits on one vport is
+  invisible to a per-port counter). They now state what they actually
+  establish, and the MAC move is asserted where the evidence is, on the DUT.
+
+- **TC03 aged out MACs it had never learnt.** FLOW-031 stopped traffic, waited
+  out the aging time and asserted the entries were gone, from a prep that
+  starts every traffic item *suspended*. Nothing was ever learnt, so all three
+  of its assertions were trivially true on an empty MAC table. It now starts
+  traffic and asserts the MACs **are** learnt before testing that they age.
+
 - **The suites no longer fake a pass, and the rule earned its keep twice.**
   A generated test that verified nothing used to report `OK (1 test)`.
 
@@ -468,8 +496,29 @@ assertions could never have matched.** They are dropped rather than asserted,
 which is why the falsifiable tally reads 3 of 23 rather than 5. The two that
 went away were never real.
 
-Re-capturing on the rig is what recovers them, and it is the first thing to do
-with lab access.
+Re-capturing on the rig is what recovers them, and it was done on 2026-09-09.
+
+**The re-capture happened, and it more than doubled the assertions.** Nine
+expectations had shipped empty because they are about MAC-table and BGP-route
+*content*, which does not exist on an idle device: an empty expectation warns
+and never passes, so those steps asserted nothing. The chassis was driven to
+the state the flow describes (EVI up, three circuits bound, all three traffic
+items transmitting, MACs learnt on AC1 and moved onto AC3) and `ate capture`
+run against it: **16 of 16 usable, 0 dropped**.
+
+| | Falsifiable | Warn only |
+|---|---|---|
+| Before | 7 of 26 | 19 |
+| After | **17 of 26** | 9 |
+
+The nine that still warn need output this rig cannot produce (a second PE, a
+remote Type-2), and they are listed by `ate codegen`.
+
+Filling absence steps from a capture needed two guards, because
+`verifyShowLinesAbsent` demands its lines be *gone*: column headers are
+printed whether or not a row remains, and an unscoped command's capture also
+holds rows that are still present and should be. Both are stripped now, and
+`deliverables/M2/evidence_traffic_expectations.txt` shows what changed.
 
 ### Lab session 2026-09-09: what the hardware settled
 

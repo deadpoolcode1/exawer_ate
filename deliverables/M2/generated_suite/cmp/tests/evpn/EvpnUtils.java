@@ -460,6 +460,21 @@ public class EvpnUtils implements loggerImp {
         // with every attachment circuit still counting zero frames.
         if (IXNCFG != null) {{
             verifyTrafficItemsLoaded();
+            // GENERATE, even though the items came from a saved file.
+            //
+            // DEVICE-VERIFIED 2026-09-09 on pc-3099. Loading an .ixncfg
+            // restores the traffic objects and their frame fields, but does
+            // NOT arm the hardware: apply and start then transmit nothing the
+            // attachment circuits can see. Every circuit counted 0 with the
+            // items reporting state=started and the right MACs in the object
+            // model. One `generate` before apply, and the same rig produced
+            //     x-eth0/0/32.1001  RX 107.45 k
+            //     00:00:01:00:00:01  L  x-eth0/0/32.1001  D
+            // Tracking first: the saved .ixncfg carries none, and without
+            // it the statistics view every step below reads never exists.
+            enableTrafficItemTracking();
+            ixia.performFunctions(IxiaFunctions.GENERATE_TRAFFIC);
+            Thread.sleep(8000);
             // Their VPLS prep, and the piece that was missing: unsuspending
             // an item does NOT start the traffic engine. Without this the
             // items sit at state=stopped, every attachment circuit counts
@@ -511,6 +526,11 @@ public class EvpnUtils implements loggerImp {
         // the EVI learnt nothing while every call reported success.
         tagTrafficItemsWithAcVlan();
 
+        // Track by traffic item before generating, for the same reason as the
+        // .ixncfg branch above: no tracking, no statistics view, no traffic
+        // assertion that can pass.
+        enableTrafficItemTracking();
+
         // GENERATE binds the physical MACs and interfaces onto each raw item -
         // their own enum says so ("generate traffic item to apply physical mac
         // and interfaces to traffic source and destanation"). Without it the
@@ -527,6 +547,14 @@ public class EvpnUtils implements loggerImp {
         // ixia_lib.tcl is already sourced - their file is not modified.
         for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
             setTrafficItemSourceMac(ti[0], ti[3]);
+            // And the DESTINATION, which is broadcast. A raw item defaults to
+            // 00:00:00:00:00:00, and this build reports "Unknown MAC
+            // Flooding: Disabled" with no CLI to enable it, so an all-zero or
+            // unknown-unicast destination is taken by the port and dropped
+            // before the bridge domain. Verified on pc-3099: the physical
+            // counter passed a billion frames while every circuit counted 0.
+            ixia.performFunctions(IxiaFunctions.EDIT_RAW_TRAFFIC_DEST_MAC_ADDR
+                    .args(ti[0], ti[5]));
         }
         ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info("Traffic items built on the chassis");
@@ -583,6 +611,59 @@ public class EvpnUtils implements loggerImp {
      * than assumed: an unapplied source MAC would leave the MAC-move flows
      * asserting something that never happened.
      */
+    /**
+     * Track every traffic item BY TRAFFIC ITEM, which is what creates the
+     * "Traffic Item Statistics" view.
+     *
+     * DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108. IxNetwork only
+     * builds that view for items that carry tracking; with `trackBy` empty
+     * the view does not exist at all, and every read of it answers
+     *     error in state view name, fail to find view
+     * which ixia_lib's own trafficApply turns into an exception, because its
+     * last line reads the view's page. So an untracked suite reports
+     *     Fail: No results where: TRAFFIC_ITEM: TI_AC1_TO_AC2
+     * on a rig where the traffic is running perfectly - the .ixncfg we ship
+     * was saved without tracking, and TC01 never noticed because it is the
+     * one test that reads no traffic statistics.
+     *
+     * With this set, the same rig answers:
+     *     TI_AC1_TO_AC2  Tx 9983  Rx 19966   (flooded to BOTH ACs)
+     *     TI_AC2_TO_AC1  Tx 9983  Rx  9983   Loss 0
+     *
+     * Must run BEFORE `generate`: tracking is part of what generate binds.
+     */
+    public void enableTrafficItemTracking() throws Exception {
+        for (String trafficItem : params.ALL_TRAFFIC_ITEMS) {
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_TRACKING
+                    .args(trafficItem, "null", "null", "trackingenabled0",
+                          "null", "null", "null"));
+        }
+        // Read it back. `performFunctions` reports "ended without errors" for
+        // a proc that did nothing, and this is the setting the whole traffic
+        // verification rests on.
+        int tracked = 0;
+        for (String trafficItem : params.ALL_TRAFFIC_ITEMS) {
+            String got = ixia.runCommand(new RawTcl(
+                    "ixNet getAtt [getTraffic " + trafficItem
+                    + "]/tracking -trackBy"));
+            if (got != null && got.contains("trackingenabled0")) {
+                tracked++;
+            }
+        }
+        boolean all = tracked == params.ALL_TRAFFIC_ITEMS.length;
+        CompassReporter.passFailByCondition(all,
+                "All " + tracked + " traffic items are tracked by traffic "
+                        + "item, so the statistics view exists.",
+                "Only " + tracked + " of " + params.ALL_TRAFFIC_ITEMS.length
+                        + " traffic items are tracked - the Traffic Item "
+                        + "Statistics view will not exist and every traffic "
+                        + "assertion below would fail against running "
+                        + "traffic.");
+        if (!all) {
+            throw new Exception("could not enable traffic-item tracking");
+        }
+    }
+
     /**
      * Push a VLAN header onto every raw traffic item, carrying the AC VLAN.
      *
