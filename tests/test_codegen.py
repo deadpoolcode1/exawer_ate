@@ -2096,6 +2096,61 @@ def test_steps_sharing_one_command_do_not_share_one_expectation() -> None:
     assert checked, "no shared-command expectations were actually compared"
 
 
+def test_absence_assertions_poll_and_aging_gets_a_longer_budget() -> None:
+    """Absence takes time; asking once is a race against the device.
+
+    pc-3099, 2026-09-09. TC03 waited out the 300 s MAC aging time, asked once
+    and failed. The device was right: measured on the same run, the entry was
+    still present at 342 s and gone by 442 s, because the device ages on a
+    300 s timer but sweeps on a coarser one.
+
+    `verifyShowLinesAbsent` read the output exactly once, while every other
+    verification in the suite polls - and it is the one whose entire subject
+    is something that takes time to stop being true.
+
+    Evidence: deliverables/M2/evidence_aging_takes_longer_than_nominal.txt
+    """
+    from ate.codegen.evpn_scripts import evpn_scripts
+    from ate.codegen.java_emitter import emit_params, emit_test, emit_utils
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+
+    lab = SINGLE_DUT_3AC_CORE
+    utils = emit_utils(lab).content
+
+    assert "long timeoutMsec" in utils, (
+        "verifyShowLinesAbsent takes no timeout, so it cannot poll")
+    body = utils.split("public void verifyShowLinesAbsent(ICmpCliCmd command,"
+                       " String[] goneLines,", 1)[-1]
+    assert "System.currentTimeMillis() + timeoutMsec" in body, (
+        "the absence check does not poll to a deadline")
+    assert "runCommandAndSwitch" in body.split("while (true)", 1)[-1], (
+        "the poll loop never re-reads the device, so it can only ever see "
+        "the first answer")
+
+    params = emit_params(evpn_scripts(lab), lab).content
+    assert "AGING_VERIFY_TIMEOUT_IN_MSEC" in params, (
+        "no dedicated budget for steps that wait on aging")
+
+    # The aging steps must actually ask for it.
+    aging = [st for sc in evpn_scripts(lab) for st in sc.steps
+             if st.expect_absent and "AGED_OUT" in st.expect_key.upper()
+             or st.expect_absent and "WITHDRAWN" in st.expect_key.upper()]
+    assert aging, "FLOW-031 has no aging assertions"
+    for st in aging:
+        assert st.poll_key == "AGING_VERIFY_TIMEOUT_IN_MSEC", (
+            f"{st.id} asserts something aged out but uses the default "
+            "30 s budget, which the device has already been measured to "
+            "exceed")
+
+    for sc in evpn_scripts(lab):
+        rendered = emit_test(sc, lab).content
+        for st in sc.steps:
+            if st.expect_absent and st.poll_key:
+                assert f"testParams.{st.poll_key}" in rendered, (
+                    f"{sc.class_name} does not pass {st.poll_key} to "
+                    f"{st.id}'s absence check")
+
+
 def test_a_capture_must_show_the_route_type_its_step_is_about() -> None:
     """pc-3099, 2026-09-09: a valid capture that is the wrong evidence.
 

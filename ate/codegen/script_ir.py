@@ -105,6 +105,11 @@ class Step(BaseModel):
     #: that are still present and SHOULD be, and asserting their absence fails
     #: against a healthy device.
     expect_subject: str = ""
+    #: For an `expect_absent` step: the EvpnParams constant naming how long to
+    #: keep asking. Absence takes time, and a device that sweeps on a coarser
+    #: timer than it ages on will still be holding the row when the nominal
+    #: wait expires.
+    poll_key: str = ""
     #: Expected lines that are KNOWN AT GENERATION TIME, not captured.
     #:
     #: The normal path for an expectation is `ate capture`: run the command on

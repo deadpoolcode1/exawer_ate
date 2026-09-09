@@ -1,0 +1,59 @@
+======================================================================
+MAC aging finishes LATER than the aging time, and the test asked once
+======================================================================
+pc-3099 (10.3.99.1), 8.7.0 LAB 935, 2026-09-09.
+
+SYMPTOM
+  TC03 ran 128 passing assertions and failed 4, all of them the aging
+  ones:
+
+    Fail: The output of show evpn mac-address-table name evi-1 source
+          x-eth0/0/40.1003 STILL contains lines that should have gone:
+          [00:00:02:00:00:01 ... x-eth0/0/40.1003 ...]
+    Fail: The output of show bgp l2vpn evpn table evi detail STILL
+          contains lines that should have gone:
+          [Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01]
+
+  The obvious reading is that aging is broken. It is not.
+
+WHAT THE DEVICE ACTUALLY DID
+  Read off the same run, plus a direct check afterwards:
+
+    15:44:52   AC3's last frame (traffic item suspended)
+    15:50:00   entry STILL present   (308 s after)  -> Fail
+    15:50:34   entry STILL present   (342 s after)  -> Fail
+    15:52:14   entry GONE            (442 s after)
+
+    show evpn detail -> MAC Aging Time: 300 seconds
+
+  So the entry outlived its nominal aging time by at least 42 s and was
+  gone within 442 s. The device ages on a 300 s timer but SWEEPS on a
+  coarser one. Asking once at exactly 300 s is a race the test loses,
+  and it loses it against a device that is behaving correctly.
+
+  AC1's MAC was still present throughout, correctly: AC1 never stops
+  transmitting, so its entry is refreshed. That is the control which
+  shows the table itself had not simply emptied.
+
+THE DEFECT WAS OURS, AND IT WAS NOT THE WAIT
+  `verifyShowLinesAbsent` read the command output EXACTLY ONCE and
+  asserted on it. Every other verification in the suite polls; this one
+  did not, and it is the one whose whole subject is a thing that takes
+  time to stop being true.
+
+  Fixed by polling until the lines are gone or a budget expires, with
+  the budget declared per step:
+
+    AGING_VERIFY_TIMEOUT_IN_MSEC = 240000
+
+  240 s past the nominal wait covers the 442 s that was measured, with
+  margin. Lengthening the WAIT instead would have hidden the real
+  shape of the problem; polling states it: the test fails if the rows
+  never go, not if they have not gone yet.
+
+WHY THIS IS NOT A WEAKENED ASSERTION
+  The assertion still fails if aging does not happen. It cannot pass on
+  a device that never removes the entry, because the loop ends at the
+  deadline and asserts what it last saw. What changed is that the test
+  no longer demands the device be finished at a moment the device never
+  promised.

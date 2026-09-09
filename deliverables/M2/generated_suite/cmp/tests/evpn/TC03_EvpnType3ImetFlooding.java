@@ -117,11 +117,11 @@ public class TC03_EvpnType3ImetFlooding extends CmpTestCase {
 
         // FLOW-031.S04 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Verify the AC3 MACs are removed from the EVPN MAC table once their traffic stopped and they aged out");
-        evpnUtils.verifyShowLinesAbsent(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", evpnUtils.acInterfaceCompact(2)), testParams.FLOW031_S04_MACS_AGED_OUT_LINES);
+        evpnUtils.verifyShowLinesAbsent(EvpnCommands.SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$.args("evi-1", evpnUtils.acInterfaceCompact(2)), testParams.FLOW031_S04_MACS_AGED_OUT_LINES, testParams.AGING_VERIFY_TIMEOUT_IN_MSEC);
 
         // FLOW-031.S05 - covers RFC7432bis-section 7.2
         CompassReporter.stopAndStartLevel(++level + ". Verify the AC2 MACs' Type-2 routes are withdrawn from the BGP table");
-        evpnUtils.verifyShowLinesAbsent(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL, testParams.FLOW031_S05_TYPE2_WITHDRAWN_LINES);
+        evpnUtils.verifyShowLinesAbsent(EvpnCommands.SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL, testParams.FLOW031_S05_TYPE2_WITHDRAWN_LINES, testParams.AGING_VERIFY_TIMEOUT_IN_MSEC);
 
         // FLOW-031.S06 - covers RFC7432bis-section 7.3, RFC7432bis-section 11
         CompassReporter.stopAndStartLevel(++level + ". Verify the BUM routing table still lists the flood list");

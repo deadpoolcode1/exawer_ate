@@ -412,6 +412,16 @@ def emit_params(scripts: list[TestScript], lab: LabProfile,
         "",
         "    // ---- timing ----",
         f"    public final long VERIFY_TIMEOUT_IN_MSEC = {lab.verify_timeout_ms}L;",
+        "    /** How long to keep asking, for something that ages out.",
+        "     *",
+        "     *  DEVICE-MEASURED on pc-3099, 2026-09-09: after the last frame",
+        "     *  at 15:44:52 the entry was still present at 15:50:34 (342 s)",
+        "     *  and gone by 15:52:14 (442 s), against a 300 s MAC aging time.",
+        "     *  The device sweeps on a coarser timer than it ages on, so",
+        "     *  asking once 30 s after the nominal wait is a race the test",
+        "     *  loses. 240 s covers what was measured, with margin, and still",
+        "     *  fails if aging stops working altogether. */",
+        "    public final long AGING_VERIFY_TIMEOUT_IN_MSEC = 240000L;",
         f"    public final long VERIFY_INTERVAL_IN_MSEC = {lab.verify_interval_ms}L;",
         "    /** TODO: confirm the EVPN MAC-aging default with Exaware; the",
         "     *  VPLS suite tunes this per platform with a wide deviation. */",
@@ -500,6 +510,31 @@ _UTILS_BODY = '''
      */
     public void verifyShowLinesAbsent(ICmpCliCmd command, String[] goneLines)
             throws Exception {
+        verifyShowLinesAbsent(command, goneLines,
+                              params.VERIFY_TIMEOUT_IN_MSEC);
+    }
+
+    /**
+     * As above, but POLLING until the lines are gone or `timeoutMsec` passes.
+     *
+     * Absence takes time, and this used to read the output exactly once. On
+     * pc-3099, 2026-09-09, TC03 waited out the 300 s MAC aging time, asked
+     * once, and failed:
+     *
+     *     STILL contains lines that should have gone:
+     *     [00:00:02:00:00:01 ... x-eth0/0/40.1003 ...]
+     *
+     * The device was right and the test was impatient. Measured on that same
+     * run: the last frame was at 15:44:52, the entry was still present at
+     * 15:50:34 (342 s) and gone by 15:52:14 (442 s), against a 300 s aging
+     * time. The device sweeps on a coarser timer than it ages on, so asking
+     * once at the nominal wait can only be a race.
+     *
+     * Polling is also the honest shape: it fails when the rows never go, not
+     * when they have not gone YET.
+     */
+    public void verifyShowLinesAbsent(ICmpCliCmd command, String[] goneLines,
+                                      long timeoutMsec) throws Exception {
         String output = cmp.runCommandAndSwitch(command.toString(), command);
         if (goneLines == null || goneLines.length == 0) {
             CompassReporter.warning("No validated expectation for '"
@@ -508,11 +543,23 @@ _UTILS_BODY = '''
             return;
         }
         java.util.List<String> stillThere = new java.util.ArrayList<String>();
-        for (String pattern : goneLines) {
-            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
-            if (p.matcher(output).find()) {
-                stillThere.add(pattern);
+        long deadline = System.currentTimeMillis() + timeoutMsec;
+        while (true) {
+            stillThere.clear();
+            for (String pattern : goneLines) {
+                java.util.regex.Pattern p =
+                        java.util.regex.Pattern.compile(pattern);
+                if (p.matcher(output).find()) {
+                    stillThere.add(pattern);
+                }
             }
+            if (stillThere.isEmpty()
+                    || System.currentTimeMillis() >= deadline) {
+                break;
+            }
+            logMsg.info("still present, waiting for them to go: " + stillThere);
+            Thread.sleep(params.VERIFY_INTERVAL_IN_MSEC);
+            output = cmp.runCommandAndSwitch(command.toString(), command);
         }
         falsifiableAssertions++;
         CompassReporter.passFailByCondition(stillThere.isEmpty(),
@@ -1844,7 +1891,11 @@ def _render_step(step: Step, lab: LabProfile,
                   else "new String[] {}")
         helper = ("verifyShowLinesAbsent" if step.expect_absent
                   else "verifyShowLines")
-        out.append(f"        evpnUtils.{helper}({cmd_expr}, {expect});")
+        if step.expect_absent and step.poll_key:
+            out.append(f"        evpnUtils.{helper}({cmd_expr}, {expect}, "
+                       f"testParams.{step.poll_key});")
+        else:
+            out.append(f"        evpnUtils.{helper}({cmd_expr}, {expect});")
     elif step.kind is StepKind.TESTER_PROTOCOLS:
         out.append("        evpnUtils.startTesterProtocolsAndVerify();")
     elif step.kind is StepKind.TRAFFIC_CREATE:

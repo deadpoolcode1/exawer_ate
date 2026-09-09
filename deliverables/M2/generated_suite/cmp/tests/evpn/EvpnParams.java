@@ -124,6 +124,16 @@ public class EvpnParams implements ISuiteParams {
 
     // ---- timing ----
     public final long VERIFY_TIMEOUT_IN_MSEC = 30000L;
+    /** How long to keep asking, for something that ages out.
+     *
+     *  DEVICE-MEASURED on pc-3099, 2026-09-09: after the last frame
+     *  at 15:44:52 the entry was still present at 15:50:34 (342 s)
+     *  and gone by 15:52:14 (442 s), against a 300 s MAC aging time.
+     *  The device sweeps on a coarser timer than it ages on, so
+     *  asking once 30 s after the nominal wait is a race the test
+     *  loses. 240 s covers what was measured, with margin, and still
+     *  fails if aging stops working altogether. */
+    public final long AGING_VERIFY_TIMEOUT_IN_MSEC = 240000L;
     public final long VERIFY_INTERVAL_IN_MSEC = 5000L;
     /** TODO: confirm the EVPN MAC-aging default with Exaware; the
      *  VPLS suite tunes this per platform with a wide deviation. */

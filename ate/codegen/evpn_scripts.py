@@ -682,6 +682,7 @@ def _type3(lab: LabProfile) -> TestScript:
             args=[evi, lab.ac(aging.src).ac_interface],
             expect_key="FLOW031_S04_MACS_AGED_OUT_LINES",
             expect_absent=True,
+            poll_key="AGING_VERIFY_TIMEOUT_IN_MSEC",
             req_ids=_R_TYPE2,
             todo="Needs real MAC-table output.",
         ),
@@ -694,6 +695,7 @@ def _type3(lab: LabProfile) -> TestScript:
             args=[],
             expect_key="FLOW031_S05_TYPE2_WITHDRAWN_LINES",
             expect_absent=True,
+            poll_key="AGING_VERIFY_TIMEOUT_IN_MSEC",
             # `show bgp l2vpn evpn table evi detail` is not scoped to a
             # circuit, and only THIS item's MACs stop being refreshed. AC1
             # keeps transmitting, so its Type-2 stays advertised and must.

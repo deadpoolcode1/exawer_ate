@@ -267,6 +267,31 @@ public class EvpnUtils implements loggerImp {
      */
     public void verifyShowLinesAbsent(ICmpCliCmd command, String[] goneLines)
             throws Exception {
+        verifyShowLinesAbsent(command, goneLines,
+                              params.VERIFY_TIMEOUT_IN_MSEC);
+    }
+
+    /**
+     * As above, but POLLING until the lines are gone or `timeoutMsec` passes.
+     *
+     * Absence takes time, and this used to read the output exactly once. On
+     * pc-3099, 2026-09-09, TC03 waited out the 300 s MAC aging time, asked
+     * once, and failed:
+     *
+     *     STILL contains lines that should have gone:
+     *     [00:00:02:00:00:01 ... x-eth0/0/40.1003 ...]
+     *
+     * The device was right and the test was impatient. Measured on that same
+     * run: the last frame was at 15:44:52, the entry was still present at
+     * 15:50:34 (342 s) and gone by 15:52:14 (442 s), against a 300 s aging
+     * time. The device sweeps on a coarser timer than it ages on, so asking
+     * once at the nominal wait can only be a race.
+     *
+     * Polling is also the honest shape: it fails when the rows never go, not
+     * when they have not gone YET.
+     */
+    public void verifyShowLinesAbsent(ICmpCliCmd command, String[] goneLines,
+                                      long timeoutMsec) throws Exception {
         String output = cmp.runCommandAndSwitch(command.toString(), command);
         if (goneLines == null || goneLines.length == 0) {
             CompassReporter.warning("No validated expectation for '"
@@ -275,11 +300,23 @@ public class EvpnUtils implements loggerImp {
             return;
         }
         java.util.List<String> stillThere = new java.util.ArrayList<String>();
-        for (String pattern : goneLines) {
-            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern);
-            if (p.matcher(output).find()) {
-                stillThere.add(pattern);
+        long deadline = System.currentTimeMillis() + timeoutMsec;
+        while (true) {
+            stillThere.clear();
+            for (String pattern : goneLines) {
+                java.util.regex.Pattern p =
+                        java.util.regex.Pattern.compile(pattern);
+                if (p.matcher(output).find()) {
+                    stillThere.add(pattern);
+                }
             }
+            if (stillThere.isEmpty()
+                    || System.currentTimeMillis() >= deadline) {
+                break;
+            }
+            logMsg.info("still present, waiting for them to go: " + stillThere);
+            Thread.sleep(params.VERIFY_INTERVAL_IN_MSEC);
+            output = cmp.runCommandAndSwitch(command.toString(), command);
         }
         falsifiableAssertions++;
         CompassReporter.passFailByCondition(stillThere.isEmpty(),
