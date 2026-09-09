@@ -1,0 +1,26 @@
+======================================================================
+ATE M2: TC01 GREEN on hardware, pc-3099
+======================================================================
+host    : 10.3.99.1 (exa-il01-ec-3099)   build: 8.7.0: LAB 935
+profile : lab-1dut-3ac-core
+IXIA    : chassis 10.1.70.108, IxNetwork 9.00 via 10.1.90.108
+loaded  : configurations/ixia/EVPN_3AC_CORE.ixncfg (by bringUpParams.crt)
+
+--- VERDICT ---
+OK (1 test)
+failures: 0
+
+--- ASSERTIONS AGAINST REAL DEVICE OUTPUT ---
+  Pass: The output of show bgp l2vpn evpn table evi detail is as expected.
+  Pass: The output of show bgp neighbor 29.60.0.2 | include EVPN is as expected.
+  Pass: The output of show evpn detail is as expected.
+  Pass: The output of show evpn summary no longer contains the expected-gone lines.
+  Pass: tester protocols are running: 
+  Pass: AC1: VLAN 1001 is a usable service VLAN.
+  Pass: AC1: VLAN 1001 is not claimed by the SUT.
+  Pass: AC2: VLAN 1002 is a usable service VLAN.
+  Pass: AC2: VLAN 1002 is not claimed by the SUT.
+  Pass: AC3: VLAN 1003 is a usable service VLAN.
+  Pass: AC3: VLAN 1003 is not claimed by the SUT.
+
+--- STEPS AS THE REPORT SHOWS THEM ---

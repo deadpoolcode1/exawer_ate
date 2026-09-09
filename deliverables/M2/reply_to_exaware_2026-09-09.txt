@@ -4,27 +4,42 @@ Hi Eyal,
 
 Package attached. Run on pc-3099, 8.7.0 LAB 935.
 
-1. Ixia file not in TCL / cannot open. Done. You had opened the raw ixNet
-   dump. Now also EVPN_traffic.tcl in your idiom, plus a real
-   EVPN_3AC_CORE.ixncfg.
-2. .crt loads no Ixia file. Done. Bring-up now brings the tester up alone:
-   OSPF Full, BGP up on 29.60.0.2.
+The automation report you asked for is 06_automation_report/index.html. Open
+it directly, no server. One page per test: numbered steps, the command sent,
+the device output, and the parsed verdict. For example:
+
+  1.  Verify evi-1 does not exist before this test creates it
+      cmp1-cpm0-MGMT session9 CLI: show evpn summary
+  10. Verify evi-1 is up and all 3 attachment circuits are bound
+      cmp1-cpm0-MGMT session9 CLI: show evpn detail
+      Pass: The output of show evpn detail is as expected.
+
+Your four points:
+
+1. Ixia file not in TCL / cannot open. Done. You had the raw ixNet dump. Now
+   EVPN_traffic.tcl in your idiom, plus a real EVPN_3AC_CORE.ixncfg.
+2. .crt loads no Ixia file. Done. Bring-up brings the tester up alone: OSPF
+   Full, BGP up on 29.60.0.2.
 3. TC01 configures an existing service. Done. The .cfg no longer creates the
    EVI; each TC creates it after asserting it absent.
-4. TC02 missing. Back. Three ACs, two sharing x-eth0/0/40 on VLANs 1001-1003.
+4. TC02 missing. Back. Three ACs, two sharing x-eth0/0/40, VLANs 1001-1003.
 
-Two things for you:
+Traffic now works end to end. The circuits classify and the EVI learns:
 
-- bgpd crashes when an EVI is deleted. assert (_Bool)(ipi_evi_p),
-  bgp_evi.c:310, bgp_evi_delete. Four cores today, reproduced by hand.
-  02_evidence/evidence_bgpd_crash_on_evi_delete.txt
-- exaSystemConf_pc3099.cfg now contains evi-1, so bring-up restores it.
-  Please re-save that baseline without the EVPN instance.
+  x-eth0/0/32.1001   RX 107.45 k
+  00:00:01:00:00:01  L  x-eth0/0/32.1001  D
+  00:00:02:00:00:01  L  x-eth0/0/40.1002  D
 
-All three TCs are red. TC01 on the baseline above. TC02/TC03 because traffic
-reaches the DUT ports but not the vlan-id sub-interfaces, so nothing is
-learnt. Details in 02_evidence/evidence_traffic_open_issue.txt. Ten minutes
-with you on that would probably close it.
+Two defects on your side:
+
+- bgpd aborts when an EVI is deleted. assert (_Bool)(ipi_evi_p),
+  bgp_evi.c:310, bgp_evi_delete. The EVI then survives in operational state
+  after it has left the configuration, so nothing can start clean without a
+  reboot. Backtrace: 02_evidence/evidence_bgpd_crash_on_evi_delete.txt
+- Bring-up matches the ONL shell by the literal "@localhost"
+  (CmpCliSession.java:69). After a reboot the box comes up as "router" and
+  bring-up cannot enter ONL mode at all. I set the hostname back on pc-3099;
+  pc-3080 still has this and no suite can run there.
 
 Still needed: ticket ID for the branch, and your wording for the deprecated
 show commands and the tech-support command.

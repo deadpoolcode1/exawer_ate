@@ -157,10 +157,13 @@ bullets(doc, [
     ("exaSystemConf_pc3099.cfg restores the EVI: ",
      "bring-up loads it, so TC01 cannot start from the clean device it "
      "asserts. Please re-save that baseline without the EVPN instance."),
-    ("Traffic reaches the DUT port, not the circuit: ",
-     "frames transmit and the physical ports count them in bulk; the vlan-id "
-     "sub-interfaces count zero and nothing is learnt. Double tagging ruled "
-     "out. See evidence_traffic_open_issue.txt. This is ours to close."),
+    ("Traffic works: ",
+     "the circuits classify and the EVI learns. x-eth0/0/32.1001 RX 107.45 k; "
+     "00:00:01:00:00:01 L x-eth0/0/32.1001 D. Two fixes: a raw item needs a "
+     "real destination MAC (broadcast, because unknown-unicast flooding is "
+     "off and cannot be enabled on this build), and `generate` is required "
+     "after loading the .ixncfg or the hardware is never armed. See "
+     "evidence_traffic_and_evi_state.txt."),
     ("7 of 25 verification steps can actually fail; ",
      "the other 18 warn and say why. Nothing is reported as a pass that "
      "is not one."),
@@ -279,6 +282,10 @@ h(doc, "What we need from you")
 bullets(doc, [
     ("A ticket ID: ", "so the branch lands as AUT-nnn / EM-nnnn rather than our "
      "provisional name."),
+    ("A fix for the bgpd abort: ", "until an EVI can be deleted without "
+     "aborting bgpd, the service survives in operational state after it "
+     "leaves the configuration, and no suite can start from a clean device "
+     "without a reboot."),
     ("One chassis slot to produce the .ixncfg: ", "this is the single "
      "remaining blocker and it is half an hour of rig time. "
      "configurations/ixia/EVPN_traffic.tcl states every traffic item in your "
@@ -330,6 +337,8 @@ h(doc, "The package", space_before=0)
 table(doc,
       ["Folder", "Contents"],
       [["01_generated_suite/", "The 8 generated files, in cmp-tests-project layout"],
+       ["06_automation_report/", "Open index.html: every step, the command "
+        "issued, the device output and the parsed verdict"],
        ["02_evidence/", "One file per claim above, read these before the code"],
        ["03_test_plan/", "The test plan the code was generated from"],
        ["04_results/", "Full test report (open the .html in a browser)"],

@@ -7,11 +7,16 @@ mapped to the artifact that satisfies it, plus the evidence behind each claim.
 
 Run on pc-3099 (10.3.99.1), 8.7.0 LAB 935, profile `lab-1dut-3ac-core`.
 
-| Test | Result | Why |
+| Test | Result | Note |
 |---|---|---|
-| TC01 | red | bring-up restores the EVI, so "EVI is absent" fails first |
-| TC02 | red | traffic reaches the DUT port, not the circuit |
-| TC03 | red | same traffic cause |
+| TC01 | **OK (1 test), 0 failures** | four assertions against real device output |
+| TC02 | see below | needs a clean device; blocked by the bgpd defect |
+| TC03 | see below | same |
+
+Every test needs the device to start without an EVPN instance. Deleting one
+aborts `bgpd` and the service then survives in operational state, so only the
+first test after a reboot can start clean. That is the defect below, not a
+property of the suite.
 
 ### Works now
 
@@ -31,17 +36,46 @@ Run on pc-3099 (10.3.99.1), 8.7.0 LAB 935, profile `lab-1dut-3ac-core`.
 2. **`exaSystemConf_pc3099.cfg` restores the EVI**, so TC01 cannot start
    clean. The baseline needs re-saving without the EVPN instance.
 
-### One thing still open on our side
+### Traffic works
 
-Traffic transmits and the DUT's physical ports count it in bulk, but the
-`vlan-id` sub-interfaces count zero and the EVI learns no MAC. Double
-tagging ruled out.
--> `evidence_traffic_open_issue.txt`
+Frames classify onto the circuits and the EVI learns:
+
+```
+x-eth0/0/32.1001   RX 107.45 k   TX 71.68 k
+x-eth0/0/40.1002   RX 107.48 k   TX 71.64 k
+00:00:01:00:00:01  L  x-eth0/0/32.1001  D
+00:00:02:00:00:01  L  x-eth0/0/40.1002  D
+```
+
+Two things were needed, both now in the generator:
+
+1. **A real destination MAC.** A raw item defaults to `00:00:00:00:00:00`,
+   and this build has `Unknown MAC Flooding: Disabled` with no CLI to enable
+   it, so that frame is taken by the port and dropped before the bridge
+   domain. Broadcast is flooded and the source MAC is learnt.
+2. **`generate` after loading the `.ixncfg`.** Loading restores the objects
+   but does not arm the hardware; `apply` and `start` then transmit nothing
+   the circuits can see.
 
 7 of 25 verification steps carry assertions that can fail; the other 18 warn
 and say why. Nothing here is reported as a pass that is not one.
 
-Start with `02_evidence/lab_validation_pc3099.md`.
+### The automation report
+
+`06_automation_report/index.html` opens with no server. One page per test,
+numbered steps, the command issued, the device output, and the parsed verdict,
+for example:
+
+```
+1.  Verify evi-1 does not exist before this test creates it
+    cmp1-cpm0-MGMT session9 CLI: show evpn summary
+3.  Create EVPN instance evi-1 with service-type vlan-based
+10. Verify evi-1 is up and all 3 attachment circuits are bound
+    cmp1-cpm0-MGMT session9 CLI: show evpn detail
+    Pass: The output of show evpn detail is as expected.
+```
+
+Start with `02_evidence/lab_validation_pc3099.md`, then the report.
 
 ## What was actually sent
 

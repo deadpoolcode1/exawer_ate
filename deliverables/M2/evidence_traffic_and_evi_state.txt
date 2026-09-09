@@ -1,0 +1,76 @@
+======================================================================
+SOLVED: traffic classification and MAC learning
+======================================================================
+pc-3099 (10.3.99.1), 8.7.0 LAB 935. Chassis 10.1.70.108, IxNetwork 9.00.
+
+RESULT
+  x-eth0/0/32.1001   RX 107.45 k   TX 71.68 k
+  x-eth0/0/40.1002   RX 107.48 k   TX 71.64 k
+  x-eth0/0/40.1003   RX 107.51 k   TX 71.66 k
+
+  EVPN Name: evi-1
+  00:00:01:00:00:01  L  x-eth0/0/32.1001  D
+  00:00:02:00:00:01  L  x-eth0/0/40.1002  D
+
+TWO CAUSES, BOTH NOW IN THE GENERATOR
+
+1. The destination MAC was 00:00:00:00:00:00.
+   A raw traffic item defaults to an all-zero destination. This build
+   reports "Unknown MAC Flooding: Disabled" and offers no CLI to enable
+   it: `l2-services evpn <n> unknow-mac-flooding` answers "element does
+   not exist". So an all-zero, and equally an unknown-unicast, frame is
+   accepted by the port and dropped before the bridge domain. The
+   physical counter passed a billion frames while every circuit counted
+   0, with Discard, MAC-filtered and Unknown-vlan all 0.
+   Fix: destination is broadcast, which is flooded regardless, so the
+   circuit classifies the frame and the SOURCE MAC is learnt.
+
+2. `generate` is required after loading the .ixncfg.
+   Loading restores the traffic objects and their frame fields but does
+   not arm the hardware. apply and start then transmit nothing the
+   circuits can see: items report state=started with correct MACs in the
+   object model and every circuit counts 0. One `generate` before apply
+   and the counters above appear.
+   The same trap applies to any frame-field edit: `apply` alone does not
+   push it. generate also RESETS the MACs, so they are set after it.
+
+RULED OUT ALONG THE WAY, recorded so nobody repeats them
+  - Missing VLAN header. It was always there: ethernet-1, vlan-2
+    (VLAN=1001/1002/1003, fixed value), fcs-3.
+  - Double tagging from the vport interface. Removing the raw header and
+    letting the interface tag the frame sends untagged: a raw item does
+    not inherit the interface VLAN.
+  - Building endpoints with vlanEnable=false. ixia_lib's
+    configTrafficItemEndpoints then dies inside `ixNet commit`.
+  - The inner EtherType (Protocol-ID 0xffff). Setting it to 0x0800
+    changed nothing.
+  - `vlan-id` on the l2-transport sub-interface. Their VPLS config omits
+    it and the sub-interface index is the VLAN; removing it changed
+    nothing either way.
+
+
+======================================================================
+CONSEQUENCE: an EVI cannot be cleared without a reboot
+======================================================================
+Every test asserts the EVI is absent before creating it. From a freshly
+booted device that passes and TC01 is green. On any later run it fails:
+
+    show evpn summary -> EVPN NAME: evi-1
+    Fail: ... STILL contains lines that should have gone: [evi-1]
+
+The cause is the bgpd abort. Removing the EVI from configuration succeeds,
+but the teardown never completes, so the service stays in operational
+state. Proven directly:
+
+    no l2-services evpn evi-1 ; commit  ->  Commit complete.
+    show configuration l2-services      ->  % No entries found.   (gone)
+    show evpn summary                   ->  EVPN NAME: evi-1      (still there)
+
+A device reboot clears it; nothing else does. That is why only the first
+test after a reboot can start from the state it asserts.
+
+NOT the cause, checked and ruled out: the testbed baseline. Loading
+exaSystemConf_pc3099.cfg and reading it back gives "% No entries found",
+so the baseline does not carry the EVI.
+
+See evidence_bgpd_crash_on_evi_delete.txt.

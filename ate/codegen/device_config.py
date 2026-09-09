@@ -773,8 +773,22 @@ def emit_traffic_config(lab: LabProfile) -> JavaFile:
         ]
     lines.append("")
     lines += [
-        "# Source MACs last: `generate` overwrites them.",
+        "# MACs last: `generate` resets them, so they are set after it and",
+        "# never before.",
+        "#",
+        "# The destination is BROADCAST, and that is deliberate. A raw item",
+        "# defaults to 00:00:00:00:00:00, and this build reports",
+        "# \"Unknown MAC Flooding: Disabled\" with no CLI to turn it on. An",
+        "# all-zero or unknown-unicast destination is therefore taken by the",
+        "# port and dropped before the bridge domain - verified on pc-3099,",
+        "# where the physical counter passed a billion frames while every",
+        "# attachment circuit counted 0 and Discard/MAC-filtered/Unknown-vlan",
+        "# were all 0. Broadcast is flooded regardless, so the circuit",
+        "# classifies it and the SOURCE MAC is learnt, which is what the",
+        "# FLOW-030 assertions actually need.",
     ]
+    for ti in lab.traffic_items:
+        lines.append(f"editTrafficRawDestMacAddr {ti.name} {ti.dst_mac}")
     for ti in lab.traffic_items:
         lines.append(f"ateSetItemSrcMac {ti.name} {ti.src_mac}")
     lines += [

@@ -22,7 +22,7 @@ BUNDLE="${BUNDLE:-/tmp/evpn-suite.bundle}"
 
 echo "[1] layout"
 rm -rf "$OUT"
-mkdir -p "$OUT"/{01_generated_suite,02_evidence,03_test_plan,04_results,05_git}
+mkdir -p "$OUT"/{01_generated_suite,02_evidence,03_test_plan,04_results,05_git,06_automation_report}
 
 echo "[2] the generated suite"
 cp -r "$ROOT/deliverables/M2/generated_suite/cmp" "$OUT/01_generated_suite/"
@@ -55,6 +55,21 @@ if [ -n "$REPORT" ]; then
     echo "      $(basename "$REPORT")"
 else
     echo "      NONE FOUND - run ./modular_tools.sh run-tests first" >&2
+fi
+
+echo "[5a] the automation report (steps, commands, outputs, verdicts)"
+# Exaware, 2026-09-09 (Eyal Ozeri): "I would very much like to see an
+# Automation report where I can really verify the steps, shows outputs, show
+# output parsing, etc..." This is the JSystem/difido report from the run,
+# which is exactly that: one page per test, numbered steps, the command
+# issued, the device output, and the parsed verdict. It opens from index.html
+# with no server.
+REPORT_DIR="$ROOT/deliverables/M2/automation_report"
+if [ -d "$REPORT_DIR" ]; then
+    cp -r "$REPORT_DIR"/* "$OUT/06_automation_report/"
+    echo "      $(du -sh "$OUT/06_automation_report" | cut -f1), open 06_automation_report/index.html"
+else
+    echo "      MISSING: $REPORT_DIR - package ships without the run report" >&2
 fi
 
 echo "[6] the branch, as a git bundle"

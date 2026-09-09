@@ -342,7 +342,7 @@ def emit_params(scripts: list[TestScript], lab: LabProfile,
         lines.append(
             f"        {{{_jstr(ti.name)}, {_jstr(src.vport)}, "
             f"{_jstr(dst.vport)}, {_jstr(ti.src_mac)}, "
-            f"{_jstr(str(lab.vlan_of(src)))}}},")
+            f"{_jstr(str(lab.vlan_of(src)))}, {_jstr(ti.dst_mac)}}},")
     lines.append("    };")
     # One entry per PHYSICAL vport, not per circuit: assigning the same vport
     # twice re-takes a port that is already ours and renames it.
@@ -651,6 +651,18 @@ _UTILS_BODY = '''
         // with every attachment circuit still counting zero frames.
         if (IXNCFG != null) {{
             verifyTrafficItemsLoaded();
+            // GENERATE, even though the items came from a saved file.
+            //
+            // DEVICE-VERIFIED 2026-09-09 on pc-3099. Loading an .ixncfg
+            // restores the traffic objects and their frame fields, but does
+            // NOT arm the hardware: apply and start then transmit nothing the
+            // attachment circuits can see. Every circuit counted 0 with the
+            // items reporting state=started and the right MACs in the object
+            // model. One `generate` before apply, and the same rig produced
+            //     x-eth0/0/32.1001  RX 107.45 k
+            //     00:00:01:00:00:01  L  x-eth0/0/32.1001  D
+            ixia.performFunctions(IxiaFunctions.GENERATE_TRAFFIC);
+            Thread.sleep(8000);
             // Their VPLS prep, and the piece that was missing: unsuspending
             // an item does NOT start the traffic engine. Without this the
             // items sit at state=stopped, every attachment circuit counts
@@ -718,6 +730,14 @@ _UTILS_BODY = '''
         // ixia_lib.tcl is already sourced - their file is not modified.
         for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
             setTrafficItemSourceMac(ti[0], ti[3]);
+            // And the DESTINATION, which is broadcast. A raw item defaults to
+            // 00:00:00:00:00:00, and this build reports "Unknown MAC
+            // Flooding: Disabled" with no CLI to enable it, so an all-zero or
+            // unknown-unicast destination is taken by the port and dropped
+            // before the bridge domain. Verified on pc-3099: the physical
+            // counter passed a billion frames while every circuit counted 0.
+            ixia.performFunctions(IxiaFunctions.EDIT_RAW_TRAFFIC_DEST_MAC_ADDR
+                    .args(ti[0], ti[5]));
         }
         ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info("Traffic items built on the chassis");

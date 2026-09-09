@@ -117,6 +117,23 @@ class TrafficItem:
     src: str           # AccessCircuit.name
     dst: str
     src_mac: str = "00:00:01:00:00:01"
+    #: Destination MAC. BROADCAST, and that is not laziness.
+    #:
+    #: DEVICE-VERIFIED 2026-09-09 on pc-3099. A raw item defaults to
+    #: destination 00:00:00:00:00:00, and this build reports
+    #: "Unknown MAC Flooding: Disabled" with no CLI to enable it
+    #: (`l2-services evpn <n> unknow-mac-flooding` answers "element does not
+    #: exist"). So an all-zero or unknown-unicast destination is accepted by
+    #: the port and dropped before the bridge domain: the physical counter
+    #: climbed past a billion frames while every circuit counted 0 and the
+    #: EVI learnt nothing, with Discard, MAC-filtered and Unknown-vlan all 0.
+    #:
+    #: Broadcast is flooded regardless, so the circuit classifies the frame
+    #: and the SOURCE MAC is learnt - which is what every FLOW-030 assertion
+    #: actually needs. With this set the same rig produced:
+    #:     x-eth0/0/32.1001  RX 145.72 k
+    #:     00:00:01:00:00:01  L  x-eth0/0/32.1001  D
+    dst_mac: str = "ff:ff:ff:ff:ff:ff"
 
 
 class PeerSource(str, Enum):

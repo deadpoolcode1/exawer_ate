@@ -21,3 +21,6 @@ results/
 
 # Transient working backups (the v1 archive .bak is intentionally tracked)
 ate/planner/ai_cache.pre-*.bak
+
+# Extracted hand-over packages. The .zip is tracked; the unpacked copies are not.
+deliverables/M2/Exaware_M2_handover_*/
