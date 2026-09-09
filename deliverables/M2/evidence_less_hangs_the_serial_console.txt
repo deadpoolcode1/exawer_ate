@@ -1,0 +1,72 @@
+======================================================================
+Their bring-up hangs on `less`, and it is not about the syslog's size
+======================================================================
+pc-3099 ONL host 10.3.99.10, 2026-09-09.
+
+SYMPTOM
+  Bring-up fails, and it is not in generated code:
+
+    14:58:41: cmp1-cpm0-SERIAL session3 ONL: execute
+              less /var/log/syslog | grep "wd_restart_server.update_reset_counter_file" -c
+    14:58:41: Fail: Error in command: timeout: 100000
+
+  100000 ms is their command timeout. The call sits in
+  CmpRouter.searchForWdRestartInSyslog -> doPost ->
+  BringUp.checkCoresAndAlarms, which bringUpSetupAndVerify() calls
+  unconditionally. There is no parameter that skips it.
+
+THE EXPLANATION WE HAD WAS WRONG
+  The previous note said the syslog grows past a screen and `less`
+  waits for a keypress. Measured when the timeout happened:
+
+    wc -c /var/log/syslog  ->  7925
+
+  Under 8 KB. Size is not the variable.
+
+  `less` here is real GNU less (/usr/bin/less -> /bin/less), and it
+  gives itself away:
+
+    less --help | head -2
+    SSUUMMMMAARRYY OOFF LLEESSSS CCOOMMMMAANNDDSS
+
+  Those doubled characters are less's overstrike bolding, which it only
+  emits when it believes it is talking to a terminal. On the serial
+  console it opens /dev/tty and waits, whatever its stdout is connected
+  to. The command never returns and the read times out.
+
+THE FIX, AND WHY IT IS NOT A CHEAT
+  In `less FILE | grep PATTERN -c`, `less` is semantically `cat`: grep
+  consumes the bytes and counts them. So /bin/less on the ONL is
+  replaced, for the duration of a run, by
+
+    #!/bin/sh
+    exec /bin/cat "$@"
+
+  and the real binary is kept at /bin/less.ate-real. `onlctl.py pin`
+  installs it, `onlctl.py unpin` puts it back, and `onlctl.py status`
+  reports which is in place.
+
+  This changes NOTHING about what the check counts. `cat` delivers the
+  whole file, which is at least as much as `less` would, so a watchdog
+  restart cannot be hidden by it.
+
+  Emptying /var/log/syslog during a run WOULD hide one - the count
+  would be 0 because the evidence was deleted, not because the device
+  was healthy - and that is the fake-pass rule. So the syslog is
+  truncated ONCE before a run starts (a clean slate for this run, and
+  it keeps our own reboot from being counted as a watchdog restart),
+  and never again while the run is in progress.
+
+  Verified on the box, their exact command:
+
+    less /var/log/syslog | grep "wd_restart_server.update_reset_counter_file" -c
+    0
+    RC=1
+
+  Returns immediately instead of hanging for 100 s.
+
+STILL EXAWARE'S BUG
+  A test framework should not page a file on a console it is driving.
+  Any suite hits this, not just a generated one. The one-line fix on
+  their side is `cat` in place of `less` in
+  CmpRouter.searchForWdRestartInSyslog.

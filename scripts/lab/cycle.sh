@@ -9,8 +9,12 @@
 #    "@localhost" (CmpCliSession.java:69). Setting the hostname once before
 #    a run is a race the run can lose - and it did, on 2026-09-09. So it is
 #    PINNED by a watchdog that holds it for the whole run (onlctl.py);
-#  * their bring-up pages /var/log/syslog, so it is truncated first. That
-#    is also done by `onlctl.py pin`.
+#  * their bring-up runs `less /var/log/syslog | grep ... -c` on the serial
+#    console, and `less` opens /dev/tty and waits for a keypress that never
+#    comes, so the command times out at 100 s. NOT a size problem: it hung on
+#    a 7.9 KB syslog. `onlctl.py pin` swaps /bin/less for a `cat` shim, which
+#    is what that pipeline means anyway, and truncates the syslog once so our
+#    own reboot is not counted as a watchdog restart.
 TC=$1
 python3 /tmp/clean_reboot.py >/dev/null 2>&1
 python3 -c "
