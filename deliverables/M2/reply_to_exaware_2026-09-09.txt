@@ -28,7 +28,19 @@ Your four points:
    Type-2 advertisement, and that the local AC2 to AC3 move triggers no
    new Type-2.
 
-Running it found four defects of ours, all fixed:
+TC03 does not complete on this rig, and not in generated code. It dies
+in bring-up before reaching its own steps, 13 passes in:
+
+     CmpCliSession.getRealMode -> changeModeToONL
+       -> CmpRouter.searchForWdRestartInSyslog
+       -> BringUp.checkCoresAndAlarms
+     Error in command: timeout: 100000
+
+The ONL mode switch on the serial console times out. Same area as the
+less problem below. TC03's own two defects are fixed and in the
+package; it needs a bring-up that completes to prove it.
+
+Running TC02 found four defects of ours, all fixed:
 
 - Our traffic items carried no tracking, so IxNetwork never built the
   "Traffic Item Statistics" view and every traffic assertion failed
