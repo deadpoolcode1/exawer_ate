@@ -51,6 +51,13 @@ mapped to the artifact that satisfies it, plus the evidence behind each claim.
 >
 > Start with `02_evidence/lab_validation_pc3099.md`.
 
+## What was actually sent
+
+`Exaware_M2_handover_2026-09-09.zip` in this folder is the package as it went
+to the client, kept verbatim. It is not regenerable: `build_handover_package.sh`
+embeds a timestamped test report and a dated hand-over document, so a rebuild
+produces a different file. One zip per delivery, not per rebuild.
+
 ## SOW M2 deliverables → artifacts
 
 > **Latest run: 2026-09-09.** SUT **pc-3099** (`exa-il01-ec-3099`,
