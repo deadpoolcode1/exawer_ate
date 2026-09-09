@@ -128,61 +128,42 @@ r = p.add_run("SUT pc-3099 / exa-il01-ec-3099, software 8.7.0 LAB 935, "
               "run 9 September 2026. Lab profile lab-1dut-3ac-core.")
 r.font.size = Pt(10)
 bullets(doc, [
-    ("The tester side is automated end to end - ",
-     "bringUpParams.crt loads configurations/ixia/EVPN_3AC_CORE.ixncfg, the "
-     "three vports come up, the suite starts your emulated protocols and "
-     "proves they are running, and the DUT reaches OSPF Full and BGP up on "
-     "29.60.0.2. First time the control plane has come up with no hand work. "
-     "L2VPNevpn reads NoNeg because the chassis has no BGP EVPN licence."),
-    ("The EVPN service is built by the test and read back - ",
-     "show evpn detail returns evi-1, service-type vlan-based, with three "
-     "attachment circuits bound: x-eth0/0/32.1001, x-eth0/0/40.1002 and "
-     "x-eth0/0/40.1003. The service is created by TC01, not by the "
-     "configuration file, so its create steps can fail."),
-    ("Three attachment circuits on two links - ",
-     "x-eth0/0/40 carries two circuits that differ only by VLAN tag. This is "
-     "your 8 September answer applied and then proven: a spare-port trial "
-     "committed cleanly and both sub-interfaces appeared under Local "
-     "Interfaces (evidence_shared_port_acs.txt, device restored as found)."),
-    ("The VLANs are ours, not the SUT's - ",
-     "1001-1003, and the run asserts it: \"AC1: VLAN 1001 is not claimed by "
-     "the SUT\". pc-3099 declares 3399 in general/vlans, the same shape as "
-     "pc-3080's 3380; the suite refuses to take a VLAN from that list."),
-    ("Compiles against your framework - ",
-     "953 sources -> 1455 classes, zero errors, javac --release 8."),
-    ("bringUpParams.crt passes your own validator - ",
-     "TemplateManager.validateAgainstTemplate returns true (bringUpParameters_C0_002), "
-     "standalone and inside the live bring-up. Adding one // line inside a table makes "
-     "the same validator reject it, so the check is not vacuous."),
-    ("One package, two differently cabled rigs - ",
-     "the same generated files ran unchanged on pc-3080 (data1 = x-eth 0/0/8, "
-     "0/0/18, 0/0/26) and pc-3099 (0/0/18, 0/0/32, 0/0/40). The int1/int2/int3 "
-     "placeholders resolve from your SUT file, never from a port name we chose."),
+    ("Bring-up stands the tester up by itself: ",
+     "the .crt loads EVPN_3AC_CORE.ixncfg, three vports come up, protocols "
+     "start and are checked. The DUT reaches OSPF Full and BGP up on "
+     "29.60.0.2. L2VPNevpn reads NoNeg: no BGP EVPN licence on the chassis."),
+    ("Three attachment circuits, two sharing one port: ",
+     "x-eth0/0/32.1001, x-eth0/0/40.1002, x-eth0/0/40.1003, read back from "
+     "show evpn detail."),
+    ("VLANs 1001-1003 from the tool: ",
+     "the run asserts they do not clash with the SUT's 3399."),
+    ("Each test creates the EVI it uses, ",
+     "after asserting it absent. The .cfg no longer ships the service."),
+    ("Compiles against your framework: ",
+     "953 sources to 1455 classes, zero errors, javac --release 8."),
+    ("bringUpParams.crt passes your own validator: ",
+     "TemplateManager.validateAgainstTemplate returns true."),
+    ("One package, two differently cabled rigs: ",
+     "unchanged on pc-3080 (0/0/8, 0/0/18, 0/0/26) and pc-3099 (0/0/18, "
+     "0/0/32, 0/0/40). Interfaces resolve from your SUT file."),
 ])
 
 h(doc, "What is NOT proven, and why", size=11, space_before=10)
 bullets(doc, [
-    ("Your product has a crash, and this suite found it - ",
-     "deleting an EVPN instance aborts bgpd: assertion \"(_Bool)(ipi_evi_p)\" "
-     "failed, bgp_evi.c:310, bgp_evi_delete(evi_id=1, name=evi-1). Four cores "
-     "on the box in one day, same assertion, reproduced by hand (bgpd pid "
-     "30551 before the delete, 32180 after). Backtrace and steps in "
-     "02_evidence/evidence_bgpd_crash_on_evi_delete.txt."),
-    ("The testbed baseline restores the EVI - ",
-     "bring-up runs load override exaSystemConf_pc3099.cfg, and that saved "
-     "baseline now contains l2-services evpn evi-1. TC01 therefore cannot "
-     "start from the clean device it asserts. The baseline needs re-saving "
-     "without the EVPN instance; that is testbed state, not our code."),
-    ("Traffic does not reach the attachment circuits - ",
-     "the items are in the .ixncfg, carry the right VLAN IDs, and transmit: "
-     "the DUT's physical ports take frames in bulk. The vlan-id "
-     "sub-interfaces count zero and the EVI learns no MAC. Double tagging "
-     "was checked and ruled out, and so was building the endpoints the other "
-     "way. Written up in 02_evidence/evidence_traffic_open_issue.txt."),
-    ("7 of 25 verification steps carry assertions that can fail - ",
-     "the other 18 warn and say so in the run report. The suite prints that "
-     "census itself; it does not present a warning as a pass. Traffic is what "
-     "converts most of the remainder."),
+    ("bgpd aborts when an EVI is deleted: ",
+     "assert (_Bool)(ipi_evi_p), bgp_evi.c:310, bgp_evi_delete. Four cores "
+     "in one day, reproduced by hand. This is a defect in the product, found "
+     "by the suite. See evidence_bgpd_crash_on_evi_delete.txt."),
+    ("exaSystemConf_pc3099.cfg restores the EVI: ",
+     "bring-up loads it, so TC01 cannot start from the clean device it "
+     "asserts. Please re-save that baseline without the EVPN instance."),
+    ("Traffic reaches the DUT port, not the circuit: ",
+     "frames transmit and the physical ports count them in bulk; the vlan-id "
+     "sub-interfaces count zero and nothing is learnt. Double tagging ruled "
+     "out. See evidence_traffic_open_issue.txt. This is ours to close."),
+    ("7 of 25 verification steps can actually fail; ",
+     "the other 18 warn and say why. Nothing is reported as a pass that "
+     "is not one."),
 ])
 
 h(doc, "Two defects the run found, which matter more than the pass", size=11,

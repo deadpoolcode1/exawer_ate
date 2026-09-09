@@ -3,53 +3,45 @@
 SOW PQ4476E, weeks 3 to 4. This folder is the M2 hand-over: every SOW M2 bullet
 mapped to the artifact that satisfies it, plus the evidence behind each claim.
 
-> ## READ THIS FIRST: what is proven, and what is not
->
-> Run on **pc-3099** (`exa-il01-ec-3099`, 10.3.99.1), software
-> **8.7.0 LAB 935**, profile `lab-1dut-3ac-core`, 2026-09-09.
->
-> **The tester side is now automated end to end.** `bringUpParams.crt`
-> loads `configurations/ixia/EVPN_3AC_CORE.ixncfg`, the three vports come
-> up, the suite starts the tester's protocols and proves they run, and the
-> DUT reaches:
->
-> ```
-> show ospf neighbor  ->  29.60.0.2   Full/ -   x-eth0/0/18
-> show bgp neighbor   ->  29.60.0.2   up        IPv4u
-> ```
->
-> That closes the review point about the `.crt` loading no IXIA file, and it
-> is the first time the control plane has come up without hand work.
-> `L2VPNevpn` reads `NoNeg` because the chassis has no BGP EVPN licence.
->
-> **The suite found a crash in the product.** Deleting an EVPN instance
-> aborts `bgpd`:
->
-> ```
-> assertion "(_Bool)(ipi_evi_p)" failed
-> bgpd/bgp_evi.c:310, bgp_evi_delete (evi_id=1, name="evi-1")
-> ```
->
-> Four cores on the box in one day, same assertion. Reproduced by hand.
-> Backtrace and steps: `02_evidence/evidence_bgpd_crash_on_evi_delete.txt`.
-> This is the most valuable thing in this drop.
->
-> **What is NOT working, stated plainly.** TC01, TC02 and TC03 all end red:
->
-> | | |
-> |---|---|
-> | Traffic does not reach the circuits | frames leave the tester and the DUT's PHYSICAL ports count them in bulk, but the `vlan-id` sub-interfaces count zero and the EVI learns no MAC |
-> | TC01 cannot start clean | bring-up's `load override exaSystemConf_pc3099.cfg` restores the EVI, so the "EVI is absent" assertion fails before the test does anything |
->
-> Both are written up, with what was checked and ruled out, in
-> `02_evidence/evidence_traffic_open_issue.txt`. Neither is hidden and
-> neither is reported as a pass.
->
-> Across the suite **7 of 25 verification steps carry assertions that can
-> actually fail**; the other 18 warn and say why. The suite prints that
-> census itself.
->
-> Start with `02_evidence/lab_validation_pc3099.md`.
+## Status, 2026-09-09
+
+Run on pc-3099 (10.3.99.1), 8.7.0 LAB 935, profile `lab-1dut-3ac-core`.
+
+| Test | Result | Why |
+|---|---|---|
+| TC01 | red | bring-up restores the EVI, so "EVI is absent" fails first |
+| TC02 | red | traffic reaches the DUT port, not the circuit |
+| TC03 | red | same traffic cause |
+
+### Works now
+
+- **Bring-up stands the tester up by itself.** The `.crt` loads
+  `EVPN_3AC_CORE.ixncfg`, three vports come up, protocols start and are
+  checked. The DUT reaches OSPF `Full` and BGP `up` on 29.60.0.2.
+- **Three attachment circuits**, two sharing `x-eth0/0/40` on different VLANs.
+- **VLANs 1001-1003** from the tool, asserted not to clash with the SUT's 3399.
+- **Each test creates the EVI it uses**, after asserting it absent.
+
+### Two defects, both on the device
+
+1. **bgpd aborts when an EVI is deleted.**
+   `assert (_Bool)(ipi_evi_p)`, `bgp_evi.c:310`, `bgp_evi_delete`.
+   Four cores in one day, reproduced by hand.
+   -> `evidence_bgpd_crash_on_evi_delete.txt`
+2. **`exaSystemConf_pc3099.cfg` restores the EVI**, so TC01 cannot start
+   clean. The baseline needs re-saving without the EVPN instance.
+
+### One thing still open on our side
+
+Traffic transmits and the DUT's physical ports count it in bulk, but the
+`vlan-id` sub-interfaces count zero and the EVI learns no MAC. Double
+tagging ruled out.
+-> `evidence_traffic_open_issue.txt`
+
+7 of 25 verification steps carry assertions that can fail; the other 18 warn
+and say why. Nothing here is reported as a pass that is not one.
+
+Start with `02_evidence/lab_validation_pc3099.md`.
 
 ## What was actually sent
 
