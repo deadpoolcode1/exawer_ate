@@ -11,9 +11,19 @@
 
 package require IxTclNetwork
 set vp /vport:1
-set intf $vp/interface:1
 
-# routed interface facing the DUT
+# The routed interface facing the DUT, CREATED rather than assumed.
+#
+# DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108 (IxNetwork 9.00).
+# This used to say `set intf $vp/interface:1`, which is a path, not an
+# object: on a vport that has no interface yet the path simply does
+# not resolve, `ixNet setAtt` on it changes nothing and reports no
+# error, and the OSPF interface below ends up with
+#     protocolInterface = ::ixNet::OBJ-null
+# The tester then has no address on the core link at all. Every
+# protocol still starts and reports runningState=started, so the only
+# visible symptom is that the DUT's neighbour never leaves Active.
+set intf [lindex [ixNet remapIds [ixNet add $vp interface]] 0]
 ixNet setAtt $intf -enabled true -description lab-1dut-3ac-core-core
 ixNet commit
 set v4 [ixNet add $intf ipv4]

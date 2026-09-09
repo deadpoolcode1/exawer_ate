@@ -1,0 +1,98 @@
+======================================================================
+OPEN: frames reach the DUT port but not the attachment circuit
+======================================================================
+host   : 10.3.99.1 (exa-il01-ec-3099), 8.7.0 LAB 935
+chassis: 10.1.70.108, IxNetwork 9.00 via app server 10.1.90.108
+date   : 2026-09-09
+
+WHAT WORKS
+  The .ixncfg loads at bring-up, all three vports come up, the tester's
+  OSPF, LDP and BGP start and the DUT reaches:
+
+      show ospf neighbor -> 29.60.0.2  Full/ -  x-eth0/0/18
+      show bgp neighbor  -> 29.60.0.2  up  ... IPv4u
+
+  The three traffic items are present in the loaded configuration, carry
+  the right VLAN IDs, and transmit: with the items started the DUT's
+  PHYSICAL ports take frames in bulk (x-eth0/0/32 went from 27.0 M to
+  519.6 M received packets across one run).
+
+WHAT DOES NOT
+  The attachment-circuit sub-interfaces count nothing, and the EVI learns
+  no MAC:
+
+      x-eth0/0/32.1001    up    RX 0    TX 0
+      x-eth0/0/40.1002    up    RX 0    TX 0
+      x-eth0/0/40.1003    up    RX 0    TX 0
+      show evpn mac-address-table -> legend only, no entries
+
+  So the frames arrive on the port and are not classified onto the
+  `vlan-id` sub-interface.
+
+WHAT WAS CHECKED, AND RULED OUT
+  1. The VLAN header IS on the raw items. Read back off the chassis:
+
+       TI_AC1_TO_AC2  stack ethernet-1, vlan-2 (VLAN field=1001), fcs-3
+       TI_AC2_TO_AC1  stack ethernet-1, vlan-2 (VLAN field=1002), fcs-3
+       TI_AC3_TO_AC1  stack ethernet-1, vlan-2 (VLAN field=1003), fcs-3
+
+     with -auto false, i.e. a fixed single value, not a counter.
+
+  2. Double tagging was the obvious suspect and is NOT the cause. The AC
+     vport interfaces carry vlanEnable=true, so the theory was that
+     IxNetwork adds the interface's tag on top of the raw item's header.
+     Removing the raw header and letting the interface tag the frame was
+     tried: the circuits still counted 0. A raw item does not inherit the
+     interface VLAN, so that variant simply sends untagged frames. The
+     header push is required and is back.
+
+  3. The endpoint interfaces cannot be built the other way. With
+     vlanEnable=false, ixia_lib's configTrafficItemEndpoints takes its
+     second branch, builds -sources from the interface list, and dies
+     inside `ixNet commit`. vlanEnable=true is the only branch that works.
+
+WHAT IS LEFT TO TRY
+  Whether the DUT is discarding the tagged frames for a reason we have
+  not found (encapsulation/TPID on the sub-interface, or a port mode
+  needed under l2-transport), or whether the sub-interface RX counters on
+  this platform simply do not increment and the real signal is elsewhere.
+  The MAC table being empty says the frames are genuinely not reaching
+  the EVI, so it is not only a counter artifact.
+
+  This is the single remaining gap between the suite and a green TC02.
+  TC02 and TC03 fail on it, honestly and loudly, rather than passing.
+
+======================================================================
+SECOND OPEN ITEM: bring-up restores the EVI it is supposed to clear
+======================================================================
+TC01's first assertion is that the EVI is ABSENT before the test creates
+it. On pc-3099 it fails:
+
+    show evpn summary
+    EVPN NAME: evi-1
+      Number of Local MAC Routes:     0
+    Fail: The output of show evpn summary STILL contains lines that
+          should have gone: [evi-1]
+
+The EVI was verified gone by hand immediately before the run:
+
+    no l2-services evpn evi-1 ; commit  ->  Commit complete.
+    show configuration l2-services      ->  % No entries found.
+
+Between that and the failing assertion the only thing that ran was
+Exaware's own bring-up, which does:
+
+    load override exaSystemConf_pc3099.cfg
+
+So that saved per-testbed baseline now contains `l2-services evpn evi-1`:
+it was captured at some point while our EVI was configured, and every
+bring-up restores it. This is testbed state, not generated code, and it
+is why TC01 cannot currently start from the clean device it asserts.
+
+To clear it, the baseline `exaSystemConf_pc3099.cfg` on the DUT needs
+re-saving without the EVPN instance.
+
+Note the interaction with the bgpd defect: the EVI cannot be removed
+cleanly while a BGP neighbour with the L2VPN EVPN address family is
+configured, because bgpd aborts. The two together are why the rig does
+not return to a clean state on its own.

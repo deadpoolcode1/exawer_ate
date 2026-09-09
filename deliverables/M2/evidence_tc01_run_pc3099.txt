@@ -1,60 +1,61 @@
 ======================================================================
-ATE M2 - TC01 on hardware, pc-3099
+ATE M2 - the generated suite on hardware, pc-3099
 ======================================================================
-host    : 10.3.99.1 (exa-il01-ec-3099)
-build   : 8.7.0: LAB 935
-SUT     : pc3099.xml (Exaware's own)
-profile : lab-1dut-3ac-core (ate codegen --lab 3ac-core)
-captures: ate capture --lab 3ac-core, 10 of 15 usable
-runner  : JUnitCore on the dev box, Exaware cmp-infra + cmp-tests
-date    : 2026-09-09T05:14:25-04:00
+host    : 10.3.99.1 (exa-il01-ec-3099)   build: 8.7.0: LAB 935
+profile : lab-1dut-3ac-core   IXIA: 10.1.70.108 via 10.1.90.108 (IxNetwork 9.00)
+date    : 2026-09-09T07:45:09-04:00
 
---- verdict ---
-OK (1 test)
+--- WHAT THE BRING-UP NOW DOES BY ITSELF ---
+load file: /var/tmp/ate-run/cmp-tests-project/src/cmp/tests/evpn/configurations/ixia/EVPN_3AC_CORE.ixncfg
+  three vports assigned, protocols started:
+tester protocols are running: 
 
---- failures ---
-(none)
+--- CONTROL PLANE, READ OFF THE DUT ---
+  show ospf neighbor -> 29.60.0.2  Full/ -  x-eth0/0/18
+  show bgp neighbor  -> 29.60.0.2  up   IPv4u
+  (L2VPNevpn shows NoNeg: the chassis has no BGP EVPN licence)
 
---- assertions that passed against real device output ---
-Pass: AC1: VLAN 1001 is a usable service VLAN.
-Pass: AC1: VLAN 1001 is not claimed by the SUT.
-Pass: AC2: VLAN 1002 is a usable service VLAN.
-Pass: AC2: VLAN 1002 is not claimed by the SUT.
-Pass: AC3: VLAN 1003 is a usable service VLAN.
-Pass: AC3: VLAN 1003 is not claimed by the SUT.
-Pass: cmp1: Commit succeed!
-Pass: Connected to Ixia server : 10.1.90.108
-Pass: Files deleted successfully
-Pass: ixia1: Perform function: loadIxiaObj ended without errors
-Pass: Loading configuration file completed successfully
-Pass: On cmp exa-il01-ec-3099 WD did not rebooted DUT during the TC
-Pass: The output of show bgp l2vpn evpn table evi detail is as expected.
-Pass: The output of show bgp neighbor 29.60.0.2 | include EVPN is as expected.
-Pass: The output of show evpn detail is as expected.
-Pass: The output of show evpn summary no longer contains the expected-gone lines.
-Pass: There is enough disk space, use% less than 80%
-Pass: There is enough disk space, use% less than 90%
+--- VERDICT OF THE LAST RUN ---
+FAILURES!!!
+Tests run: 1,  Failures: 1
 
---- steps that still only warn (need traffic / a BGP peer) ---
-Warning: FLOW-010.S09: Needs real `show evpn mac-address-table` output.
+--- FAILURES, AND WHY ---
+  07:41:41: Fail: The output of show evpn summary STILL contains lines that should have gone: [evi-1]
+  07:43:17: Fail: The output of show bgp l2vpn evpn table evi detail is not as expected. Missing lines: [Type=3:\s+VLAN-ID=0,\s+Originating\s+Router's\s+IP=29\.30\.30\.30, MPLS\s+Label=\s+32768, Transmission\s+Mode:\s+Replication, Peer\s+IP:\s+0\.0\.0\.0, Flags:\s+\*>, Metric:, Local\s+Preference:, Weight:\s+32768, AS\s+Path:]
+  07:43:51: Fail: The output of show bgp l2vpn evpn table evi detail is not as expected. Missing lines: [Type=3:\s+VLAN-ID=0,\s+Originating\s+Router's\s+IP=29\.30\.30\.30, MPLS\s+Label=\s+32768, Transmission\s+Mode:\s+Replication, Peer\s+IP:\s+0\.0\.0\.0, Flags:\s+\*>, Metric:, Local\s+Preference:, Weight:\s+32768, AS\s+Path:]
+  07:43:51: Fail: The output of show evpn summary STILL contains lines that should have gone: [evi-1]
 
---- the EVI the test built, read back from the device ---
-EVPN name: evi-1
-Advertise MAC Addresses: Enabled
-ES DF Waiting Time: 3 seconds
-Export-rt: 65000:1
-Import-rt: 65000:1
-Service Type: vlan-based
-Host MAC Address Duplicate Detection: Disabled
-  Move Interval: 180 seconds
-  Move Counter: 5
-Freeze Time: 30 seconds
-MAC Aging Time: 300 seconds
-MAC Limit: 65520
-Unknown MAC Flooding: Disabled
-Control Word: Disabled
-Local Interfaces:
-INTERFACE         ESI                        ES LABEL
-x-eth0/0/32.1001  -                          -
-x-eth0/0/40.1002  -                          -
-x-eth0/0/40.1003  -                          -
+  Both trace to device/testbed state, not to generated code:
+   * the EVI is restored by bring-up from exaSystemConf_pc3099.cfg;
+   * the Type-3 expectation was captured when that EVI was up, and
+     the route is gone after bgpd aborted on the EVI delete.
+  See evidence_bgpd_crash_on_evi_delete.txt and
+      evidence_traffic_open_issue.txt
+
+--- ASSERTIONS THAT PASSED AGAINST REAL DEVICE OUTPUT ---
+  Pass: AC1: VLAN 1001 is a usable service VLAN.
+  Pass: AC1: VLAN 1001 is not claimed by the SUT.
+  Pass: AC2: VLAN 1002 is a usable service VLAN.
+  Pass: AC2: VLAN 1002 is not claimed by the SUT.
+  Pass: AC3: VLAN 1003 is a usable service VLAN.
+  Pass: AC3: VLAN 1003 is not claimed by the SUT.
+  Pass: cmp1: Commit succeed!
+  Pass: Connected to Ixia server : 10.1.90.108
+  Pass: Files deleted successfully
+  Pass: ixia1: Perform function: addchassis ended without errors
+  Pass: ixia1: Perform function: cleanIxia ended without errors
+  Pass: ixia1: Perform function: connectVport ended without errors
+  Pass: ixia1: Perform function: loadIxiaFile ended without errors
+  Pass: ixia1: Perform function: loadIxiaObj ended without errors
+  Pass: ixia1: Perform function: restartCPU ended without errors
+  Pass: ixia1: Perform function: sendArpAll ended without errors
+  Pass: ixia1: Perform function: startProtocols ended without errors
+  Pass: ixia1: Perform function: vportStateSet ended without errors
+  Pass: ixia1: Perform function: waEditLacpActorSystemId ended without errors
+  Pass: Loading configuration file completed successfully
+  Pass: On cmp exa-il01-ec-3099 WD did not rebooted DUT during the TC
+  Pass: tester protocols are running: 
+  Pass: The output of show bgp neighbor 29.60.0.2 | include EVPN is as expected.
+  Pass: The output of show evpn detail is as expected.
+  Pass: There is enough disk space, use% less than 80%
+  Pass: There is enough disk space, use% less than 90%

@@ -671,6 +671,36 @@ def _with_traffic_setup(script: TestScript,
     return script.model_copy(update={"steps": steps})
 
 
+def _with_tester_protocols(script: TestScript, lab: LabProfile) -> TestScript:
+    """Start the tester's emulated protocols before anything asserts on them.
+
+    Only where there is a core link to run them on. On a profile with no core
+    (`NoCore`) there are no tester protocols, and emitting the step would be a
+    call that always finds nothing running - a red test for the rig's shape
+    rather than for a defect.
+
+    DEVICE-VERIFIED 2026-09-09: loading the `.ixncfg` restores OSPF, LDP and
+    BGP but leaves them stopped, so without this step the DUT's neighbour
+    stays in Active for the whole run and every control-plane expectation is
+    captured against a session that never came up.
+    """
+    if lab.core_link is None:
+        return script
+    step = Step(
+        id=f"{script.flow_id}.S00X",
+        kind=StepKind.TESTER_PROTOCOLS,
+        text=("Start the tester's OSPF, LDP and BGP and verify they are "
+              "running"),
+        req_ids=_R_BRINGUP,
+    )
+    steps = list(script.steps)
+    at = 0
+    while at < len(steps) and ".S00" in steps[at].id:
+        at += 1
+    steps.insert(at, step)
+    return script.model_copy(update={"steps": steps})
+
+
 def evpn_scripts(lab: LabProfile = SINGLE_DUT_3AC) -> list[TestScript]:
     """The M2 scripts, in dependency order.
 
@@ -689,7 +719,8 @@ def evpn_scripts(lab: LabProfile = SINGLE_DUT_3AC) -> list[TestScript]:
     if len(lab.acs) >= 3:
         scripts.append(_type2(lab))
     scripts.append(_type3(lab))
-    return [_with_traffic_setup(sc, lab) for sc in scripts]
+    return [_with_tester_protocols(_with_traffic_setup(sc, lab), lab)
+            for sc in scripts]
 
 
 def skipped_flows(lab: LabProfile) -> list[str]:

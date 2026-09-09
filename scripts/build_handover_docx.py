@@ -128,11 +128,12 @@ r = p.add_run("SUT pc-3099 / exa-il01-ec-3099, software 8.7.0 LAB 935, "
               "run 9 September 2026. Lab profile lab-1dut-3ac-core.")
 r.font.size = Pt(10)
 bullets(doc, [
-    ("TC01 passes: OK (1 test), no failures - ",
-     "under JUnit + JSystem against the DUT, on assertions taken from that "
-     "device's own output. A generated test that verifies nothing fails by "
-     "construction here, so a green run means assertions ran and could have "
-     "failed."),
+    ("The tester side is automated end to end - ",
+     "bringUpParams.crt loads configurations/ixia/EVPN_3AC_CORE.ixncfg, the "
+     "three vports come up, the suite starts your emulated protocols and "
+     "proves they are running, and the DUT reaches OSPF Full and BGP up on "
+     "29.60.0.2. First time the control plane has come up with no hand work. "
+     "L2VPNevpn reads NoNeg because the chassis has no BGP EVPN licence."),
     ("The EVPN service is built by the test and read back - ",
      "show evpn detail returns evi-1, service-type vlan-based, with three "
      "attachment circuits bound: x-eth0/0/32.1001, x-eth0/0/40.1002 and "
@@ -161,15 +162,23 @@ bullets(doc, [
 
 h(doc, "What is NOT proven, and why", size=11, space_before=10)
 bullets(doc, [
-    ("The control plane is configured but not established - ",
-     "the DUT holds neighbour 29.60.0.2 with both IPv4 unicast and L2VPN EVPN, "
-     "and the session reads down / Active. Nothing answers on the far end: "
-     "bring-up loads no IXIA configuration, which is your own point 2."),
-    ("TC02 fails on exactly one thing, and it is that - ",
-     "every DUT-side step passes; it stops at \"vport2: VLAN 1001 was NOT "
-     "enabled (chassis said can't read ixia(vport2): no such variable)\". One "
-     "run of configurations/ixia/EVPN_traffic.tcl on the chassis produces the "
-     ".ixncfg that closes it."),
+    ("Your product has a crash, and this suite found it - ",
+     "deleting an EVPN instance aborts bgpd: assertion \"(_Bool)(ipi_evi_p)\" "
+     "failed, bgp_evi.c:310, bgp_evi_delete(evi_id=1, name=evi-1). Four cores "
+     "on the box in one day, same assertion, reproduced by hand (bgpd pid "
+     "30551 before the delete, 32180 after). Backtrace and steps in "
+     "02_evidence/evidence_bgpd_crash_on_evi_delete.txt."),
+    ("The testbed baseline restores the EVI - ",
+     "bring-up runs load override exaSystemConf_pc3099.cfg, and that saved "
+     "baseline now contains l2-services evpn evi-1. TC01 therefore cannot "
+     "start from the clean device it asserts. The baseline needs re-saving "
+     "without the EVPN instance; that is testbed state, not our code."),
+    ("Traffic does not reach the attachment circuits - ",
+     "the items are in the .ixncfg, carry the right VLAN IDs, and transmit: "
+     "the DUT's physical ports take frames in bulk. The vlan-id "
+     "sub-interfaces count zero and the EVI learns no MAC. Double tagging "
+     "was checked and ruled out, and so was building the endpoints the other "
+     "way. Written up in 02_evidence/evidence_traffic_open_issue.txt."),
     ("7 of 25 verification steps carry assertions that can fail - ",
      "the other 18 warn and say so in the run report. The suite prints that "
      "census itself; it does not present a warning as a pass. Traffic is what "
@@ -217,11 +226,12 @@ r.font.size = Pt(9.5)
 r.font.color.rgb = MUTED
 table(doc,
       ["Suite", "Result on pc-3099, 9 Sep", "Stops at"],
-      [["TC01 bring-up", "OK (1 test)", "-"],
+      [["TC01 bring-up", "FAIL",
+        "bring-up restores the EVI from exaSystemConf_pc3099.cfg, so the "
+        "\"EVI is absent\" assertion fails before the test acts"],
        ["TC02 Type-2 MAC/IP + local move", "FAIL",
-        "IXIA: no vport configured (bring-up loads no IXIA file)"],
-       ["TC03 Type-3 IMET + flooding", "FAIL",
-        "the same single cause"]])
+        "frames reach the DUT port but not the vlan-id sub-interface"],
+       ["TC03 Type-3 IMET + flooding", "FAIL", "the same traffic cause"]])
 p = doc.add_paragraph()
 p.paragraph_format.space_before = Pt(6)
 r = p.add_run("TC02 and TC03 fail for one reason between them, and it is the "

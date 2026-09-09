@@ -1,67 +1,53 @@
 Subject: Re: (M2 hand-over, run on pc-3099)
 
-Hi Eyal, all,
+Hi Eyal,
 
-Thanks for freeing the setup. Attached is the M2 hand-over, regenerated and
-run on pc-3099 (8.7.0 LAB 935) today.
+Your four points in order. Package attached, run on pc-3099 (8.7.0 LAB 935).
 
-TC01 passes: OK (1 test), no failures. Afterwards the device holds:
+1. Ixia config file not in TCL format / cannot open it.
+   Done. You opened evpn_tester_setup.tcl, a raw ixNet dump. The package now
+   carries EVPN_traffic.tcl in your ixia_lib.tcl idiom, plus a real
+   EVPN_3AC_CORE.ixncfg that IxNetwork wrote and can open.
 
-  EVPN name: evi-1        Service Type: vlan-based
-  Local Interfaces:
-    x-eth0/0/32.1001
-    x-eth0/0/40.1002
-    x-eth0/0/40.1003
+2. BringUpParameters.crt doesn't load any Ixia file.
+   Done. The .crt has an ixia1 row loading EVPN_3AC_CORE.ixncfg. Bring-up now
+   brings the tester up on its own: three vports, protocols started, and the
+   DUT reaches OSPF Full and BGP up on 29.60.0.2. First time without hand work.
 
-That closes four of your points from 8 September:
+3. TC01 configures an already existing evpn service.
+   Done in the code. EVPN_Base.cfg no longer creates the EVI; each TC asserts
+   it absent, creates it, asserts it present.
 
-1. TC01 no longer configures an existing service. EVPN_Base.cfg does not
-   create the EVI. TC01 asserts it is absent, creates it, and asserts it is
-   there. The create steps can now fail.
-2. TC02 is back. Three attachment circuits.
-3. Three ACs and a control plane on three links, as you said. x-eth0/0/40
-   carries two circuits that differ only by VLAN tag. We proved that on a
-   spare port first and put the device back as we found it. Transcript is in
-   02_evidence/evidence_shared_port_acs.txt.
-4. VLANs are 1001-1003, chosen by the tool, and the run asserts they are not
-   in the SUT's list. pc-3099 declares 3399 there, the same as 3380 on
-   pc-3080. We do not take VLANs from that list any more.
+4. TC02 declared passed but missing.
+   Back, with three ACs, two sharing x-eth0/0/40 on different VLANs as you
+   said. VLANs are 1001-1003 from the tool, and the run asserts they are not
+   in the SUT list (3399 here).
 
-What does not pass, plainly:
+Two things you should see before the code.
 
-TC02 and TC03 both fail, for one reason between them. bringUpParams.crt loads
-no IXIA file, so there is no vport and no frame can be offered:
+First, a crash in your product. Deleting an EVI aborts bgpd:
 
-  vport2: VLAN 1001 was NOT enabled
-  (chassis said can't read "ixia(vport2)": no such variable)
+  assertion "(_Bool)(ipi_evi_p)" failed
+  bgpd/bgp_evi.c:310, bgp_evi_delete (evi_id=1, name="evi-1")
 
-That is your point 2. Every DUT-side step of both tests passes. Across the
-suite 7 of 25 verification steps carry assertions that can fail; the other 18
-warn and say why. We are not calling that green.
+Four cores on the box today, same assertion. Reproduced by hand: bgpd pid
+30551 before the delete, 32180 after. Backtrace and steps in
+02_evidence/evidence_bgpd_crash_on_evi_delete.txt.
 
-The fix is one chassis slot. configurations/ixia/EVPN_traffic.tcl states every
-traffic item in your ixia_lib.tcl idiom and saves the session as an .ixncfg.
-Run it once and the .crt loads that file from then on. I did not run it
-unattended: the chassis is shared, and traffic items are the thing you said
-you want to be able to inspect, so I would rather build them with you. Half an
-hour together and TC02 and TC03 should go green.
+Second, exaSystemConf_pc3099.cfg now contains l2-services evpn evi-1, so
+bring-up restores it. TC01 cannot start from a clean device until that
+baseline is re-saved without the EVPN instance.
 
-Two other things:
+Where we are: TC01, TC02 and TC03 all end red. TC01 on the baseline above.
+TC02 and TC03 because traffic does not reach the circuits: frames leave the
+tester and the DUT's physical ports count them in bulk, but the vlan-id
+sub-interfaces count zero and the EVI learns no MAC. Double tagging is ruled
+out. Details in 02_evidence/evidence_traffic_open_issue.txt. That is the one
+thing between us and a green TC02, and I would value ten minutes of your time
+on it.
 
-pc-3080 cannot complete your own bring-up on its current image. It is now
-8.7.0 LAB 0 and bring-up ends with "Failed to enter specific session mode.
-Wanted mode: ONL". CmpCliSession.java:69 matches the ONL shell by the literal
-string "@localhost", and this image answers root@router. The same test on the
-same box on 13 August logged root@localhost 78 times; today, zero.
-checkCoresAndAlarms() is called unconditionally from bringUpSetupAndVerify(),
-so nothing skips it. This will stop any suite on that image, not just ours.
-pc-3099 is fine.
-
-Still waiting on a ticket ID so the branch can land as AUT-nnn / EM-nnnn, and
-on your exact wording for the two open test plan items (the deprecated show
-commands, and the tech-support command).
-
-Start with 02_evidence/lab_validation_pc3099.md.
+Still needed: a ticket ID for the branch, and your exact wording for the
+deprecated show commands and the tech-support command.
 
 Thanks,
 Ilan

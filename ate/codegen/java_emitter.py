@@ -547,15 +547,125 @@ _UTILS_BODY = '''
      * Exaware's file to extend. The per-item source MAC is carried in
      * EvpnParams so it is ready the moment either arrives.
      */
+    /**
+     * The items the loaded .ixncfg is expected to carry, by name.
+     *
+     * Verified rather than assumed: `loadIxiaFile` reports success for a file
+     * that loaded nothing useful, and an absent traffic item shows up much
+     * later as an empty statistics view rather than as an error.
+     */
+    private void verifyTrafficItemsLoaded() throws Exception {{
+        String names = ixia.runCommand(new RawTcl(
+                "set ateNames {}; "
+                + "foreach it [ixNet getL [ixNet getRoot]/traffic trafficItem] "
+                + "{ lappend ateNames [ixNet getAtt $it -name] }; "
+                + "join $ateNames { }"));
+        logMsg.info("traffic items in the loaded " + IXNCFG + ": " + names);
+        StringBuilder missing = new StringBuilder();
+        for (String[] ti : params.TRAFFIC_ITEM_BUILD) {{
+            if (names == null || !names.contains(ti[0])) {{
+                missing.append(ti[0]).append(' ');
+            }}
+        }}
+        CompassReporter.passFailByCondition(missing.length() == 0,
+                "the loaded " + IXNCFG + " carries every traffic item this "
+                + "test drives: " + names,
+                "the loaded " + IXNCFG + " is MISSING traffic item(s) ["
+                + missing.toString().trim() + "] - read back: '" + names
+                + "'. Every traffic assertion below would read an empty "
+                + "statistics view.");
+    }}
+
+    /**
+     * Start the tester's emulated protocols, then PROVE they are running.
+     *
+     * DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108 (IxNetwork 9.00).
+     * Loading the .ixncfg restores OSPF, LDP and BGP on the core vport, but
+     * every one of them comes back with runningState=stopped. The DUT then
+     * speaks into a port that answers nothing and its BGP neighbour sits in
+     * Active for the whole run, which is exactly how the underlay looked
+     * "configured" and was not established.
+     *
+     * The read-back is the point. `performFunctions` reports "ended without
+     * errors" for a TCL call that never ran, so starting and believing the
+     * return value is how 34 calls once did nothing in silence.
+     */
+    public void startTesterProtocolsAndVerify() throws Exception {{
+        ixia.performFunctions(IxiaFunctions.START_ALL_PROTOCOLS);
+        // Protocols need time to come up before anything is asserted about
+        // them; adjacency formation is seconds, not milliseconds.
+        Thread.sleep(45000);
+        ixia.performFunctions(IxiaFunctions.LOAD_IXIA_OBJECT);
+
+        // Read the running state back off the chassis. ixia_lib has no proc
+        // that returns it, and inventing an IxiaFunctions entry would be an
+        // ungrounded template, so this is a raw ixNet query - the same escape
+        // hatch the VLAN and source-MAC helpers use.
+        String running = ixia.runCommand(new RawTcl(
+                "set ateStates {}; "
+                + "foreach vp [ixNet getL [ixNet getRoot] vport] { "
+                + "  foreach p {ospf ldp bgp} { "
+                + "    if {![catch {set en [ixNet getAtt $vp/protocols/$p -enabled]}]} { "
+                + "      if {$en} { lappend ateStates "
+                + "$p=[ixNet getAtt $vp/protocols/$p -runningState] } } } }; "
+                + "join $ateStates { }"));
+        logMsg.info("tester protocol running states: " + running);
+        // Every protocol the profile declares must be RUNNING, and the check
+        // must not pass on empty output. The first version asked only
+        // `contains("started")`, which reported
+        //     Pass: tester protocols are running:
+        // with nothing after the colon - a pass on a string that said
+        // nothing. That is the fake-pass rule, arriving through an assertion
+        // written to confirm the fake-pass rule.
+        boolean allStarted = running != null;
+        StringBuilder missing = new StringBuilder();
+        for (String proto : TESTER_PROTOCOLS) {{
+            if (running == null || !running.contains(proto + "=started")) {{
+                allStarted = false;
+                missing.append(proto).append(' ');
+            }}
+        }}
+        CompassReporter.passFailByCondition(allStarted,
+                "tester protocols are running: " + running,
+                "tester protocol(s) NOT started [" + missing.toString().trim()
+                + "] - read back: '" + running + "'. The DUT will speak "
+                + "OSPF/LDP/BGP into a port that answers nothing and every "
+                + "control-plane assertion below is meaningless");
+        // Deliberately NOT counted as a falsifiable assertion. It can fail,
+        // but it checks the RIG, not the feature: a test whose only "proof"
+        // was that the tester's protocols came up has verified nothing about
+        // EVPN. See assertSomethingWasVerified().
+    }}
+
     public void createTrafficItems() throws Exception {
-        // The vports have to exist before they can be tagged or used as
-        // endpoints. Their suites get them from the .crt's interface rows,
-        // which Ixia.loadConfigurationFile applies while loading an .ixncfg -
-        // a file this suite deliberately does not have. Whatever vports happen
-        // to be left in the chassis session from an earlier run are not ours.
-        // Before anything is built: the VLANs this suite is about to put on
-        // the wire must be ours to use. See assertAcVlansAreFree().
+        // Before anything: the VLANs this suite is about to put on the wire
+        // must be ours to use. See assertAcVlansAreFree().
         assertAcVlansAreFree();
+
+        // With an .ixncfg loaded at bring-up the items already exist, and
+        // rebuilding them is wrong: it is their VPLS idiom that a suite loads
+        // a saved configuration and then only suspends and unsuspends NAMED
+        // items. Rebuilding on top leaves the new items unapplied, which is
+        // how a run reached the statistics view and got
+        //     No results where: TRAFFIC_ITEM: TI_AC1_TO_AC2
+        // with every attachment circuit still counting zero frames.
+        if (IXNCFG != null) {{
+            verifyTrafficItemsLoaded();
+            // Their VPLS prep, and the piece that was missing: unsuspending
+            // an item does NOT start the traffic engine. Without this the
+            // items sit at state=stopped, every attachment circuit counts
+            // zero frames, and the statistics view answers
+            //     No results where: TRAFFIC_ITEM: TI_AC1_TO_AC2
+            // Start the whole set once, then hold it silent; each step
+            // unsuspends only what it needs.
+            enableTrafficItemsAndStartSuspended(params.ALL_TRAFFIC_ITEMS);
+            return;
+        }}
+
+        // No .ixncfg: build the items over TCL instead. The vports have to
+        // exist before they can be tagged or used as endpoints, and whatever
+        // vports are left in the chassis session from an earlier run are not
+        // ours.
         assignAcVports();
         tagVportsWithAcVlan();
         for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
@@ -1302,6 +1412,10 @@ def _ac_binding_java(lab: LabProfile) -> str:
     pool = lab.ac_pool
     pool_idx = ", ".join(str(_pool_index(ac, i)) for i, ac in enumerate(lab.acs))
     vlans = ", ".join(_jstr(str(lab.vlan_of(ac))) for ac in lab.acs)
+    core = lab.core_link
+    tester_protocols = ", ".join(
+        _jstr(x) for x in (core.tester_protocols if core else ()))
+    ixncfg = _jstr(lab.ixncfg) if lab.ixncfg else "null"
     names = ", ".join(_jstr(ac.name) for ac in lab.acs)
     return _ascii(f'''
     /** intPool in the SUT file that backs the attachment circuits. */
@@ -1339,6 +1453,21 @@ def _ac_binding_java(lab: LabProfile) -> str:
      * the SUT declares.
      */
     private static final String[] AC_VLAN = {{{vlans}}};
+
+    /**
+     * The emulated protocols this rig's core link runs, from the lab profile.
+     *
+     * Named here so the running-state check knows what "all of them" means.
+     * Asserting only that SOMETHING started would pass on a rig where BGP is
+     * down and OSPF is up, which is the case that matters for EVPN.
+     */
+    private static final String[] TESTER_PROTOCOLS = {{{tester_protocols}}};
+
+    /**
+     * The IXIA configuration bringUpParams.crt loads, or null if there is
+     * none and the items must be built over TCL instead.
+     */
+    private static final String IXNCFG = {ixncfg};
 
     /** Lowest and highest VLAN an attachment circuit may carry. */
     private static final int VLAN_MIN = {VLAN_MIN};
@@ -1593,6 +1722,8 @@ def _render_step(step: Step, lab: LabProfile,
         helper = ("verifyShowLinesAbsent" if step.expect_absent
                   else "verifyShowLines")
         out.append(f"        evpnUtils.{helper}({cmd_expr}, {expect});")
+    elif step.kind is StepKind.TESTER_PROTOCOLS:
+        out.append("        evpnUtils.startTesterProtocolsAndVerify();")
     elif step.kind is StepKind.TRAFFIC_CREATE:
         out.append("        evpnUtils.createTrafficItems();")
     elif step.kind is StepKind.TRAFFIC_STATE:

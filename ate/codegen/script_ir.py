@@ -33,6 +33,14 @@ class StepKind(str, Enum):
     #: that binary, but `IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM` builds the
     #: same objects over TCL, so the suite can stand up its own traffic.
     TRAFFIC_CREATE = "traffic_create"
+    #: Start the tester's emulated routing protocols and PROVE they run.
+    #:
+    #: DEVICE-VERIFIED 2026-09-09. Loading an `.ixncfg` restores the protocol
+    #: objects but leaves every one of them `runningState=stopped`, so the DUT
+    #: was speaking OSPF, LDP and BGP into a port that answered nothing and
+    #: the session sat in Active. The suite never called `startProtocols`,
+    #: which their own `IxiaFunctions.START_ALL_PROTOCOLS` exposes.
+    TESTER_PROTOCOLS = "tester_protocols"
     #: Enable / disable a single named IXIA traffic item.
     TRAFFIC_STATE = "traffic_state"
     #: Start / stop the IXIA traffic engine as a whole.

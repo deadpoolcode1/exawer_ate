@@ -39,6 +39,33 @@
 # file and the suite cannot build different traffic.
 # ---------------------------------------------------------------
 
+# Give an attachment-circuit vport a VLAN-enabled interface.
+#
+# DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108. ixia_lib's
+# configTrafficItemEndpoints reads
+#     set int [ixNet getL $ixia($srcVport) interface]
+# and builds the endpointSet's -sources from it. A vport with no
+# interface object yields an endpointSet with NO sources; that is
+# accepted without error, `generate` then produces no configElement,
+# and the failure only surfaces two procs later as
+#     can't read "element": no such variable
+# Only vport1 got an interface (from the core setup), so both AC
+# ports were silently sourceless.
+#
+# vlanEnable must stay TRUE. It selects the branch of
+# configTrafficItemEndpoints that sources from $vport/protocols;
+# the other branch builds -sources from the interface list and dies
+# inside ixNet commit (verified on pc-3099, 2026-09-09).
+proc ateAcInterface {vp vlan mac} {
+    set intf [lindex [ixNet remapIds [ixNet add $vp interface]] 0]
+    ixNet setAtt $intf -enabled true -description "ac-vlan-$vlan"
+    ixNet commit
+    ixNet setAtt $intf/ethernet -macAddress $mac
+    ixNet setAtt $intf/vlan -vlanEnable true -vlanId $vlan
+    ixNet commit
+    return $intf
+}
+
 # Push a VLAN header onto a RAW item and set its VLAN ID.
 #
 # A raw item's frame is whatever its protocol stack says, and that
@@ -101,6 +128,22 @@ proc ateSetItemSrcMac {itemName mac} {
 }
 
 # ---------------------------------------------------------------
+# Attachment-circuit interfaces, before any traffic item names them.
+# ---------------------------------------------------------------
+
+# ixia_lib addresses vports through its own container, so the
+# container has to be filled before $ixia(vportN) resolves. Creating
+# the interfaces first and loading afterwards fails with
+#     can't read "ixia(vport2)": no such variable
+loadIxiaObj
+ateAcInterface $ixia(vport2) 1001 00:00:01:00:00:01
+ateAcInterface $ixia(vport3) 1002 00:00:02:00:00:01
+
+# Refresh ixia_lib's container so the item procs below can resolve
+# vport and interface names.
+loadIxiaObj
+
+# ---------------------------------------------------------------
 # The traffic items.
 # ---------------------------------------------------------------
 
@@ -111,9 +154,6 @@ set ateFrameRateFps 1000
 #   source MAC 00:00:01:00:00:01
 configNewTrafficItem TI_AC1_TO_AC2 true null l2L3 false false raw TI_AC1_TO_AC2 interleaved null false false oneToOne
 configTrafficItemEndpoints TI_AC1_TO_AC2 1 vport2 null null null null null null vport3 null null null null null null null null null TI_AC1_TO_AC2 null null
-configTrafficItemStream TI_AC1_TO_AC2 1 goodCRC manual TI_AC1_TO_AC2 8 auto false
-configTrafficItemFrameRate TI_AC1_TO_AC2 stream 1 framesPerSecond $ateFrameRateFps bytes bitsPerSec false
-ateTagItemVlan TI_AC1_TO_AC2 1001
 
 # TI_AC2_TO_AC1
 #   AC2 (vport3, VLAN 1002) -> AC1 (vport2, VLAN 1001)
@@ -123,9 +163,6 @@ ateTagItemVlan TI_AC1_TO_AC2 1001
 #   PE, which must not re-advertise a Type-2 route.
 configNewTrafficItem TI_AC2_TO_AC1 true null l2L3 false false raw TI_AC2_TO_AC1 interleaved null false false oneToOne
 configTrafficItemEndpoints TI_AC2_TO_AC1 1 vport3 null null null null null null vport2 null null null null null null null null null TI_AC2_TO_AC1 null null
-configTrafficItemStream TI_AC2_TO_AC1 1 goodCRC manual TI_AC2_TO_AC1 8 auto false
-configTrafficItemFrameRate TI_AC2_TO_AC1 stream 1 framesPerSecond $ateFrameRateFps bytes bitsPerSec false
-ateTagItemVlan TI_AC2_TO_AC1 1002
 
 # TI_AC3_TO_AC1
 #   AC3 (vport3, VLAN 1003) -> AC1 (vport2, VLAN 1001)
@@ -135,16 +172,35 @@ ateTagItemVlan TI_AC2_TO_AC1 1002
 #   PE, which must not re-advertise a Type-2 route.
 configNewTrafficItem TI_AC3_TO_AC1 true null l2L3 false false raw TI_AC3_TO_AC1 interleaved null false false oneToOne
 configTrafficItemEndpoints TI_AC3_TO_AC1 1 vport3 null null null null null null vport2 null null null null null null null null null TI_AC3_TO_AC1 null null
+
+# GENERATE, and it must happen HERE - after every item has its
+# endpoints and before anything touches a stream, a rate, a VLAN or
+# a source MAC.
+#
+# DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108 (IxNetwork 9.00).
+# A traffic item has NO configElement until `generate` has run, and
+# configTrafficItemStream and configTrafficItemFrameRate both resolve
+# through ixia_lib's getTrafficConfigElement. Calling them first ends
+# the script with
+#     can't read "element": no such variable
+#         (procedure "getTrafficConfigElement" line 10)
+# which is what the first version of this file did. Nothing in their
+# repository uses these procs, so there was no example to copy: the
+# order came from the chassis.
+ixNet exec generate [ixNet getL [ixNet getRoot]/traffic trafficItem]
+after 8000
+
+configTrafficItemStream TI_AC1_TO_AC2 1 goodCRC manual TI_AC1_TO_AC2 8 auto false
+configTrafficItemFrameRate TI_AC1_TO_AC2 stream 1 framesPerSecond $ateFrameRateFps bytes bitsPerSec false
+ateTagItemVlan TI_AC1_TO_AC2 1001
+configTrafficItemStream TI_AC2_TO_AC1 1 goodCRC manual TI_AC2_TO_AC1 8 auto false
+configTrafficItemFrameRate TI_AC2_TO_AC1 stream 1 framesPerSecond $ateFrameRateFps bytes bitsPerSec false
+ateTagItemVlan TI_AC2_TO_AC1 1002
 configTrafficItemStream TI_AC3_TO_AC1 1 goodCRC manual TI_AC3_TO_AC1 8 auto false
 configTrafficItemFrameRate TI_AC3_TO_AC1 stream 1 framesPerSecond $ateFrameRateFps bytes bitsPerSec false
 ateTagItemVlan TI_AC3_TO_AC1 1003
 
-# GENERATE binds the physical MACs and interfaces onto each raw item.
-# Without it the items are configured but unresolved and nothing is
-# transmitted. It runs BEFORE the source MACs are set, because
-# generating afterwards overwrites them.
-ixNet exec generate [ixNet getL [ixNet getRoot]/traffic trafficItem]
-
+# Source MACs last: `generate` overwrites them.
 ateSetItemSrcMac TI_AC1_TO_AC2 00:00:01:00:00:01
 ateSetItemSrcMac TI_AC2_TO_AC1 00:00:02:00:00:01
 ateSetItemSrcMac TI_AC3_TO_AC1 00:00:02:00:00:01

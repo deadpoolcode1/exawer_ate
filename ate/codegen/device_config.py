@@ -417,9 +417,19 @@ def emit_tester_config(lab: LabProfile) -> JavaFile | None:
         "",
         "package require IxTclNetwork",
         "set vp /vport:1",
-        "set intf $vp/interface:1",
         "",
-        "# routed interface facing the DUT",
+        "# The routed interface facing the DUT, CREATED rather than assumed.",
+        "#",
+        "# DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108 (IxNetwork 9.00).",
+        "# This used to say `set intf $vp/interface:1`, which is a path, not an",
+        "# object: on a vport that has no interface yet the path simply does",
+        "# not resolve, `ixNet setAtt` on it changes nothing and reports no",
+        "# error, and the OSPF interface below ends up with",
+        "#     protocolInterface = ::ixNet::OBJ-null",
+        "# The tester then has no address on the core link at all. Every",
+        "# protocol still starts and reports runningState=started, so the only",
+        "# visible symptom is that the DUT's neighbour never leaves Active.",
+        "set intf [lindex [ixNet remapIds [ixNet add $vp interface]] 0]",
         f"ixNet setAtt $intf -enabled true -description {lab.id}-core",
         "ixNet commit",
         "set v4 [ixNet add $intf ipv4]",
@@ -584,6 +594,33 @@ def emit_traffic_config(lab: LabProfile) -> JavaFile:
         "# file and the suite cannot build different traffic.",
         "# ---------------------------------------------------------------",
         "",
+        "# Give an attachment-circuit vport a VLAN-enabled interface.",
+        "#",
+        "# DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108. ixia_lib's",
+        "# configTrafficItemEndpoints reads",
+        "#     set int [ixNet getL $ixia($srcVport) interface]",
+        "# and builds the endpointSet's -sources from it. A vport with no",
+        "# interface object yields an endpointSet with NO sources; that is",
+        "# accepted without error, `generate` then produces no configElement,",
+        "# and the failure only surfaces two procs later as",
+        "#     can't read \"element\": no such variable",
+        "# Only vport1 got an interface (from the core setup), so both AC",
+        "# ports were silently sourceless.",
+        "#",
+        "# vlanEnable must stay TRUE. It selects the branch of",
+        "# configTrafficItemEndpoints that sources from $vport/protocols;",
+        "# the other branch builds -sources from the interface list and dies",
+        "# inside ixNet commit (verified on pc-3099, 2026-09-09).",
+        "proc ateAcInterface {vp vlan mac} {",
+        "    set intf [lindex [ixNet remapIds [ixNet add $vp interface]] 0]",
+        "    ixNet setAtt $intf -enabled true -description \"ac-vlan-$vlan\"",
+        "    ixNet commit",
+        "    ixNet setAtt $intf/ethernet -macAddress $mac",
+        "    ixNet setAtt $intf/vlan -vlanEnable true -vlanId $vlan",
+        "    ixNet commit",
+        "    return $intf",
+        "}",
+        "",
         "# Push a VLAN header onto a RAW item and set its VLAN ID.",
         "#",
         "# A raw item's frame is whatever its protocol stack says, and that",
@@ -646,6 +683,31 @@ def emit_traffic_config(lab: LabProfile) -> JavaFile:
         "}",
         "",
         "# ---------------------------------------------------------------",
+        "# Attachment-circuit interfaces, before any traffic item names them.",
+        "# ---------------------------------------------------------------",
+        "",
+        "# ixia_lib addresses vports through its own container, so the",
+        "# container has to be filled before $ixia(vportN) resolves. Creating",
+        "# the interfaces first and loading afterwards fails with",
+        "#     can't read \"ixia(vport2)\": no such variable",
+        "loadIxiaObj",
+    ]
+    seen_vports: set[str] = set()
+    for ac in lab.acs:
+        if ac.vport in seen_vports:
+            continue
+        seen_vports.add(ac.vport)
+        mac = next((t.src_mac for t in lab.traffic_items
+                    if lab.ac(t.src).vport == ac.vport), "00:00:00:00:00:01")
+        lines.append(
+            f"ateAcInterface $ixia({ac.vport}) {lab.vlan_of(ac)} {mac}")
+    lines += [
+        "",
+        "# Refresh ixia_lib's container so the item procs below can resolve",
+        "# vport and interface names.",
+        "loadIxiaObj",
+        "",
+        "# ---------------------------------------------------------------",
         "# The traffic items.",
         "# ---------------------------------------------------------------",
         "",
@@ -678,20 +740,40 @@ def emit_traffic_config(lab: LabProfile) -> JavaFile:
             f"configTrafficItemEndpoints {ti.name} 1 {src.vport} null null "
             f"null null null null {dst.vport} null null null null null null "
             f"null null null {ti.name} null null",
+            "",
+        ]
+    lines += [
+        "# GENERATE, and it must happen HERE - after every item has its",
+        "# endpoints and before anything touches a stream, a rate, a VLAN or",
+        "# a source MAC.",
+        "#",
+        "# DEVICE-VERIFIED 2026-09-09 on chassis 10.1.70.108 (IxNetwork 9.00).",
+        "# A traffic item has NO configElement until `generate` has run, and",
+        "# configTrafficItemStream and configTrafficItemFrameRate both resolve",
+        "# through ixia_lib's getTrafficConfigElement. Calling them first ends",
+        "# the script with",
+        "#     can't read \"element\": no such variable",
+        "#         (procedure \"getTrafficConfigElement\" line 10)",
+        "# which is what the first version of this file did. Nothing in their",
+        "# repository uses these procs, so there was no example to copy: the",
+        "# order came from the chassis.",
+        "ixNet exec generate [ixNet getL [ixNet getRoot]/traffic trafficItem]",
+        "after 8000",
+        "",
+    ]
+    for ti in lab.traffic_items:
+        src = lab.ac(ti.src)
+        vlan = lab.vlan_of(src)
+        lines += [
             f"configTrafficItemStream {ti.name} 1 goodCRC manual {ti.name} 8 "
             "auto false",
             f"configTrafficItemFrameRate {ti.name} stream 1 framesPerSecond "
             "$ateFrameRateFps bytes bitsPerSec false",
             f"ateTagItemVlan {ti.name} {vlan}",
-            "",
         ]
+    lines.append("")
     lines += [
-        "# GENERATE binds the physical MACs and interfaces onto each raw item.",
-        "# Without it the items are configured but unresolved and nothing is",
-        "# transmitted. It runs BEFORE the source MACs are set, because",
-        "# generating afterwards overwrites them.",
-        "ixNet exec generate [ixNet getL [ixNet getRoot]/traffic trafficItem]",
-        "",
+        "# Source MACs last: `generate` overwrites them.",
     ]
     for ti in lab.traffic_items:
         lines.append(f"ateSetItemSrcMac {ti.name} {ti.src_mac}")

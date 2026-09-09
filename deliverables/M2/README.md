@@ -5,46 +5,51 @@ mapped to the artifact that satisfies it, plus the evidence behind each claim.
 
 > ## READ THIS FIRST: what is proven, and what is not
 >
-> **Regenerated and run on hardware on 2026-09-09**, on **pc-3099**
-> (`exa-il01-ec-3099`, 10.3.99.1), software **8.7.0 LAB 935**, lab profile
-> `lab-1dut-3ac-core`.
+> Run on **pc-3099** (`exa-il01-ec-3099`, 10.3.99.1), software
+> **8.7.0 LAB 935**, profile `lab-1dut-3ac-core`, 2026-09-09.
 >
-> **TC01 passes: `OK (1 test)`, no failures.** The device was then read back
-> directly and held:
->
-> ```
-> EVPN name: evi-1                  Service Type: vlan-based
-> Local Interfaces:
->   x-eth0/0/32.1001
->   x-eth0/0/40.1002
->   x-eth0/0/40.1003
-> ```
->
-> That output closes four points from Eyal Ozeri's 2026-09-08 review at once:
-> the service is created by the test and not by the configuration file; there
-> are three attachment circuits, so TC02 exists again; two of them share one
-> physical port and differ only by VLAN tag; and the VLANs are 1001-1003, not
-> the VLAN this rig's SUT declares (3399).
->
-> **What is NOT proven, stated plainly.** The control plane is configured on
-> the DUT but not established: the BGP neighbour reads `down / Active`,
-> because bring-up loads no IXIA configuration and nothing answers on the far
-> end of the core link. That is Eyal's own point 2 ("the BringUpParameters.crt
-> file doesn't load any Ixia file"), and it is the single reason TC02 does not
-> pass: every DUT-side step of TC02 passes, and it stops at
+> **The tester side is now automated end to end.** `bringUpParams.crt`
+> loads `configurations/ixia/EVPN_3AC_CORE.ixncfg`, the three vports come
+> up, the suite starts the tester's protocols and proves they run, and the
+> DUT reaches:
 >
 > ```
-> vport2: VLAN 1001 was NOT enabled
-> (chassis said can't read "ixia(vport2)": no such variable)
+> show ospf neighbor  ->  29.60.0.2   Full/ -   x-eth0/0/18
+> show bgp neighbor   ->  29.60.0.2   up        IPv4u
 > ```
 >
-> One run of `configurations/ixia/EVPN_traffic.tcl` on the chassis produces
-> the `.ixncfg` that closes it. Until then **7 of 25 verification steps carry
-> assertions that can actually fail; the other 18 warn and say so.** The suite
-> reports that census itself rather than presenting warnings as passes.
+> That closes the review point about the `.crt` loading no IXIA file, and it
+> is the first time the control plane has come up without hand work.
+> `L2VPNevpn` reads `NoNeg` because the chassis has no BGP EVPN licence.
 >
-> Start with **`lab_validation_pc3099.md`**, then
-> `evidence_tc01_run_pc3099.txt` and `evidence_shared_port_acs.txt`.
+> **The suite found a crash in the product.** Deleting an EVPN instance
+> aborts `bgpd`:
+>
+> ```
+> assertion "(_Bool)(ipi_evi_p)" failed
+> bgpd/bgp_evi.c:310, bgp_evi_delete (evi_id=1, name="evi-1")
+> ```
+>
+> Four cores on the box in one day, same assertion. Reproduced by hand.
+> Backtrace and steps: `02_evidence/evidence_bgpd_crash_on_evi_delete.txt`.
+> This is the most valuable thing in this drop.
+>
+> **What is NOT working, stated plainly.** TC01, TC02 and TC03 all end red:
+>
+> | | |
+> |---|---|
+> | Traffic does not reach the circuits | frames leave the tester and the DUT's PHYSICAL ports count them in bulk, but the `vlan-id` sub-interfaces count zero and the EVI learns no MAC |
+> | TC01 cannot start clean | bring-up's `load override exaSystemConf_pc3099.cfg` restores the EVI, so the "EVI is absent" assertion fails before the test does anything |
+>
+> Both are written up, with what was checked and ruled out, in
+> `02_evidence/evidence_traffic_open_issue.txt`. Neither is hidden and
+> neither is reported as a pass.
+>
+> Across the suite **7 of 25 verification steps carry assertions that can
+> actually fail**; the other 18 warn and say why. The suite prints that
+> census itself.
+>
+> Start with `02_evidence/lab_validation_pc3099.md`.
 
 ## SOW M2 deliverables → artifacts
 
