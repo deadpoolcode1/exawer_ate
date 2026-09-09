@@ -374,17 +374,50 @@ def test_dut_config_never_contains_clear_or_no_forms(scripts):
     assert not [ln for ln in body if ln.strip().startswith(("no ", "clear "))]
 
 
-def test_dut_config_declares_that_the_underlay_is_absent(scripts):
-    """Inventing IP/MPLS/BGP would put fiction in a file typed at a router."""
+def test_dut_config_without_an_underlay_says_so_in_its_own_words(scripts):
+    """A missing control plane must read as a defect, not as a design note.
+
+    This test used to assert the banner "NOT included - the underlay", whose
+    accompanying rationale was that inventing IP/MPLS/BGP "would put fiction
+    into a file typed at a real router" and that the underlay would arrive
+    from `cleanBaseConfig`. Both halves were wrong: the delegation had no
+    receiver, so EVPN could never come up, and the banner read as a
+    considered omission for a fortnight.
+
+    What the banner must now do is carry the profile's own reason and
+    acceptor, and say plainly that the file is not shippable.
+    """
     from ate.codegen.device_config import emit_dut_config
     from ate.codegen.lab import SINGLE_DUT_3AC
 
     head = emit_dut_config(scripts, SINGLE_DUT_3AC).content
-    assert "NOT included - the underlay" in head
+    assert "NOT A CLIENT DELIVERABLE" in head
+    # The profile's stated reason travels into the artifact, so a reader of
+    # the .cfg alone learns why rather than inferring "not wired up yet".
+    assert "ERROR-6301" in head          # from NoCore.reason
+    assert "Accepted by:" in head
+    assert "NOBODY" in head              # from NoCore.accepted_by
     # The block shape stopped being a guess on 2026-08-11: an EVI was
     # configured on the DUT and `show configuration l2-services` printed
     # exactly this hierarchy.
     assert "DEVICE-VERIFIED" in head
+
+
+def test_a_profile_must_declare_whether_it_has_a_core_link():
+    """`core` has no default, so absence cannot happen by omission.
+
+    The 2026-08-14 regression is exactly this: `core: CoreLink | None = None`
+    meant a profile could be written without anybody deciding, and three
+    emitters answered the default with silence.
+    """
+    import dataclasses
+
+    from ate.codegen.lab import LabProfile
+
+    core_field = next(f for f in dataclasses.fields(LabProfile)
+                      if f.name == "core")
+    assert core_field.default is dataclasses.MISSING
+    assert core_field.default_factory is dataclasses.MISSING
 
 
 def test_bringup_params_layers_clean_base_then_merges(scripts):
@@ -1214,7 +1247,12 @@ def test_the_census_counts_what_can_actually_fail(scripts):
     from ate.codegen.fake_pass import assertion_census
 
     census = assertion_census(scripts, REAL_CAPTURE)
-    assert census.falsifiable == ["FLOW-010.S08"]
+    # One from the capture, plus the steps whose expectation is known at
+    # generation time - "the EVI is/is not there" needs the EVI's name and
+    # nothing off a device, so it can fail from the first run.
+    assert "FLOW-010.S08" in census.falsifiable
+    assert "FLOW-010.S00A" in census.falsifiable, \
+        "the pre-existing-service check must be able to fail"
     assert census.warns_only, "the rest must be reported as warn-only"
     assert census.total == len(census.falsifiable) + len(census.warns_only)
 
@@ -1239,17 +1277,27 @@ def test_a_no_change_assertion_refuses_an_empty_baseline(files):
 
 
 def test_only_the_non_empty_path_counts_as_an_assertion(files):
-    """Exactly three paths may count as having asserted something.
+    """Exactly four paths may count as having asserted something.
 
     verifyShowLines (lines present), verifyShowLinesAbsent (lines gone, for
     aging and withdrawal, which a capture can never express as a presence
-    check) and the no-change comparison. Anything else that increments this
-    is a path that can report a green run without checking behaviour.
+    check), the no-change comparison, and the IXIA Traffic Item Statistics
+    query. Anything else that increments this is a path that can report a
+    green run without checking behaviour.
+
+    The traffic-statistics path joined the list on 2026-08-19. It replaced a
+    stub that could only ever call CompassReporter.warning(), i.e. a traffic
+    step that changed the chassis and proved nothing about whether frames
+    moved. It counts because it can genuinely fail: the query asserts the
+    expected Tx and Rx frame rates for a named traffic item, against the
+    chassis's own statistics view.
     """
     utils = next(f for f in files if f.class_name == "EvpnUtils").content
-    assert utils.count("falsifiableAssertions++") == 3, \
-        "only show-lines, show-lines-absent and no-change may count"
+    assert utils.count("falsifiableAssertions++") == 4, \
+        ("only show-lines, show-lines-absent, no-change and traffic-item "
+         "statistics may count")
     assert "verifyShowLinesAbsent" in utils
+    assert "verifyTrafficItemStatistics" in utils
 
 
 def test_legend_only_bgp_table_is_refused_as_an_expectation() -> None:
@@ -1319,6 +1367,123 @@ def test_a_one_sided_underlay_is_refused() -> None:
     assert any("'ldp'" in v for v in violations)
 
 
+def test_the_shipped_m2_package_would_be_refused_today() -> None:
+    """The regression test for the defect the client reported twice.
+
+    The 2026-08-14 hand-over compiled, three suites ran green, the pipeline
+    exited zero, and it had no IGP, no LDP and no BGP on either side. Every
+    gate we had at the time passed it.
+
+    It used to be pinned at `deliverables/M2/generated_suite/`, so that the
+    ratchet was measured against the real shipped artifact rather than a
+    fixture built to fail. On 2026-08-24 that folder was regenerated with the
+    fix and this test went green — which the old docstring called correctly as
+    "the fix landing". Per its own instruction the package was not deleted and
+    the test was not deleted: the defective artifacts were recovered from git
+    and frozen verbatim under `tests/fixtures/m2_package_2026-08-14/`.
+
+    They are byte-for-byte what shipped. Keep them that way — the point of this
+    test is that the detectors are exercised against the genuine defect, not a
+    reconstruction of it.
+    """
+    from pathlib import Path
+
+    from ate.codegen.capabilities import regressions
+
+    root = Path(__file__).resolve().parent / "fixtures/m2_package_2026-08-14"
+    if not root.is_dir():          # fixture pruned from the tree
+        pytest.skip("the 2026-08-14 package fixture is not in this checkout")
+
+    files = {str(p.relative_to(root)): p.read_text(encoding="utf-8",
+                                                   errors="replace")
+             for p in root.rglob("*")
+             if p.is_file() and p.suffix in {".java", ".cfg", ".crt", ".tcl"}}
+
+    lost = {r.capability.id for r in regressions(files)}
+    # `topology.three_acs` joined this set on 2026-09-09, and not because the
+    # fixture changed: that package really did ship two attachment circuits,
+    # which is Exaware's E4 of 2026-09-08 ("TC02 which is declared as a passed
+    # TC is missing"). It could not be called a regression until the third
+    # circuit was proven possible on the rig, which it now is - two
+    # sub-interfaces of one port, pc-3080, 8.7.0 LAB 0.
+    assert lost == {"underlay.igp", "underlay.mpls", "underlay.bgp",
+                    "underlay.bgp_evpn_af", "topology.three_acs"}, (
+        "the shipped M2 package lost exactly the underlay capabilities plus "
+        f"the third attachment circuit; detected {sorted(lost)}")
+
+
+def test_a_capability_needs_both_ends_before_it_counts() -> None:
+    """A DUT-only underlay must not satisfy an underlay capability.
+
+    This is the shape of the defect Exaware caught by eye on 2026-08-13:
+    "you configured ospf on the device, but not on the Ixia". A detector that
+    only read the `.cfg` would have called that healthy.
+    """
+    from ate.codegen.capabilities import capability
+
+    # Column-0 stanza headers, as `_underlay` emits them.
+    dut_only = {
+        "configurations/compass/EVPN_Base.cfg":
+            "routing ospf 3029\nmpls ldp default\nrouting bgp 3029\n"
+            "  neighbor 29.60.0.2\n   af-l2vpn evpn\n",
+    }
+    for cap_id in ("underlay.igp", "underlay.mpls", "underlay.bgp"):
+        assert not capability(cap_id).detector(dut_only), (
+            f"{cap_id} passed with nothing configured on the tester")
+
+    both = dict(dut_only)
+    both["configurations/ixia/evpn_tester_setup.tcl"] = (
+        "set ospf $vp/protocols/ospf\nset ldp $vp/protocols/ldp\n"
+        "set bgp $vp/protocols/bgp\n")
+    for cap_id in ("underlay.igp", "underlay.mpls", "underlay.bgp"):
+        assert capability(cap_id).detector(both), f"{cap_id} failed with both"
+
+
+def test_the_vlan_capability_survives_either_vlan_convention() -> None:
+    """The ratchet must not freeze an open design question.
+
+    Whether the AC VLAN is a SUT-bound placeholder (`vlan-id vlan1`) or a
+    literal (`vlan-id 3380`) is open with Exaware as of 2026-08-16. What was
+    proven on hardware is that the sub-interface CLASSIFIES traffic, which
+    either spelling delivers — so a detector keyed to one spelling would
+    block the very change the client asked for.
+    """
+    from ate.codegen.capabilities import capability
+
+    detector = capability("traffic.vlan_classified").detector
+    utils = {"EvpnUtils.java": "void tagTrafficItemsWithAcVlan() {}"}
+    for spelling in (" vlan-id      vlan1", " vlan-id      3380"):
+        assert detector({"EVPN_Base.cfg": f"interface int1.x\n{spelling}\n",
+                         **utils}), f"rejected {spelling!r}"
+    # ...but a sub-interface with no vlan-id at all is the 2026-08-14 defect.
+    assert not detector({"EVPN_Base.cfg": "interface int1.100\n l2-transport enable\n",
+                         **utils})
+
+
+def test_route_assertions_are_refused_without_a_bgp_session() -> None:
+    """A VERIFY_ROUTE step on a rig with no BGP is a fake pass in waiting.
+
+    The command answers an empty table or a bare legend, and an expectation
+    built from that passes on a working device and a broken one alike.
+    """
+    from ate.codegen.capabilities import control_plane_violations
+    from ate.codegen.lab import SINGLE_DUT_2AC_CORE, SINGLE_DUT_3AC
+    from ate.codegen.script_ir import Step, StepKind, TestScript
+
+    route_step = TestScript(
+        flow_id="FLOW-030", class_name="TC02_X", method_name="x",
+        title="t", summary="s",
+        steps=[Step(id="FLOW-030.S09", kind=StepKind.VERIFY_ROUTE,
+                    text="Verify the Type-2 route is advertised")])
+
+    violations = control_plane_violations([route_step], SINGLE_DUT_3AC)
+    assert len(violations) == 1
+    assert "FLOW-030.S09" in violations[0]
+    assert "no BGP session" in violations[0]
+
+    assert control_plane_violations([route_step], SINGLE_DUT_2AC_CORE) == []
+
+
 def test_tester_config_is_generated_from_the_same_profile() -> None:
     """Both ends of the core link come from one source, so they cannot drift."""
     from ate.codegen.device_config import emit_tester_config
@@ -1332,3 +1497,344 @@ def test_tester_config_is_generated_from_the_same_profile() -> None:
         assert f"protocols/{proto}" in tcl
     # EVPN objects must NOT be built: they need a licence the chassis lacks.
     assert "ethernetSegments" not in tcl
+
+
+# ── The 2026-09-08 review: three ACs and a control plane, and free VLANs ────
+#
+# Exaware (Eyal Ozeri), all four in one mail:
+#
+#   "TC01 seems to configure an already existing evpn service."
+#   "TC02 which is declared as a passed TC is missing."
+#   "The setup includes 3 DuT-Ixia connections. It is (more than) enough to
+#    create a Control Plane link and 3 ACs. An AC can reside as a tagged
+#    interface."
+#   "Vlan 3380 appears in the SUT file because it is used on one of the
+#    interfaces to an external server connection. The tool should be able to
+#    use entire 2-4094 range."
+#   "The BringUpParameters.crt file doesn't load any Ixia file."
+
+@pytest.fixture(scope="module")
+def core3():
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+
+    return SINGLE_DUT_3AC_CORE
+
+
+@pytest.fixture(scope="module")
+def core3_files(core3):
+    from ate.codegen.device_config import (
+        emit_bringup_params,
+        emit_dut_config,
+        emit_traffic_config,
+    )
+
+    scripts = evpn_scripts(core3)
+    out = {f.path: f.content for f in emit_all(scripts, core3)}
+    for f in (emit_bringup_params(scripts, core3), emit_dut_config(scripts, core3),
+              emit_traffic_config(core3)):
+        out[f.path] = f.content
+    return out
+
+
+def test_three_attachment_circuits_and_a_control_plane(core3):
+    """The arithmetic that dropped TC02 no longer holds.
+
+    Three DUT<->IXIA links used to mean three ACs OR a core link, so the
+    shipped package had two suites. A circuit is a port AND a VLAN, so two of
+    them fit on one port and all three fit alongside the core.
+    """
+    from ate.codegen.evpn_scripts import skipped_flows
+    from ate.codegen.lab import CoreLink
+
+    assert len(core3.acs) == 3
+    assert isinstance(core3.core, CoreLink)
+    assert len(core3.ac_links) == 2, "AC2 and AC3 share a physical link"
+    assert skipped_flows(core3) == []
+    assert [s.class_name for s in evpn_scripts(core3)] == [
+        "TC01_EvpnVlanBasedBringUp",
+        "TC02_EvpnType2MacIpAdvertisement",
+        "TC03_EvpnType3ImetFlooding",
+    ]
+
+
+def test_the_base_config_does_not_create_the_service(core3_files):
+    """Eyal: "TC01 seems to configure an already existing evpn service."
+
+    It did, and the steps could not fail because of it: the .crt loads the
+    .cfg at bring-up, so re-typing the same configuration stages nothing and
+    the commit has nothing to do.
+    """
+    cfg = core3_files["cmp/tests/evpn/configurations/compass/EVPN_Base.cfg"]
+    config_lines = [ln for ln in cfg.splitlines() if not ln.startswith("!")]
+    assert not any(ln.startswith("l2-services") for ln in config_lines), \
+        "the EVI must be created by TC01, not by the bring-up config"
+    # What the file still must carry: the underlay and the circuits.
+    assert "routing bgp" in cfg and "af-l2vpn evpn" in cfg
+    assert " vlan-id      1001" in cfg
+
+
+def test_tc01_proves_the_service_was_absent_before_it_created_it(core3):
+    tc01 = evpn_scripts(core3)[0]
+    first = tc01.steps[0]
+    assert first.id == "FLOW-010.S00A"
+    assert first.expect_absent
+    # Not an empty array: an absence assertion with no lines passes on any
+    # output at all, including output showing the service already there.
+    assert first.expect_literal == [core3.evi_name]
+
+
+def test_tc02_and_tc03_state_their_prerequisite_as_an_assertion(core3):
+    for sc in evpn_scripts(core3)[1:]:
+        prereq = [st for st in sc.steps if st.id.endswith(".S00P")]
+        assert len(prereq) == 1, f"{sc.class_name} must check the EVI exists"
+        assert prereq[0].expect_literal == [core3.evi_name]
+
+
+def test_no_vlan_is_taken_from_the_sut_vlans_pool(core3_files):
+    """Eyal: VLAN 3380 "is used ... to an external server connection"."""
+    crt = core3_files["cmp/tests/evpn/bringUpParams.crt"]
+    rows = [ln for ln in crt.splitlines() if " vlan " in f" {ln} "]
+    assert not any("vlans" in r for r in rows), \
+        "the .crt must not bind an AC VLAN to the SUT's vlans pool"
+    assert "3380" not in crt
+
+
+def test_the_whole_2_to_4094_range_is_usable(core3):
+    """"The tool should be able to use entire 2-4094 range." Demonstrated."""
+    from ate.codegen.device_config import emit_dut_config
+    from ate.codegen.lab import vlan_violations
+
+    for vlans in ([2, 3, 4], [4092, 4093, 4094], [1001, 2002, 3003]):
+        lab = core3.with_ac_vlans(vlans)
+        assert vlan_violations(lab) == []
+        cfg = emit_dut_config(evpn_scripts(lab), lab).content
+        for v in vlans:
+            assert f" vlan-id      {v}" in cfg
+
+
+def test_an_unusable_vlan_is_refused_at_generation_time(core3):
+    from ate.codegen.lab import vlan_violations
+
+    assert vlan_violations(core3.with_ac_vlans([1, 1002, 1003]))
+    assert vlan_violations(core3.with_ac_vlans([1001, 1002, 4095]))
+    # Two circuits on one port with one VLAN are one sub-interface, not two
+    # attachment circuits - and the tests would believe they had three.
+    assert vlan_violations(core3.with_ac_vlans([1001, 1002, 1002]))
+
+
+def test_each_circuit_keeps_its_own_vlan_end_to_end(core3_files):
+    params = core3_files["cmp/tests/evpn/EvpnParams.java"]
+    utils = core3_files["cmp/tests/evpn/EvpnUtils.java"]
+    tcl = core3_files["cmp/tests/evpn/configurations/ixia/EVPN_traffic.tcl"]
+    assert '{"1001", "1002", "1003"}' in utils
+    # The source circuit's VLAN travels with the traffic item, because on a
+    # shared vport it is the only thing that says which circuit sent it.
+    assert '"TI_AC3_TO_AC1", "vport3", "vport2", "00:00:02:00:00:01", "1003"' \
+        in params
+    assert "ateTagItemVlan TI_AC3_TO_AC1 1003" in tcl
+
+
+def test_the_crt_deduplicates_a_shared_link(core3_files):
+    crt = core3_files["cmp/tests/evpn/bringUpParams.crt"]
+    assert crt.count("interface     int3 ") == 1, \
+        "one find-and-replace row per link, not per circuit"
+    assert crt.count("interface     vport3 ") == 1
+
+
+def test_the_traffic_items_are_readable_and_save_an_ixncfg(core3_files):
+    """Eyal: "it is expected that a traffic item will be 'human readable'"."""
+    tcl = core3_files["cmp/tests/evpn/configurations/ixia/EVPN_traffic.tcl"]
+    for name in ("TI_AC1_TO_AC2", "TI_AC2_TO_AC1", "TI_AC3_TO_AC1"):
+        assert f"configNewTrafficItem {name} " in tcl
+        assert f"ateSetItemSrcMac {name} " in tcl
+    # The step that turns this into the file their own suites load.
+    assert "ixNet exec saveConfig" in tcl and ".ixncfg" in tcl
+
+
+def test_the_crt_loads_the_ixia_file_once_there_is_one(core3):
+    """Eyal: "The BringUpParameters.crt file doesn't load any Ixia file."
+
+    It cannot load one that does not exist - a config row pointing at a
+    missing file aborts bring-up for the whole suite - so the row appears
+    exactly when the profile names a file.
+    """
+    from dataclasses import replace
+
+    from ate.codegen.device_config import emit_bringup_params
+
+    without = emit_bringup_params(evpn_scripts(core3), core3).content
+    assert "ixia1" not in [ln.split()[1] for ln in without.splitlines()
+                           if ln.startswith("default   ")]
+    lab = replace(core3, ixncfg="EVPN_3AC_CORE.ixncfg")
+    with_file = emit_bringup_params(evpn_scripts(lab), lab).content
+    assert "/configurations/ixia/EVPN_3AC_CORE.ixncfg" in with_file
+
+
+def test_a_capture_from_another_topology_is_dropped_not_asserted(core3):
+    """STATUS has carried this as an honest limit; the VLAN move makes it real.
+
+    The package shipped on 2026-08-24 asserts `x-eth0/0/18.100` while its own
+    .cfg creates `.3380` circuits - an expectation that could never match.
+    """
+    from ate.codegen.capture import topology_mismatches
+
+    stale = {"FLOW010_S08_EVPN_DETAIL_LINES": {
+        "lines": ["x-eth0/0/18\\.100\\s+-\\s+-"]}}
+    assert "FLOW010_S08_EVPN_DETAIL_LINES" in topology_mismatches(stale, core3)
+    fresh = {"K": {"lines": ["x-eth0/0/18\\.1002\\s+up"]}}
+    assert topology_mismatches(fresh, core3) == {}
+    # A line with no sub-interface in it says nothing about the topology.
+    assert topology_mismatches({"K": {"lines": ["Total: 3"]}}, core3) == {}
+
+
+def test_a_package_that_asserts_traffic_must_carry_the_traffic_definition() -> None:
+    """Exaware's E1/E8 of 2026-09-08, as a gate rather than as a promise.
+
+    The 2026-08-24 package carried exactly one IXIA file,
+    `evpn_tester_setup.tcl`, which is a raw `ixNet setAtt` dump of the CORE
+    link. It says nothing about traffic, so the only readable statement of
+    what traffic the suite builds was a Java argument list. Eyal's words were
+    "The ixia config file is not in TCL format, which I cannot open" and "it
+    is expected that a traffic item will be 'human readable'".
+
+    The suite may legitimately ship without traffic assertions. What it may
+    not do is assert traffic statistics while leaving the reviewer no file
+    that says what that traffic is.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    spec = importlib.util.spec_from_file_location(
+        "verify_handover_package", root / "scripts/verify_handover_package.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    asserts_traffic = {
+        "cmp/tests/evpn/EVPN_Base.cfg": "routing ospf 3029\n",
+        "cmp/tests/evpn/bringUpParams.crt": "x",
+        "cmp/tests/evpn/TC01_X.java": "verifyTrafficItemStatistics(...)",
+        "cmp/tests/evpn/configurations/ixia/evpn_tester_setup.tcl": "ixNet",
+    }
+    problems = mod._structural_checks(asserts_traffic)
+    assert any("EVPN_traffic.tcl" in p for p in problems), (
+        "a package asserting traffic statistics with no readable traffic "
+        f"definition must be refused; got {problems}")
+
+    with_traffic = dict(asserts_traffic)
+    with_traffic["cmp/tests/evpn/configurations/ixia/EVPN_traffic.tcl"] = (
+        "proc ateTagItemVlan {itemName vlan} {}")
+    assert not [p for p in mod._structural_checks(with_traffic)
+                if "EVPN_traffic.tcl" in p]
+
+    # A suite that asserts no traffic at all is not required to carry one.
+    no_traffic = {k: v for k, v in asserts_traffic.items()
+                  if not k.endswith("TC01_X.java")}
+    no_traffic["cmp/tests/evpn/TC01_X.java"] = "assertEviExists()"
+    assert not [p for p in mod._structural_checks(no_traffic)
+                if "EVPN_traffic.tcl" in p]
+
+
+def test_every_test_case_creates_the_evi_it_uses() -> None:
+    """No test may depend on another test having left state behind.
+
+    Found on hardware, 2026-09-09, pc-3099 (8.7.0 LAB 935). TC01 was green
+    and had left `evi-1` configured with all three circuits bound. TC02 then
+    failed on its first step: "The output of show evpn summary is not as
+    expected. Missing lines: [evi-1]".
+
+    Nothing was wrong with TC01. Exaware's `CmpTestCase.initCmpTestCase` is an
+    `@Before`, and `BringUp.bringUpSetupAndVerify` calls `loadConf()`
+    unconditionally, so `EVPN_Base.cfg` is reloaded before EVERY test method -
+    whether the tests share a JVM or not. Since the .cfg deliberately no
+    longer creates the service (Exaware E3, 2026-09-08), the EVI TC01 created
+    was gone before TC02's first assertion ran.
+
+    So the rule is not "run them in order"; the rule is that each test creates
+    what it needs. This test fails if any TC goes back to assuming.
+    """
+    from ate.codegen.evpn_scripts import evpn_scripts
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+    from ate.codegen.script_ir import StepKind
+
+    for script in evpn_scripts(SINGLE_DUT_3AC_CORE):
+        kinds = {s.id: s.kind for s in script.steps}
+        creates = [s for s in script.steps
+                   if s.kind is StepKind.CONFIG
+                   and s.command == "CONFIGURE_L2_SERVICES_EVPN_$_SERVICE_TYPE_$"]
+        assert creates, (
+            f"{script.id} never creates the EVI it uses. Bring-up reloads "
+            "EVPN_Base.cfg before every test, and that file does not create "
+            "the service, so a test that only asserts the EVI is present "
+            "fails on a device that is behaving correctly.")
+
+        # and it must check the ground state before creating, or the create
+        # steps are unfalsifiable again - which is E3 in a new costume.
+        first = script.steps[0]
+        assert first.expect_absent, (
+            f"{script.id} creates the EVI without first proving it absent; "
+            "that is the 2026-09-08 defect (a create that cannot fail)")
+        assert kinds, "script has no steps"
+
+
+def test_a_capture_must_show_the_route_type_its_step_is_about() -> None:
+    """pc-3099, 2026-09-09: a valid capture that is the wrong evidence.
+
+    With the EVI configured but no traffic offered and no BGP peer, `show bgp
+    l2vpn evpn table evi detail` prints exactly one route: the DUT's own
+    Type-3 IMET. That output is real, non-empty, and passes every emptiness
+    and furniture check. But three of the steps that captured it are about
+    Type-2 MAC advertisement and withdrawal. Freezing a Type-3 line into those
+    steps produces an assertion that passes on a device which has learnt no
+    MAC at all.
+    """
+    from ate.codegen.capture import route_type_mismatches
+    from ate.codegen.script_ir import Step, StepKind
+
+    type3_only = {"lines": [
+        "Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30",
+        "  MPLS Label= 32768",
+    ]}
+    steps = [
+        Step(id="F.S05", kind=StepKind.VERIFY_CLI,
+             text="Verify AC1 source MACs are advertised as a Type-2 route",
+             command="SHOW_BGP", expect_key="A_TYPE2"),
+        Step(id="F.S10", kind=StepKind.VERIFY_CLI,
+             text="Verify the DUT originates its Type-3 IMET route",
+             command="SHOW_BGP", expect_key="B_TYPE3"),
+    ]
+    bad = route_type_mismatches({"A_TYPE2": type3_only,
+                                 "B_TYPE3": type3_only}, steps)
+    assert "A_TYPE2" in bad, "a Type-2 step holding only Type-3 output must be dropped"
+    assert "B_TYPE3" not in bad, "a Type-3 step holding Type-3 output is correct"
+
+
+def test_a_capture_never_freezes_padding_bytes_or_a_timestamp() -> None:
+    """Two ways a capture becomes an assertion that can never pass.
+
+    Both observed on pc-3099 (8.7.0 LAB 935) in the same command output:
+
+      * the device pads fixed-width fields with NUL bytes - 35 of them after
+        the Originating Router's IP. They are invisible in a terminal and
+        lethal in a Java string literal;
+      * "Last update: Wed Sep  9 12:02:29 2026" is different on every run, so
+        an expectation containing it fails the next healthy run.
+    """
+    from ate.codegen.capture import _classify
+
+    raw = (
+        "show bgp l2vpn evpn table evi detail\r\n"
+        "Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30" + "\x00" * 35
+        + "\r\n"
+        "  MPLS Label= 32768\r\n"
+        "  Weight: 32768\r\n"
+        "  Last update: Wed Sep  9 12:02:29 2026\r\n"
+        "router[2026-09-09-12:04:10]#"
+    )
+    status, lines, _ = _classify(raw, "show bgp l2vpn evpn table evi detail")
+    assert status == "ok"
+    body = "\n".join(lines)
+    assert "\x00" not in body, "padding bytes must never reach an expectation"
+    assert not any("last update" in ln.lower() for ln in lines), (
+        "a per-run timestamp must never become an assertion")
+    assert any("Type=3" in ln for ln in lines), "the real content must survive"

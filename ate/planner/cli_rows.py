@@ -326,8 +326,31 @@ def _variant_values(cmd: CliCommand) -> list[str]:
     for ln in _syntax_variants(cmd):
         toks = ln.split()
         if len(toks) > base_len:
-            values.append(toks[base_len])
+            token = _strip_grammar(toks[base_len])
+            if token:
+                values.append(token)
     return values
+
+
+# Grammar punctuation the CLI docs use to mark optional and alternative
+# operands. It belongs to the notation, never to the command the tester types.
+_GRAMMAR_CHARS = "[]{}()<>|,"
+
+
+def _strip_grammar(token: str) -> str:
+    """The literal keyword inside a syntax token, or "" if there is none.
+
+    A syntax form's discriminating token arrives wrapped in whatever notation
+    the doc used — `[dynamic`, `{enable`, `<name>`. Passing that through
+    verbatim put `` `[dynamic` `` into the client-facing action text
+    ("Configure `capability` with each documented value (`[dynamic`,
+    `[graceful-restart`)"), which reads as a typo and is not a command anyone
+    can type. Placeholders (`<name>`) are not values at all and are dropped.
+    """
+    stripped = token.strip(_GRAMMAR_CHARS)
+    if not stripped or stripped.startswith("<"):
+        return ""
+    return stripped
 
 
 def _no_form(cmd: CliCommand) -> str:

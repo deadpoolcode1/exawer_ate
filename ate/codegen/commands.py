@@ -108,7 +108,7 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         key="CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$",
         template="l2-services evpn %s interface %s",
         mode=CLI_CONFIGURE,
-        source="interface (VPLS/EVPN)",
+        source="interface (EVPN)",
         doc_syntax="interface if-name",
     ),
     EvpnCommand(

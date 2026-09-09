@@ -34,7 +34,7 @@ public enum EvpnCommands implements ICmpCliCmd {
     /** CLI doc: export-rt - export-rt route-target */
     CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$("l2-services evpn %s auto-discovery export-rt %s", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: interface (VPLS/EVPN) - interface if-name */
+    /** CLI doc: interface (EVPN) - interface if-name */
     CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$("l2-services evpn %s interface %s", SessionMode.CLI_CONFIGURE),
 
     /** CLI doc: mac-aging-time - mac-aging-time seconds */
@@ -293,15 +293,6 @@ public enum EvpnCommands implements ICmpCliCmd {
     /** CLI doc: mac-address-static (EVPN) - mac-address-static mac-address interface interface | vpws vpws-name */
     L2_SERVICES_EVPN_$_MAC_ADDRESS_STATIC_MAC_ADDRESS_INTERFACE_$("l2-services evpn %s mac-address-static mac-address interface %s", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: mac-address-static (VPLS) - mac-address-static mac-address {interface interface | peer ip-address | vpws vpws-name} */
-    L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_INTERFACE_$("l2-services vpls %s mac-address-static %s interface %s", SessionMode.CLI_CONFIGURE),
-
-    /** CLI doc: mac-address-static (VPLS) - mac-address-static mac-address {interface interface | peer ip-address | vpws vpws-name} */
-    L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_PEER_$("l2-services vpls %s mac-address-static %s peer %s", SessionMode.CLI_CONFIGURE),
-
-    /** CLI doc: mac-address-static (VPLS) - mac-address-static mac-address {interface interface | peer ip-address | vpws vpws-name} */
-    L2_SERVICES_VPLS_$_MAC_ADDRESS_STATIC_$_VPWS_$("l2-services vpls %s mac-address-static %s vpws %s", SessionMode.CLI_CONFIGURE),
-
     /** CLI doc: mac-limit - mac-limit limit */
     L2_SERVICES_EVPN_$_MAC_LIMIT_$("l2-services evpn %s mac-limit %s", SessionMode.CLI_CONFIGURE),
 
@@ -383,26 +374,98 @@ public enum EvpnCommands implements ICmpCliCmd {
     /** CLI doc: show fib evpn-neighbor - show fib evpn-neighbor */
     SHOW_FIB_EVPN_NEIGHBOR("show fib evpn-neighbor"),
 
-    /** CLI doc: allow-as-in - allow-as-in <value> */
-    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ALLOW_AS_IN_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn allow-as-in <value>", SessionMode.CLI_CONFIGURE),
+    /** CLI doc: allow-as-in - allow-as-in number */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ALLOW_AS_IN_$("routing bgp %s vrf %s neighbor %s af-l2vpn evpn allow-as-in %s", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: capability - capability <value> */
-    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability <value>", SessionMode.CLI_CONFIGURE),
+    /** CLI doc: capability - capability [dynamic {enable | disable}] [route-refresh {enable | disable}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: inbound-soft-reconfiguration - inbound-soft-reconfiguration */
+    /** CLI doc: capability - capability [dynamic {enable | disable}] [route-refresh {enable | disable}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_DYNAMIC_DISABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability dynamic disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [dynamic {enable | disable}] [route-refresh {enable | disable}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_DYNAMIC_ENABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability dynamic enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [dynamic {enable | disable}] [route-refresh {enable | disable}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_ROUTE_REFRESH_DISABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability route-refresh disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [dynamic {enable | disable}] [route-refresh {enable | disable}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_ROUTE_REFRESH_ENABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability route-refresh enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [dynamic {enable | disable}] [route-refresh {enable | disable}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_DYNAMIC_DISABLE_ROUTE_REFRESH_DISABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability dynamic disable route-refresh disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [dynamic {enable | disable}] [route-refresh {enable | disable}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_DYNAMIC_DISABLE_ROUTE_REFRESH_ENABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability dynamic disable route-refresh enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [dynamic {enable | disable}] [route-refresh {enable | disable}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_DYNAMIC_ENABLE_ROUTE_REFRESH_DISABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability dynamic enable route-refresh disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [graceful-restart {enable | disable}] [orf {disable | both | receive | send}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_GRACEFUL_RESTART_DISABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability graceful-restart disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [graceful-restart {enable | disable}] [orf {disable | both | receive | send}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_GRACEFUL_RESTART_ENABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability graceful-restart enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [graceful-restart {enable | disable}] [orf {disable | both | receive | send}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_ORF_BOTH("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability orf both", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [graceful-restart {enable | disable}] [orf {disable | both | receive | send}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_ORF_DISABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability orf disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [graceful-restart {enable | disable}] [orf {disable | both | receive | send}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_ORF_RECEIVE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability orf receive", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [graceful-restart {enable | disable}] [orf {disable | both | receive | send}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_ORF_SEND("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability orf send", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: capability - capability [graceful-restart {enable | disable}] [orf {disable | both | receive | send}] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_CAPABILITY_GRACEFUL_RESTART_DISABLE_ORF_BOTH("routing bgp %s vrf %s neighbor %s af-l2vpn evpn capability graceful-restart disable orf both", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: inbound-soft-reconfiguration - inbound-soft-reconfiguration [enable | disable] */
     ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_INBOUND_SOFT_RECONFIGURATION("routing bgp %s vrf %s neighbor %s af-l2vpn evpn inbound-soft-reconfiguration", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: maximum-prefix - maximum-prefix <value> */
-    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_$_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn %s <value>", SessionMode.CLI_CONFIGURE),
+    /** CLI doc: inbound-soft-reconfiguration - inbound-soft-reconfiguration [enable | disable] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_INBOUND_SOFT_RECONFIGURATION_DISABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn inbound-soft-reconfiguration disable", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: policy - policy <value> */
-    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_POLICY_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn policy <value>", SessionMode.CLI_CONFIGURE),
+    /** CLI doc: inbound-soft-reconfiguration - inbound-soft-reconfiguration [enable | disable] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_INBOUND_SOFT_RECONFIGURATION_ENABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn inbound-soft-reconfiguration enable", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: private-as - private-as <value> */
-    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_PRIVATE_AS_VALUE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn private-as <value>", SessionMode.CLI_CONFIGURE),
+    /** CLI doc: maximum-prefix - maximum-prefix number max threshold percent action [warn | terminate] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_$_NUMBER_$_THRESHOLD_$_ACTION("routing bgp %s vrf %s neighbor %s af-l2vpn evpn %s number %s threshold %s action", SessionMode.CLI_CONFIGURE),
 
-    /** CLI doc: route-reflector-client - route-reflector-client */
-    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ROUTE_REFLECTOR_CLIENT("routing bgp %s vrf %s neighbor %s af-l2vpn evpn route-reflector-client", SessionMode.CLI_CONFIGURE);
+    /** CLI doc: maximum-prefix - maximum-prefix number max threshold percent action [warn | terminate] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_$_NUMBER_$_THRESHOLD_$_ACTION_TERMINATE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn %s number %s threshold %s action terminate", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: maximum-prefix - maximum-prefix number max threshold percent action [warn | terminate] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_$_NUMBER_$_THRESHOLD_$_ACTION_WARN("routing bgp %s vrf %s neighbor %s af-l2vpn evpn %s number %s threshold %s action warn", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: policy - policy {in | out} policy-name */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_POLICY_IN_$("routing bgp %s vrf %s neighbor %s af-l2vpn evpn policy in %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: policy - policy {in | out} policy-name */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_POLICY_OUT_$("routing bgp %s vrf %s neighbor %s af-l2vpn evpn policy out %s", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: private-as - private-as [remove | leave] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_PRIVATE_AS("routing bgp %s vrf %s neighbor %s af-l2vpn evpn private-as", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: private-as - private-as [remove | leave] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_PRIVATE_AS_LEAVE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn private-as leave", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: private-as - private-as [remove | leave] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_PRIVATE_AS_REMOVE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn private-as remove", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: route-reflector-client - route-reflector-client [enable | disable] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ROUTE_REFLECTOR_CLIENT("routing bgp %s vrf %s neighbor %s af-l2vpn evpn route-reflector-client", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: route-reflector-client - route-reflector-client [enable | disable] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ROUTE_REFLECTOR_CLIENT_DISABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn route-reflector-client disable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: route-reflector-client - route-reflector-client [enable | disable] */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_ROUTE_REFLECTOR_CLIENT_ENABLE("routing bgp %s vrf %s neighbor %s af-l2vpn evpn route-reflector-client enable", SessionMode.CLI_CONFIGURE),
+
+    /** CLI doc: weight - weight weight-value */
+    ROUTING_BGP_$_VRF_$_NEIGHBOR_$_AF_L2VPN_EVPN_WEIGHT_$("routing bgp %s vrf %s neighbor %s af-l2vpn evpn weight %s", SessionMode.CLI_CONFIGURE);
 
     private final String format;
     private String formattedStr;

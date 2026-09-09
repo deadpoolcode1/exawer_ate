@@ -213,7 +213,10 @@ def assertion_census(scripts: list[TestScript],
             if st.kind not in _ASSERTING:
                 continue
             cap = captures.get(st.expect_key) if st.expect_key else None
-            if cap and cap.get("lines"):
+            if st.expect_literal or (cap and cap.get("lines")):
+                # A generation-time expectation counts as falsifiable for the
+                # same reason a captured one does: the emitted array has
+                # content, so the assertion can fail. See Step.expect_literal.
                 census.falsifiable.append(st.id)
             else:
                 census.warns_only.append(st.id)

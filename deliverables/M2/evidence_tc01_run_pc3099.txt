@@ -1,0 +1,60 @@
+======================================================================
+ATE M2 - TC01 on hardware, pc-3099
+======================================================================
+host    : 10.3.99.1 (exa-il01-ec-3099)
+build   : 8.7.0: LAB 935
+SUT     : pc3099.xml (Exaware's own)
+profile : lab-1dut-3ac-core (ate codegen --lab 3ac-core)
+captures: ate capture --lab 3ac-core, 10 of 15 usable
+runner  : JUnitCore on the dev box, Exaware cmp-infra + cmp-tests
+date    : 2026-09-09T05:14:25-04:00
+
+--- verdict ---
+OK (1 test)
+
+--- failures ---
+(none)
+
+--- assertions that passed against real device output ---
+Pass: AC1: VLAN 1001 is a usable service VLAN.
+Pass: AC1: VLAN 1001 is not claimed by the SUT.
+Pass: AC2: VLAN 1002 is a usable service VLAN.
+Pass: AC2: VLAN 1002 is not claimed by the SUT.
+Pass: AC3: VLAN 1003 is a usable service VLAN.
+Pass: AC3: VLAN 1003 is not claimed by the SUT.
+Pass: cmp1: Commit succeed!
+Pass: Connected to Ixia server : 10.1.90.108
+Pass: Files deleted successfully
+Pass: ixia1: Perform function: loadIxiaObj ended without errors
+Pass: Loading configuration file completed successfully
+Pass: On cmp exa-il01-ec-3099 WD did not rebooted DUT during the TC
+Pass: The output of show bgp l2vpn evpn table evi detail is as expected.
+Pass: The output of show bgp neighbor 29.60.0.2 | include EVPN is as expected.
+Pass: The output of show evpn detail is as expected.
+Pass: The output of show evpn summary no longer contains the expected-gone lines.
+Pass: There is enough disk space, use% less than 80%
+Pass: There is enough disk space, use% less than 90%
+
+--- steps that still only warn (need traffic / a BGP peer) ---
+Warning: FLOW-010.S09: Needs real `show evpn mac-address-table` output.
+
+--- the EVI the test built, read back from the device ---
+EVPN name: evi-1
+Advertise MAC Addresses: Enabled
+ES DF Waiting Time: 3 seconds
+Export-rt: 65000:1
+Import-rt: 65000:1
+Service Type: vlan-based
+Host MAC Address Duplicate Detection: Disabled
+  Move Interval: 180 seconds
+  Move Counter: 5
+Freeze Time: 30 seconds
+MAC Aging Time: 300 seconds
+MAC Limit: 65520
+Unknown MAC Flooding: Disabled
+Control Word: Disabled
+Local Interfaces:
+INTERFACE         ESI                        ES LABEL
+x-eth0/0/32.1001  -                          -
+x-eth0/0/40.1002  -                          -
+x-eth0/0/40.1003  -                          -

@@ -42,7 +42,6 @@ from ate.planner.cli_extractor import (
     extract_commands,
     mark_containers,
 )
-from ate.planner.cli_inheritance import deinvent as deinvent_inherited
 from ate.planner.cli_inheritance import expand as expand_inherited
 from ate.planner.extractor import extract_requirements
 from ate.planner.model import Requirement
@@ -181,15 +180,16 @@ def build_catalog(doc: Document | str | Path,
     inherited_cmds: list[CliCommand] = []
     if cli_doc_path is not None:
         extracted_cmds = extract_commands(cli_doc_path)
-        # Expand the inheritance table, then de-invent it as an explicit
-        # pipeline step (Eyal Ozeri 2026-07-06): the curated table records
-        # our best guess at the BGP knobs' grammar, but the deliverable must
-        # not assert fabricated parameter ranges/enumerations for knobs whose
-        # real syntax we do not have. `deinvent_inherited` strips that detail
-        # to coarse "accepted & operational per BGP manual" commands. Remove
-        # this step once the real Exaware BGP CLI doc is ingested.
-        inherited_cmds = deinvent_inherited(expand_inherited(extracted_cmds))
-    cli_commands = extracted_cmds + inherited_cmds
+        # Expand the inheritance table. There is no de-invention step any
+        # more: `cli_inheritance` now reads the knobs' grammar off Exaware's
+        # Command Reference Guide v8.X.0 instead of hand-curating it, so
+        # there is nothing fabricated left to strip. `deinvent()` was the
+        # right answer while the base manual was missing (Eyal Ozeri
+        # 2026-07-06) and the wrong one once it arrived — stripping now would
+        # discard the real ranges and defaults he then asked to have back
+        # (2026-07-07: "removed, not corrected").
+        inherited_cmds = expand_inherited(extracted_cmds)
+    cli_commands = _scope_cli_to_evpn(extracted_cmds) + inherited_cmds
     # Re-run container marking over the combined set so a container's
     # child attributes include inherited sub-configs (e.g. `af-l2vpn evpn`
     # → allow-as-in, capability, …) — those arrive only after expansion.
@@ -236,3 +236,67 @@ def mark_claimed(catalog: RequirementCatalog,
     catalog.synth_anchors = _identify_synth_anchors(
         catalog.requirements, claimed_req_ids,
     )
+
+
+# ---------------------------------------------------------------------------
+# Plan scoping — this is an EVPN test plan, not a VPLS one
+# ---------------------------------------------------------------------------
+
+#: Commands the EVPN CLI doc documents under BOTH `l2-services vpls` and
+#: `l2-services evpn`, because one doc section serves both services.
+#:
+#: Eyal Ozeri, 2026-07-07: "the TP is for evpn" — VPLS rows do not belong in
+#: it. The commands themselves do: `mac-limit` is a real EVPN knob. What has
+#: to go is the VPLS *mode path*, which is what put
+#: `configuration l2-services {vpls|evpn}` into the action text and gave the
+#: plan a whole "CLI CONFIGURATION — L2-SERVICES VPLS" section.
+_VPLS_MODE_HEAD = ("l2-services", "vpls")
+
+
+def _is_vpls_path(path: list[str]) -> bool:
+    """Whether a mode path descends through `l2-services vpls`."""
+    for i in range(len(path) - 1):
+        if tuple(path[i:i + 2]) == _VPLS_MODE_HEAD:
+            return True
+    return False
+
+
+def _scope_cli_to_evpn(commands: list[CliCommand]) -> list[CliCommand]:
+    """Drop VPLS from an EVPN plan, without dropping shared EVPN commands.
+
+    A **plan step**, deliberately, not an extractor change: the extracted IR
+    stays a faithful record of what the CLI doc says, including the VPLS modes,
+    and only the deliverable is scoped. That keeps the golden IR stable and
+    keeps the same extraction reusable for a VPLS plan later.
+
+    Two cases, and conflating them is what made the first attempt at this
+    wrong — it stripped the parameters off shared commands instead of stripping
+    the mode:
+
+    * **dual-mode** (`mac-limit`, `mac-aging-time`, `interface (VPLS/EVPN)`,
+      `auto-discovery`, `export-rt`, `import-rt`) — keep the command, keep
+      every parameter, and keep only its `…evpn` mode paths. The name's
+      `(VPLS/EVPN)` marker is rewritten to `(EVPN)` so the banner does not
+      advertise a service the plan does not cover.
+    * **VPLS-only** (`mac-address-static (VPLS)`) — drop the command entirely.
+      It has no EVPN mode path, so scoping it leaves nothing to test.
+    """
+    scoped: list[CliCommand] = []
+    for cmd in commands:
+        paths = cmd.mode_paths or ([cmd.mode_path] if cmd.mode_path else [])
+        if not paths:
+            scoped.append(cmd)
+            continue
+        evpn_paths = [p for p in paths if not _is_vpls_path(p)]
+        if not evpn_paths:
+            # VPLS-only: nothing of it belongs in an EVPN test plan.
+            continue
+        if len(evpn_paths) == len(paths):
+            scoped.append(cmd)
+            continue
+        cmd.mode_paths = evpn_paths
+        cmd.mode_path = evpn_paths[0]
+        cmd.mode = "\n".join(" ".join(p) for p in evpn_paths)
+        cmd.name = cmd.name.replace("(VPLS/EVPN)", "(EVPN)")
+        scoped.append(cmd)
+    return scoped

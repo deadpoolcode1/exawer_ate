@@ -20,12 +20,20 @@ are reproduced here:
     file, so one config serves every testbed. We emit the same binding, which
     lands on pc3021's `data1` pool (and its three IXIA vports) unchanged.
 
-What is NOT emitted, deliberately:
+The **underlay** — interface addressing, MPLS/LDP and BGP — IS emitted, from
+`LabProfile.core`, on both ends: `_underlay` writes the DUT side into the
+`.cfg` and `emit_tester_config` writes the IXIA side as TCL, from the same
+values, so the two cannot drift.
 
-  * **The underlay** — interface IP addressing, MPLS/LDP, BGP. That is lab
-    data, not documented in the SFS or CLI doc; inventing addresses would put
-    fiction into a file that gets typed at a real router. The header says so
-    and points at `cleanBaseConfig` / the site config.
+This docstring used to say the opposite ("what is NOT emitted, deliberately:
+the underlay ... the header says so and points at `cleanBaseConfig`"). That
+delegation had no receiver — the `.crt` loads `cleanBaseConfig` and then the
+feature `.cfg`, and a clean base configures no IGP and no BGP — so nothing
+ever supplied it and EVPN could not come up at all. Kept here as a warning
+about deferring a requirement to a file nobody checked.
+
+What is still NOT emitted:
+
   * **The `.ixncfg`** — a binary IxNetwork save. 191 exist in their repo; they
     cannot be synthesised from documents. The `.crt` row is emitted commented
     out, because a missing file referenced there aborts bring-up for the whole
@@ -45,10 +53,19 @@ from ate.codegen.java_emitter import JavaFile
 from ate.codegen.lab import LabProfile
 from ate.codegen.script_ir import StepKind, TestScript
 
-__all__ = ["DUT_CONFIG_NAME", "emit_bringup_params", "emit_dut_config"]
-
+__all__ = ["DUT_CONFIG_NAME", "TRAFFIC_CONFIG_NAME",
+           "emit_bringup_params", "emit_dut_config",
+           "emit_traffic_config"]
 DUT_CONFIG_NAME = "EVPN_Base.cfg"
-_IXIA_CONFIG_NAME = "EVPN_3AC.ixncfg"
+
+
+
+def _wrap(text: str, width: int) -> list[str]:
+    """Wrap prose for a `!`-commented config banner."""
+    import textwrap  # noqa: PLC0415
+
+    return textwrap.wrap(" ".join(text.split()), width=width) or [""]
+
 
 def _by_key() -> dict:
     """Built per call: derived entries are installed at generation time."""
@@ -95,7 +112,7 @@ def _placeholderise(lines: list[str], lab: LabProfile) -> list[str]:
             # Sub-interface first: replacing the bare port would turn
             # `agg-eth-1.100` into `int1.100` only by luck of ordering, and
             # into `int1` plus a stray `.100` if the port name is a prefix.
-            line = line.replace(ac.ac_interface, f"int{n}.vlan1")
+            line = line.replace(ac.ac_interface, f"int{n}.{lab.vlan_of(ac)}")
             line = line.replace(ac.interface, f"int{n}")
         out.append(line)
     return out
@@ -105,7 +122,7 @@ def _attachment_circuits(lab: LabProfile) -> list[str]:
     """Create the sub-interfaces the EVI binds, before it binds them.
 
     A VLAN-based EVPN service rejects a physical port as an attachment
-    circuit — the commit fails with "is not a sub-interface, but the EVPN
+    circuit - the commit fails with "is not a sub-interface, but the EVPN
     service-type is vlan-based" (8.7.0 LAB 22, pc-3080). So the circuits have
     to exist as sub-interfaces first.
 
@@ -113,31 +130,55 @@ def _attachment_circuits(lab: LabProfile) -> list[str]:
     compass/VPLS_N1.cfg`, which brings up l2-transport circuits exactly this
     way; `l2-transport`'s values were then confirmed against the device
     (`enable` / `disable`, defaulting to `disable`).
+
+    Two circuits may share a port and differ only by VLAN (Exaware 2026-09-08:
+    "An AC can reside as a tagged interface"). The parent `interface intN`
+    stanza is therefore emitted once per LINK and the sub-interface stanza
+    once per CIRCUIT; emitting the parent twice makes the second occurrence
+    reconfigure the first.
     """
-    lines = ["!", "! Attachment circuits. A vlan-based EVI binds SUB-interfaces,",
+    vlans = ", ".join(str(v) for v in lab.ac_vlans)
+    lines = ["!",
+             "! Attachment circuits. A vlan-based EVI binds SUB-interfaces,",
              "! never the port itself - the device rejects the commit otherwise.",
+             "!",
+             f"! VLAN(s) {vlans}, written literally here in the VPLS house",
+             "! style (VPLS_N1.cfg has literal `vlan-id 2` on literal",
+             "! `int2.1`) rather than as a find-and-replace placeholder.",
+             "! They come from:"]
+    lines += [f"!   {ln}" for ln in _wrap(lab.vlan_source, 66)]
+    lines += [
+             "!",
+             "! They are deliberately NOT taken from the SUT's general/vlans",
+             "! list. Exaware, 2026-09-08: \"Vlan 3380 appears in the SUT file",
+             "! because it is used on one of the interfaces to an external",
+             "! server connection.\" The generated suite asserts at run time",
+             "! that none of the VLANs below collides with one the SUT",
+             "! declares, and FAILS the run if one does.",
              "!"]
-    for i, ac in enumerate(lab.acs):
-        n = ac.int_index if ac.int_index is not None else i + 1
-        lines += [
-            f"interface int{n}",
-            " admin-state up",
-            "!",
-            f"interface int{n}.vlan1",
-            " l2-transport enable",
-            # The sub-interface NUMBER does not select the VLAN. Naming it
-            # `.3380` and stopping there produces a circuit that is admin-up,
-            # is listed under `show evpn detail` as a bound AC, and classifies
-            # not one frame: the physical port counted 219k received while the
-            # sub-interface counted 0, and the MAC table stayed empty.
-            #
-            # Exaware's VPLS_N1.cfg has said so all along - `interface int2.1`
-            # carries `vlan-id 2`, an index and a VLAN that need not match.
-            # DEVICE-VERIFIED on pc-3080: adding this line is what makes the
-            # circuit forward and the EVI learn.
-            " vlan-id      vlan1",
-            "!",
-        ]
+    for placeholder, _vport, _idx in lab.ac_links:
+        lines += [f"interface {placeholder}", " admin-state up", "!"]
+        for i, ac in enumerate(lab.acs):
+            n = ac.int_index if ac.int_index is not None else i + 1
+            if f"int{n}" != placeholder:
+                continue
+            lines += [
+                f"interface {placeholder}.{lab.vlan_of(ac)}",
+                " l2-transport enable",
+                # The sub-interface NUMBER does not select the VLAN. Naming it
+                # `.3380` and stopping there produces a circuit that is
+                # admin-up, is listed under `show evpn detail` as a bound AC,
+                # and classifies not one frame: the physical port counted 219k
+                # received while the sub-interface counted 0, and the MAC
+                # table stayed empty.
+                #
+                # Exaware's VPLS_N1.cfg has said so all along - `interface
+                # int2.1` carries `vlan-id 2`, an index and a VLAN that need
+                # not match. DEVICE-VERIFIED on pc-3080: adding this line is
+                # what makes the circuit forward and the EVI learn.
+                f" vlan-id      {lab.vlan_of(ac)}",
+                "!",
+            ]
     return lines
 
 
@@ -164,8 +205,11 @@ def _underlay(lab: LabProfile) -> list[str]:
     pc-3080 `af-l2vpn evpn` was found to live only under a neighbour in
     `vrf default`, which is where it is written here.
     """
-    core = lab.core
+    core = lab.core_link
     if core is None:
+        # Not a fallthrough: `lab.core` is a NoCore carrying a reason and an
+        # acceptor, and `capabilities.regressions` decides whether emitting
+        # nothing here is allowed to leave the building.
         return []
     i, lo = core.interface, f"loopback {core.loopback_id}"
     return [
@@ -239,44 +283,97 @@ def _evpn_block(lines: list[str], evi: str) -> tuple[list[str], list[str]]:
 
 
 def emit_dut_config(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
-    """The DUT-side `.cfg`, in the device's own hierarchical config syntax."""
+    """The DUT-side `.cfg`: the underlay and the circuits, NOT the service.
+
+    What changed and why, because this file used to carry the EVI too.
+
+    Exaware, 2026-09-08 (Eyal Ozeri): "TC01 seems to configure an already
+    existing evpn service." He was right, and it was worse than untidy. The
+    `.crt` loads this file at bring-up, so by the time TC01 ran its first
+    step - "Create EVPN instance evi-1" - the instance was already there.
+    Re-typing a configuration a device already holds stages nothing, so the
+    commit has nothing to do, so the step cannot fail. TC01's whole subject
+    was a no-op that reported success.
+
+    That is the fake-pass rule arriving through the configuration file rather
+    than through an assertion, and the fix is the same shape: the test must do
+    the thing it claims to do. So the service is created BY TC01, against a
+    device this file has deliberately left without one, and TC01's first step
+    now asserts the EVI is absent before creating it.
+
+    What stays here is what a test should not have to build to be worth
+    running: the underlay (EVPN is an overlay and cannot come up without an
+    IGP, a transport label and a BGP session) and the attachment
+    sub-interfaces the EVI will bind.
+    """
     rendered = _placeholderise(_rendered_config_lines(scripts), lab)
-    block, unplaced = _evpn_block(rendered, lab.evi_name)
 
     head = [
         "!",
-        "! EVPN base service configuration.",
+        "! EVPN base configuration: underlay and attachment circuits.",
         "!",
         "! GENERATED from the EVPN CLI doc via EvpnCommands - every line below",
         "! renders a command template that traces to the documentation.",
         "!",
+        "! THE EVPN SERVICE IS DELIBERATELY NOT CONFIGURED HERE.",
+        "!",
+        "! Exaware, 2026-09-08 (Eyal Ozeri): \"TC01 seems to configure an",
+        "! already existing evpn service.\" It did: this file used to create",
+        "! evi-1, the .crt loads it at bring-up, and TC01's create steps then",
+        "! re-typed a configuration the device already held. Nothing was",
+        "! staged, so the commit had nothing to do, so the steps could not",
+        "! fail. TC01 now creates the service itself, having first asserted",
+        "! that it is absent.",
+        "!",
+        "! TC02/TC03 assume TC01 has run: their first step asserts the EVI",
+        "! exists and stops the test with a plain message if it does not.",
+        "!",
         "! DEVICE-VERIFIED 2026-08-11 on exa-il01-ec-3021 (8.7.0 LAB 22):",
         "! an EVI was configured and 'show configuration l2-services' printed",
-        "! exactly this block shape, so the hierarchy and '!' terminators are",
-        "! confirmed rather than assumed.",
+        "! exactly the block shape TC01 builds, so the hierarchy and the '!'",
+        "! terminators are confirmed rather than assumed.",
         "!",
         "! DEVICE-CORRECTED 2026-08-12 on exa-il01-uf-3080 (8.7.0 LAB 22):",
-        "! this file previously bound the AC ports directly and the commit was",
-        "! REJECTED - a vlan-based EVI takes sub-interfaces only. The circuits",
-        "! below are created first, then bound.",
+        "! the AC ports were bound directly and the commit was REJECTED - a",
+        "! vlan-based EVI takes sub-interfaces only. They are created below.",
         "!",
         "! Interface names are placeholders bound by the find-and-replace",
-        "! table in bringUpParams.crt to the SUT's 'data1' intPool.",
+        f"! table in bringUpParams.crt to the SUT's '{lab.ac_pool}' intPool.",
         "!",
     ]
-    if lab.core is None:
+    if lab.core_link is None:
+        # Say it in the artifact, in the words of whoever accepted it. The
+        # previous version of this banner was accurate and still useless: it
+        # described the absence as a property of the profile, which reads as a
+        # design note rather than as the missing control plane it is.
         head += [
-            "! NOT included - the underlay. This suite has no core link, so",
-            "! there is no IGP, no transport label and no BGP session, and the",
-            "! EVI below is a local bridge domain only. A profile with a",
-            "! CoreLink emits the overlay; see LabProfile.core.",
+            "! *** NO UNDERLAY IN THIS FILE - NOT A CLIENT DELIVERABLE ***",
+            "!",
+            "! There is no IGP, no transport label and no BGP session here, so",
+            "! any EVI is a local bridge domain and nothing carries a Type-2",
+            "! or Type-3 route. Why this rig has no core link:",
             "!",
         ]
-    body = _underlay(lab) + _attachment_circuits(lab) + (
-        block or ["! (no EVPN configuration steps in the selected scripts)"])
-    tail = []
+        head += [f"!   {ln}" for ln in _wrap(lab.core.reason, 68)]
+        head += ["!", "! Accepted by:"]
+        head += [f"!   {ln}" for ln in _wrap(lab.core.accepted_by, 68)]
+        head += ["!"]
+
+    body = _underlay(lab) + _attachment_circuits(lab)
+
+    # What the TESTS type at run time, listed so a reader of this file knows
+    # what the device is expected to end up with without reading the Java.
+    service = [ln for ln in rendered
+               if ln.startswith(f"l2-services evpn {lab.evi_name}")]
+    tail = ["!",
+            "! Configured by the tests, not by this file (see the banner):",
+            "!"]
+    tail += [f"!   {ln}" for ln in service] or ["!   (no EVPN configuration "
+                                               "steps in the selected scripts)"]
+    tail += ["!"]
+    unplaced = [ln for ln in rendered if ln not in service]
     if unplaced:
-        tail = ["!", "! Not placed in the block above - review and add by hand:"]
+        tail += ["! Not recognised as EVPN service configuration - review:"]
         tail += [f"!   {ln}" for ln in unplaced] + ["!"]
 
     return JavaFile(path=f"cmp/tests/evpn/configurations/compass/{DUT_CONFIG_NAME}",
@@ -302,7 +399,7 @@ def emit_tester_config(lab: LabProfile) -> JavaFile | None:
     the tclsh their `Ixia.runCommand` already talks to, and needs no file from
     anybody. Every attribute name here was read back off chassis 10.1.70.108.
     """
-    core = lab.core
+    core = lab.core_link
     if core is None:
         return None
     p = set(core.tester_protocols)
@@ -400,6 +497,232 @@ def emit_tester_config(lab: LabProfile) -> JavaFile | None:
         content="\n".join(out) + "\n")
 
 
+TRAFFIC_CONFIG_NAME = "EVPN_traffic.tcl"
+
+
+def emit_traffic_config(lab: LabProfile) -> JavaFile:
+    """The traffic items as a readable TCL script, and as an `.ixncfg` recipe.
+
+    Exaware, 2026-09-08 (Eyal Ozeri): "The traffic item cannot be validated
+    using the current tcl file (at least not by me) ... it is expected that a
+    traffic item will be 'human readable' which means that the tool should
+    learn how to create traffic items properly."
+
+    Two things were wrong and they need different fixes.
+
+    The first is legibility. The items were built inside Java, as argument
+    lists to `performFunctions`, so what the chassis ends up with could only
+    be worked out by reading Java and their TCL library side by side. This
+    file states it: one block per item, its endpoints, its VLAN, its source
+    MAC and its rate, in their own proc names and argument order (verified
+    against `ixia_lib.tcl` on 2026-08-12).
+
+    The second is the format. Their suites do not build traffic at all - they
+    load an `.ixncfg` and suspend or unsuspend named items. We had recorded
+    that as impossible: the format is a binary IxNetwork save and cannot be
+    written from documents. True, and beside the point. IxNetwork can write
+    it. So this script ends by saving the session it just built, which turns
+    one chassis run into the file the suite loads from then on, and puts the
+    items in front of a reviewer in the tool they already use.
+
+    Running it is one command on the IXIA app server; the tail of the file
+    says which.
+    """
+    lines = [
+        "# GENERATED by ate codegen - do not edit by hand.",
+        "#",
+        f"# EVPN traffic items for lab profile {lab.id!r}.",
+        "#",
+        "# WHY THIS FILE EXISTS",
+        "#   Exaware, 2026-09-08: a traffic item is expected to be human",
+        "#   readable, and ours were only readable as Java argument lists.",
+        "#   Everything the chassis is asked to build is stated below.",
+        "#",
+        "# WHAT IT PRODUCES",
+        f"#   {lab.ixncfg or _default_ixncfg(lab)}  - an IxNetwork save of "
+        "exactly these items,",
+        "#   written by IxNetwork itself. Drop it into configurations/ixia/,",
+        "#   name it in LabProfile.ixncfg, regenerate, and bringUpParams.crt",
+        "#   loads it: from then on the suite only suspends and unsuspends",
+        "#   named items, which is the VPLS suite's idiom.",
+        "#",
+        "# HOW TO RUN IT (once, on the IXIA app server)",
+        "#   tclsh> source /var/tmp/ate-run/ixia_lib.tcl",
+        "#   tclsh> source /var/tmp/ate-run/" + TRAFFIC_CONFIG_NAME,
+        "#   The path must be one BOTH the JVM host and the app server can",
+        "#   see. A path only the JVM host has is why ixia_lib.tcl silently",
+        "#   failed to load for a fortnight and 34 procs answered",
+        "#   'invalid command name' while the framework reported success.",
+        "#",
+        "# TOPOLOGY (from ate/codegen/lab.py, the same source the .cfg uses)",
+    ]
+    core = lab.core_link
+    if core is not None:
+        lines.append(f"#   core  {core.vport:<8} L3 {core.peer_ipv4}"
+                     f" -> {core.dut_ipv4}   (no raw traffic on this port)")
+    for i, ac in enumerate(lab.acs):
+        n = ac.int_index if ac.int_index is not None else i + 1
+        lines.append(
+            f"#   {ac.name:<5} {ac.vport:<8} VLAN {lab.vlan_of(ac):<5}"
+            f" DUT int{n}.{lab.vlan_of(ac)}")
+    shared = [ac.vport for ac in lab.acs
+              if sum(1 for o in lab.acs if o.vport == ac.vport) > 1]
+    if shared:
+        lines += [
+            "#",
+            f"#   {sorted(set(shared))[0]} carries more than one attachment "
+            "circuit. They are",
+            "#   told apart by the VLAN tag on the frame, which is why every",
+            "#   item below pushes its own VLAN header. Exaware, 2026-09-08:",
+            "#   \"An AC can reside as a tagged interface.\"",
+        ]
+    lines += [
+        "",
+        "# ---------------------------------------------------------------",
+        "# Helpers. Two things ixia_lib.tcl does not do, kept in one place",
+        "# and used identically by the generated Java (EvpnUtils), so the",
+        "# file and the suite cannot build different traffic.",
+        "# ---------------------------------------------------------------",
+        "",
+        "# Push a VLAN header onto a RAW item and set its VLAN ID.",
+        "#",
+        "# A raw item's frame is whatever its protocol stack says, and that",
+        "# stack is ethernet + fcs: UNTAGGED. Untagged frames never match a",
+        "# `vlan-id` sub-interface, so on pc-3080 the DUT port counted 219k",
+        "# frames while the circuit counted 0 and the EVI learnt nothing.",
+        "proc ateTagItemVlan {itemName vlan} {",
+        "    set tpl {}",
+        "    foreach t [ixNet getL [ixNet getRoot]/traffic protocolTemplate] {",
+        "        if {[string equal -nocase [ixNet getAtt $t -displayName] {VLAN}]} {",
+        "            set tpl $t",
+        "        }",
+        "    }",
+        "    set ti [getTraffic $itemName]",
+        "    foreach ce [ixNet getL $ti configElement] {",
+        "        set has 0",
+        "        foreach st [ixNet getL $ce stack] {",
+        "            if {[string match {*vlan*} $st]} { set has 1 }",
+        "        }",
+        "        if {$has == 0 && $tpl ne {}} {",
+        "            ixNet exec appendProtocol [lindex [ixNet getL $ce stack] 0] $tpl",
+        "            ixNet commit",
+        "        }",
+        "        foreach st [ixNet getL $ce stack] {",
+        "            if {![string match {*vlan*} $st]} { continue }",
+        "            foreach fld [ixNet getL $st field] {",
+        "                if {[string match -nocase {*vlan-id*} \\",
+        "                        [ixNet getAtt $fld -displayName]]} {",
+        "                    ixNet setMultiAttr $fld -singleValue $vlan \\",
+        "                        -fieldValue $vlan -valueType singleValue",
+        "                }",
+        "            }",
+        "        }",
+        "    }",
+        "    ixNet commit",
+        "}",
+        "",
+        "# Set a RAW item's SOURCE MAC.",
+        "#",
+        "# ixia_lib.tcl has editTrafficRawDestMacAddr and no source twin, and",
+        "# EVPN learns from source MACs. The obvious mirror",
+        "# `ethernet.header.sourceAddress-1` does NOT exist: the suffix is the",
+        "# field's POSITION in the stack, so the source field is -2. Match on",
+        "# the display name instead of counting.",
+        "proc ateSetItemSrcMac {itemName mac} {",
+        "    set ti [getTraffic $itemName]",
+        "    foreach ce [ixNet getL $ti configElement] {",
+        "        foreach st [ixNet getL $ce stack] {",
+        "            if {![string match *ethernet* $st]} { continue }",
+        "            foreach fld [ixNet getL $st field] {",
+        "                if {[string match -nocase {*source*} \\",
+        "                        [ixNet getAtt $fld -displayName]]} {",
+        "                    ixNet setMultiAttr $fld -singleValue $mac \\",
+        "                        -fieldValue $mac -valueType singleValue",
+        "                }",
+        "            }",
+        "        }",
+        "    }",
+        "    ixNet commit",
+        "}",
+        "",
+        "# ---------------------------------------------------------------",
+        "# The traffic items.",
+        "# ---------------------------------------------------------------",
+        "",
+        f"set ateFrameRateFps {lab.traffic_rate_fps}",
+        "",
+    ]
+    for ti in lab.traffic_items:
+        src, dst = lab.ac(ti.src), lab.ac(ti.dst)
+        vlan = lab.vlan_of(src)
+        lines += [
+            f"# {ti.name}",
+            f"#   {ti.src} ({src.vport}, VLAN {vlan}) -> {ti.dst} "
+            f"({dst.vport}, VLAN {lab.vlan_of(dst)})",
+            f"#   source MAC {ti.src_mac}",
+        ]
+        twins = [o.name for o in lab.traffic_items
+                 if o.src_mac == ti.src_mac and o.name != ti.name]
+        if twins:
+            lines.append(
+                f"#   shares that source MAC with {', '.join(twins)} on "
+                "purpose: that is")
+            lines.append(
+                "#   what makes moving between those circuits a LOCAL MAC "
+                "move on one")
+            lines.append(
+                "#   PE, which must not re-advertise a Type-2 route.")
+        lines += [
+            f"configNewTrafficItem {ti.name} true null l2L3 false false raw "
+            f"{ti.name} interleaved null false false oneToOne",
+            f"configTrafficItemEndpoints {ti.name} 1 {src.vport} null null "
+            f"null null null null {dst.vport} null null null null null null "
+            f"null null null {ti.name} null null",
+            f"configTrafficItemStream {ti.name} 1 goodCRC manual {ti.name} 8 "
+            "auto false",
+            f"configTrafficItemFrameRate {ti.name} stream 1 framesPerSecond "
+            "$ateFrameRateFps bytes bitsPerSec false",
+            f"ateTagItemVlan {ti.name} {vlan}",
+            "",
+        ]
+    lines += [
+        "# GENERATE binds the physical MACs and interfaces onto each raw item.",
+        "# Without it the items are configured but unresolved and nothing is",
+        "# transmitted. It runs BEFORE the source MACs are set, because",
+        "# generating afterwards overwrites them.",
+        "ixNet exec generate [ixNet getL [ixNet getRoot]/traffic trafficItem]",
+        "",
+    ]
+    for ti in lab.traffic_items:
+        lines.append(f"ateSetItemSrcMac {ti.name} {ti.src_mac}")
+    lines += [
+        "",
+        "ixNet exec apply [ixNet getRoot]/traffic",
+        "",
+        "# ---------------------------------------------------------------",
+        "# Save what was just built, so the suite can load it instead of",
+        "# building it. This is the step that produces the .ixncfg - the one",
+        "# piece of the VPLS idiom we could not reach from documents.",
+        "#",
+        "# Fetch the file off the app server afterwards and commit it under",
+        "# cmp/tests/evpn/configurations/ixia/.",
+        "# ---------------------------------------------------------------",
+        f"set ateSavePath \"/var/tmp/ate-run/{lab.ixncfg or _default_ixncfg(lab)}\"",
+        "ixNet exec saveConfig [ixNet writeTo $ateSavePath -overwrite true]",
+        "puts \"SAVED=$ateSavePath\"",
+        "",
+    ]
+    return JavaFile(
+        path=f"cmp/tests/evpn/configurations/ixia/{TRAFFIC_CONFIG_NAME}",
+        content="\n".join(lines))
+
+
+def _default_ixncfg(lab: LabProfile) -> str:
+    """The name this profile's saved IxNetwork config should take."""
+    return "EVPN_" + lab.id.replace("lab-1dut-", "").replace("-", "_").upper() \
+           + ".ixncfg"
+
+
 def _col(*pairs: tuple[str, int]) -> str:
     return "".join(text.ljust(width) for text, width in pairs).rstrip()
 
@@ -444,6 +767,30 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         "-" * 139,
         f"{'default':<10}{dut:<16}{'cleanBaseConfig':<68}{'y':<19}{'1':<10}1900",
         f"{'':<10}{'':<16}{cfg:<68}{'y':<19}{'2':<10}1900",
+    ]
+    # The IXIA configuration file, when the rig has one.
+    #
+    # Exaware, 2026-09-08 (Eyal Ozeri): "The BringUpParameters.crt file
+    # doesn't load any Ixia file." Correct, and until now there was nothing to
+    # load: an .ixncfg is a binary IxNetwork save that cannot be written from
+    # documents, so the suite built its traffic items in code instead.
+    #
+    # It can be written by IxNetwork, though, which is the way round we had
+    # missed. `emit_traffic_config` emits a readable TCL script that builds
+    # the items and then SAVES the session as an .ixncfg. Run once on the
+    # chassis, that produces the file this row loads - and from then on the
+    # suite is in the VPLS idiom: load a named config, suspend and unsuspend
+    # named items.
+    #
+    # The row appears only when `LabProfile.ixncfg` names a file, because a
+    # config row pointing at a file that is not there aborts bring-up for the
+    # whole suite, and that failure is far worse than building the items in
+    # code for one more cycle.
+    if lab.ixncfg:
+        out.append(f"{'':<10}{ixia:<16}"
+                   f"{'/configurations/ixia/' + lab.ixncfg:<68}"
+                   f"{'y':<19}{'1':<10}1900")
+    out += [
         "",
         "//devices ping lists, relevant for all the tests",
         "",
@@ -463,11 +810,13 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
     # The core link is a link like any other to the bring-up: it just gets an
     # IP and an IGP in the .cfg instead of an l2-transport sub-interface.
     links: list[tuple[str, str, int]] = []
-    if lab.core is not None:
-        links.append((lab.core.interface, lab.core.vport, lab.core.pool_index))
-    for i, ac in enumerate(lab.acs):
-        n = ac.int_index if ac.int_index is not None else i + 1
-        links.append((f"int{n}", ac.vport, n - 1))
+    if (core := lab.core_link) is not None:
+        links.append((core.interface, core.vport, core.pool_index))
+    # One row per physical link, NOT per attachment circuit. Two circuits
+    # sharing a port are two sub-interfaces on one link; a second `int3` row
+    # binds the same placeholder twice and the template validator rejects the
+    # file.
+    links += lab.ac_links
 
     for i, (dut_int, _vport, idx) in enumerate(links):
         first = i == 0
@@ -476,28 +825,25 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
     for i, (_dut_int, vport, idx) in enumerate(links):
         out.append(f"{'':<12}{ixia if i == 0 else '':<15}"
                    f"{'interface':<14}{vport:<27}{lab.ac_pool:<17}{idx}")
-    # The AC VLAN, bound from the SUT on BOTH sides.
+    # There are deliberately NO `vlan` rows in this table any more.
     #
-    # On cmp1 it replaces the `vlan1` placeholder in the .cfg, so the
-    # sub-interfaces come out as <port>.<vlan>. On ixia1 it tags the vport's
-    # interface with the same VLAN - which is also what makes the vport usable
-    # as a RAW traffic-item endpoint: configTrafficItemEndpoints only takes the
-    # `/vport:N/protocols` form the chassis demands for raw items when the
-    # interface has a VLAN enabled, and answers
-    # "ERROR-6301-The endpoint is not correct for this type of trafficItem"
-    # otherwise.
-    out.append(f"{'':<12}{'cmp1':<15}"
-               f"{'vlan':<14}{'vlan1':<27}{'vlans':<17}{lab.ac_vlan_index}")
+    # They used to bind each IXIA vport to `vlans` index 0 in the SUT file,
+    # which on pc-3080 is VLAN 3380. Exaware, 2026-09-08 (Eyal Ozeri): "Vlan
+    # 3380 appears in the SUT file because it is used on one of the interfaces
+    # to an external server connection. The tool should be able to use entire
+    # 2-4094 range." Binding to that slot meant the suite could only ever run
+    # on whatever VLAN the SUT happened to declare first, and that VLAN
+    # belonged to something else.
     #
-    # The core vport is deliberately NOT tagged here. It carries a routed
-    # interface for the BGP EVPN session, not a raw traffic endpoint, so the
-    # one-interface-with-a-VLAN rule above does not apply to it and tagging it
-    # would only put the session behind a VLAN the DUT's core interface does
-    # not have.
-    for i, ac in enumerate(lab.acs):
-        out.append(f"{'':<12}{'ixia1' if i == 0 else '':<15}"
-                   f"{'vlan':<14}{ac.vport:<27}"
-                   f"{'vlans':<17}{lab.ac_vlan_index}")
+    # The VLANs now come from the lab profile (see `LabProfile.ac_vlans`,
+    # settable with `ate codegen --ac-vlans`), are written literally into the
+    # .cfg, and are applied to the IXIA side by EvpnUtils.tagVportsWithAcVlan
+    # and tagTrafficItemsWithAcVlan, which read them back off the chassis and
+    # fail the run if they did not take.
+    #
+    # A per-vport row could not express the current topology in any case: two
+    # attachment circuits share vport3 and are told apart by their VLAN, and
+    # this table has one row per vport.
     out += [
         "",
         "//before after table:",

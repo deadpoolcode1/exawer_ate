@@ -107,6 +107,24 @@ _NO_ENTRIES = ("no entries found",)
 #: A MAC address, in the form these tables print.
 _MAC = re.compile(r"\b[0-9a-fA-F]{2}(?::[0-9a-fA-F]{2}){5}\b")
 
+#: Padding bytes the device pushes into fixed-width fields. `show bgp l2vpn
+#: evpn table evi detail` on 8.7.0 LAB 935 pads the Originating Router's IP
+#: with 35 NULs and the Flags field with two. They are invisible in a terminal
+#: and lethal in an expectation: frozen into a Java string literal they make
+#: the assertion match nothing, for a reason nobody can see by reading it.
+_CONTROL = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]")
+
+#: Lines whose value is different every time the command runs. An expectation
+#: containing one can never match again, so it is not an assertion, it is a
+#: time bomb that fails the next healthy run. Seen on pc-3099, 2026-09-09:
+#: "Last update: Wed Sep  9 12:02:29 2026" went straight into a Type-3
+#: expectation.
+_VOLATILE = re.compile(
+    r"^\s*(last\s+update|up[/ ]?down\s+time|uptime|elapsed|"
+    r"last\s+(?:change|flap|state\s+change)|current\s+time|"
+    r"time\s+since)\b",
+    re.I)
+
 OK = "ok"
 EMPTY = "empty"
 UNSUPPORTED = "unsupported"
@@ -131,6 +149,96 @@ class CapturedCommand:
     def usable(self) -> bool:
         """Only OK captures may become an expectation."""
         return self.status == OK
+
+
+def topology_mismatches(captures: dict, lab) -> dict[str, str]:
+    """Captured expectations that were taken on a DIFFERENT topology.
+
+    An expectation is device output frozen into an assertion, and device
+    output names interfaces. Change the rig - a VLAN, a port, which link is
+    the core - and yesterday's capture asserts lines the device is now right
+    not to print. STATUS.md has carried this as an honest limit for weeks
+    ("captures are topology-specific, and silently so"); the 2026-09-08 move
+    off VLAN 3380 makes it certain rather than possible, so it is checked.
+
+    The test is deliberately narrow: a captured line that names a
+    sub-interface (`x-eth0/0/18.3380`) whose suffix is not one of THIS
+    profile's attachment-circuit VLANs cannot be describing this rig. Lines
+    with no sub-interface in them are left alone - they may well still hold.
+
+    Returns {expect_key: reason}. The caller drops those captures and says so,
+    rather than asserting them: a stale expectation fails a run that is
+    working, which teaches everyone to distrust the suite.
+    """
+    import re  # noqa: PLC0415
+
+    ours = {str(v) for v in lab.ac_vlans}
+    out: dict[str, str] = {}
+    for key, cap in (captures or {}).items():
+        seen: set[str] = set()
+        for line in cap.get("lines") or []:
+            # `\\?` because a line may arrive raw off the device or already
+            # escaped as a regex on its way into EvpnParams; both spellings
+            # describe the same sub-interface.
+            seen.update(re.findall(
+                r"\b[a-z]+-?eth\s?[\d/]+\\?\.(\d+)\b", line))
+        stale = sorted(seen - ours)
+        if stale and not (seen & ours):
+            out[key] = (
+                f"captured on sub-interface VLAN(s) {', '.join(stale)}, but "
+                f"this profile's circuits are on {', '.join(sorted(ours))} - "
+                "re-capture on this topology")
+    return out
+
+
+def route_type_mismatches(captures: dict, steps=None) -> dict[str, str]:
+    """Captures that show a DIFFERENT route type from the one the step is about.
+
+    Found on pc-3099, 2026-09-09. With the EVI configured but no traffic
+    offered and no BGP peer, `show bgp l2vpn evpn table evi detail` prints
+    exactly one route - the DUT's own Type-3 IMET:
+
+        Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30
+          MPLS Label= 32768 ... Weight: 32768
+
+    That is a real, correct, locally-originated route, so the capture is not
+    empty and passes every check we had. But three of the steps that captured
+    it are about **Type-2**: "AC1's MACs are advertised as Type-2", "AC2's
+    MACs are advertised", "the Type-2 route is withdrawn after aging". Freezing
+    a Type-3 line into those steps produces an assertion that passes on a
+    device which has learnt no MAC at all - the fake-pass rule arriving through
+    a capture that is individually valid.
+
+    So: if a step is about a route type, the captured output must contain that
+    route type. The step's own text is the source of the intent, because that
+    text is what a reviewer reads in the run report.
+
+    Returns {expect_key: reason}; the caller drops those captures and says so.
+    """
+    wanted = re.compile(r"\btype[- ]?([23])\b", re.I)
+    out: dict[str, str] = {}
+    by_key = {st.expect_key: st for st in (steps or []) if st.expect_key}
+    for key, cap in (captures or {}).items():
+        st = by_key.get(key)
+        if st is None:
+            continue
+        m = wanted.search(st.text or "")
+        if not m:
+            continue
+        want = m.group(1)
+        body = "\n".join(cap.get("lines") or [])
+        if not body:
+            continue
+        found = set(re.findall(r"Type=([0-9]+)", body))
+        if found and want not in found:
+            out[key] = (
+                f"the step is about a Type-{want} route but the captured "
+                f"output contains only Type-{'/'.join(sorted(found))}. On a "
+                "rig with no traffic and no peer the only route present is "
+                "the DUT's own Type-3 IMET; asserting it here would pass on a "
+                "device that has learnt nothing. Re-capture with traffic "
+                "running.")
+    return out
 
 
 @dataclass
@@ -214,7 +322,7 @@ def commands_needed(scripts: list[TestScript],
 
 def _classify(raw: str, command: str) -> tuple[str, list[str], str]:
     """Decide whether output is usable, empty, or a rejection."""
-    body = [ln.rstrip() for ln in raw.splitlines()]
+    body = [_CONTROL.sub("", ln).rstrip() for ln in raw.splitlines()]
     # Drop the echoed command and the trailing prompt.
     body = [ln for ln in body
             if ln.strip() and ln.strip() != command.strip()
@@ -257,8 +365,13 @@ def _classify(raw: str, command: str) -> tuple[str, list[str], str]:
     # Keep the state-bearing lines only. `raw` still holds the full answer for
     # provenance; what becomes an ASSERTION is just the part that could differ
     # between a working device and a broken one.
-    kept = [ln for ln in body if not is_furniture(ln)]
-    return OK, (kept or body), ""
+    kept = [ln for ln in body
+            if not is_furniture(ln) and not _VOLATILE.match(ln)]
+    if not kept:
+        return EMPTY, [], ("every line was either furniture or a value that "
+                           "changes on each run - nothing here could be "
+                           "asserted twice")
+    return OK, kept, ""
 
 
 def _read_until_prompt(chan, timeout: float = 60.0) -> str:

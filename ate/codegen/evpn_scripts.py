@@ -44,12 +44,20 @@ def _advertised(lab: LabProfile) -> tuple[str, list[str], str]:
     """How to assert "this route is advertised", given the rig.
 
     With a BGP EVPN peer we can read what was actually sent to it. Without one
-    — the default on a rig whose three IXIA ports are all attachment circuits —
     we read the local EVI table, which lists the routes this PE originates.
     Weaker (origination, not transmission) but a real assertion that needs no
     lab change, and it keeps every other step identical.
 
     Returns (command key, args, a phrase for the step text).
+
+    The phrase states WHAT IS ASSERTED and nothing else. It used to end
+    "(no BGP peer on this rig)", which was carried verbatim into the
+    CompassReporter level title and so into the QA run report — a step whose
+    own name apologises for the testbed. Worse, it was emitted for
+    `PeerSource.IXIA` too, where a BGP session genuinely does exist and reaches
+    Established, so the shipped suite told a reader the opposite of the truth.
+    Why a given command was chosen belongs in `_peer_note`, which lands in the
+    class Javadoc where a reader can act on it.
     """
     if lab.peer_source is PeerSource.NEIGHBOUR:
         return ("SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
@@ -57,7 +65,29 @@ def _advertised(lab: LabProfile) -> tuple[str, list[str], str]:
                 f"advertised to {lab.bgp_neighbor}")
     return ("SHOW_BGP_L2VPN_EVPN_TABLE_EVI_DETAIL",
             [],
-            "originated into the local EVI table (no BGP peer on this rig)")
+            "originated into the local EVI table")
+
+
+def _peer_note(lab: LabProfile) -> str:
+    """Why this suite asserts origination rather than transmission.
+
+    One sentence, into the generated class Javadoc. A reader who wants
+    transmission asserted learns exactly what has to change.
+    """
+    if lab.peer_source is PeerSource.NEIGHBOUR:
+        return (f"Advertisement is asserted against what was actually sent to "
+                f"{lab.bgp_neighbor}, so these steps prove transmission.")
+    if lab.peer_source is PeerSource.IXIA:
+        return ("Advertisement is asserted against the local EVI table, which "
+                "proves ORIGINATION but not transmission. A BGP session to "
+                "the IXIA-emulated peer does exist and reaches Established; "
+                "what it cannot carry is the EVPN address family, because "
+                "chassis 10.1.70.108 answers ERROR-1005 'no license available "
+                "for BGP EVPN'. Adding that licence is what upgrades these "
+                "steps to transmission.")
+    return ("Advertisement is asserted against the local EVI table, which "
+            "proves ORIGINATION but not transmission, because this profile "
+            "has no BGP peer at all. See LabProfile.core.")
 
 
 def _bring_up(lab: LabProfile) -> TestScript:
@@ -71,6 +101,29 @@ def _bring_up(lab: LabProfile) -> TestScript:
     evi = lab.evi_name
     _adv_cmd, _adv_args, _adv_phrase = _advertised(lab)
     steps: list[Step] = [
+        Step(
+            id="FLOW-010.S00A",
+            kind=StepKind.VERIFY_CLI,
+            text=f"Verify {evi} does not exist before this test creates it",
+            # Exaware, 2026-09-08 (Eyal Ozeri): "TC01 seems to configure an
+            # already existing evpn service." It did. EVPN_Base.cfg created
+            # the EVI and the .crt loads it at bring-up, so every create step
+            # below re-typed configuration the device already held: nothing
+            # was staged, the commit had nothing to do, and the steps could
+            # not fail. The service is now created here and nowhere else, and
+            # this step is what proves the starting point.
+            #
+            # The expectation is a generation-time literal rather than a
+            # capture: the EVI's name is not device output, and an empty
+            # expectation array would make this assertion pass on any output
+            # at all - including output showing the EVI already there.
+            command="SHOW_EVPN_SUMMARY",
+            args=[],
+            expect_key="FLOW010_S00A_EVI_ABSENT_LINES",
+            expect_literal=[evi],
+            expect_absent=True,
+            req_ids=_R_BRINGUP,
+        ),
         Step(
             id="FLOW-010.S01",
             kind=StepKind.CONFIG,
@@ -117,7 +170,8 @@ def _bring_up(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-010.S08",
             kind=StepKind.VERIFY_CLI,
-            text=f"Verify {evi} is up and all three ACs are bound",
+            text=(f"Verify {evi} is up and all {len(lab.acs)} attachment "
+                  "circuits are bound"),
             # `show evpn global` does not exist on the device: verified
             # 2026-08-11 against 8.7.0 LAB 22, which answers "syntax error:
             # unknown argument" and lists summary/detail/mac-address-table/
@@ -152,14 +206,14 @@ def _bring_up(lab: LabProfile) -> TestScript:
             todo="Needs real output of the route table above.",
         ),
     ]
-    if lab.core is not None:
+    if (core := lab.core_link) is not None:
         steps.append(Step(
             id="FLOW-010.S11",
             kind=StepKind.VERIFY_CLI,
             text=("Verify the BGP session to the peer carries the L2VPN EVPN "
                   "address family in its negotiated capabilities"),
             command="SHOW_BGP_NEIGHBOR_$_EVPN_CAPABILITY",
-            args=[lab.core.peer_ipv4],
+            args=[core.peer_ipv4],
             expect_key="FLOW010_S11_EVPN_CAPABILITY_LINES",
             req_ids=_R_BRINGUP,
             todo=("Needs a BGP session in Established state; the capabilities "
@@ -173,10 +227,106 @@ def _bring_up(lab: LabProfile) -> TestScript:
         summary=(
             "Configure a vlan-based EVI on the DUT, bind all three IXIA-backed "
             "access circuits, and confirm the service comes up and advertises "
-            "its Type-3 IMET route. Prerequisite for TC02 and TC03."
+            "its Type-3 IMET route. Prerequisite for TC02 and TC03. "
+            + _peer_note(lab)
         ),
         steps=steps,
     )
+
+
+def _requires_evi(flow: str, lab: LabProfile) -> list[Step]:
+    """Create the EVI this test needs, rather than assume another test did.
+
+    History, because the shape of this function is a correction of a
+    correction.
+
+    The service used to arrive with the bring-up configuration file, so no
+    test had to think about it. Exaware rejected that on 2026-09-08 (E3,
+    "TC01 seems to configure an already existing evpn service"), so it moved
+    into TC01 - and TC02/TC03 were left asserting that TC01 had run.
+
+    That assumption is false under their own framework, and the device said
+    so on 2026-09-09: `CmpTestCase.initCmpTestCase` is an `@Before`, and
+    `BringUp.bringUpSetupAndVerify` calls `loadConf()` unconditionally, so
+    EVPN_Base.cfg is reloaded before EVERY test - in one JVM or three. TC02
+    run after a green TC01 therefore failed with "The output of show evpn
+    summary is not as expected. Missing lines: [evi-1]": bring-up had wiped
+    the EVI that TC01 created, exactly as designed.
+
+    So each test creates what it needs. That satisfies E3 (nothing the test
+    claims to create is pre-loaded) and it makes each TC independently
+    runnable, which is what a per-test bring-up requires. The steps are the
+    same ones TC01 uses, from the same source, so the three cannot drift.
+    """
+    evi = lab.evi_name
+    steps = [
+        Step(
+            id=f"{flow}.S00P",
+            kind=StepKind.VERIFY_CLI,
+            text=(f"Verify {evi} does not exist before this test creates it "
+                  "(bring-up reloads the .cfg before every test)"),
+            command="SHOW_EVPN_SUMMARY",
+            args=[],
+            expect_key=f"{flow.replace('-', '')}_S00P_EVI_ABSENT_LINES",
+            expect_literal=[evi],
+            expect_absent=True,
+            req_ids=_R_BRINGUP,
+        ),
+        Step(
+            id=f"{flow}.S00Q",
+            kind=StepKind.CONFIG,
+            text=f"Create EVPN instance {evi} with service-type vlan-based",
+            command="CONFIGURE_L2_SERVICES_EVPN_$_SERVICE_TYPE_$",
+            args=[evi, "vlan-based"],
+            req_ids=_R_BRINGUP,
+        ),
+        Step(
+            id=f"{flow}.S00R",
+            kind=StepKind.CONFIG,
+            text=f"Enable auto-discovery on {evi}",
+            command="CONFIGURE_L2_SERVICES_EVPN_$_AUTO_DISCOVERY",
+            args=[evi],
+            req_ids=_R_BRINGUP,
+        ),
+        Step(
+            id=f"{flow}.S00S",
+            kind=StepKind.CONFIG,
+            text=f"Set import-rt on {evi}",
+            command="CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$",
+            args=[evi, "65000:1"],
+            req_ids=_R_BRINGUP,
+        ),
+        Step(
+            id=f"{flow}.S00T",
+            kind=StepKind.CONFIG,
+            text=f"Set export-rt on {evi}",
+            command="CONFIGURE_L2_SERVICES_EVPN_$_EXPORT_RT_$",
+            args=[evi, "65000:1"],
+            req_ids=_R_BRINGUP,
+        ),
+    ]
+    for i, ac in enumerate(lab.acs, start=1):
+        steps.append(Step(
+            id=f"{flow}.S00U{i}",
+            kind=StepKind.CONFIG,
+            text=f"Bind access circuit {ac.name} ({ac.ac_interface}) to {evi}",
+            command="CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$",
+            args=[evi, ac.ac_interface],
+            req_ids=_R_BRINGUP,
+        ))
+    steps.append(Step(
+        id=f"{flow}.S00V",
+        kind=StepKind.VERIFY_CLI,
+        text=(f"Verify {evi} is up and all {len(lab.acs)} attachment "
+              "circuits are bound before the test proper begins"),
+        command="SHOW_EVPN_DETAIL",
+        args=[],
+        # Resolved on the device, not here: `ac.ac_interface` is the
+        # profile's PLACEHOLDER, and the SUT rebinds it during bring-up.
+        expect_expr=f'evpnUtils.eviBoundLines("{evi}")',
+        req_ids=_R_BRINGUP,
+    ))
+    return steps
 
 
 def _type2(lab: LabProfile) -> TestScript:
@@ -192,6 +342,7 @@ def _type2(lab: LabProfile) -> TestScript:
     ac1, ac2, ac3 = lab.acs
     _adv_cmd, _adv_args, _adv_phrase = _advertised(lab)
     steps = [
+        *_requires_evi("FLOW-030", lab),
         Step(
             id="FLOW-030.S01",
             kind=StepKind.CONFIG,
@@ -356,7 +507,8 @@ def _type2(lab: LabProfile) -> TestScript:
         summary=(
             "Learn MACs on AC1 and AC2, confirm each is advertised as a Type-2 "
             "route, then move the AC2 MACs to AC3 and confirm a purely local "
-            "interface move updates forwarding WITHOUT re-advertising."
+            "interface move updates forwarding WITHOUT re-advertising. "
+            + _peer_note(lab)
         ),
         steps=steps,
         depends_on=["FLOW-010"],
@@ -386,6 +538,7 @@ def _type3(lab: LabProfile) -> TestScript:
     evi = lab.evi_name
     aging = _aging_source(lab)
     steps = [
+        *_requires_evi("FLOW-031", lab),
         Step(
             id="FLOW-031.S01",
             kind=StepKind.TRAFFIC_STATE,
@@ -460,14 +613,16 @@ def _type3(lab: LabProfile) -> TestScript:
         summary=(
             "After the AC3 source stops, wait out MAC aging and confirm the "
             "service reverts to flooding, the MAC table drops the aged "
-            "entries, and their Type-2 routes are withdrawn."
+            "entries, and their Type-2 routes are withdrawn. "
+            + _peer_note(lab)
         ),
         steps=steps,
         depends_on=["FLOW-010", "FLOW-030"],
     )
 
 
-def _with_traffic_setup(script: TestScript) -> TestScript:
+def _with_traffic_setup(script: TestScript,
+                        lab: LabProfile | None = None) -> TestScript:
     """Prepend a traffic-item build step to any script that uses traffic.
 
     `setTrafficItemState` unsuspends an item that must already exist. Their
@@ -484,14 +639,36 @@ def _with_traffic_setup(script: TestScript) -> TestScript:
     setup = Step(
         id=f"{script.flow_id}.S00",
         kind=StepKind.TRAFFIC_CREATE,
-        text="Build the IXIA traffic items this test drives",
+        text=("Load the IXIA traffic items this test drives"
+              if lab is not None and lab.ixncfg
+              else "Build the IXIA traffic items this test drives"),
         req_ids=[],
-        todo=("Traffic items are built over TCL rather than loaded from an "
-              ".ixncfg (argument order verified against ixia_lib.tcl). The "
-              "SOURCE MAC cannot be set from that library, so any assertion "
-              "needing AC2 and AC3 to share a source MAC is still unmet."),
+        # No `todo` any more, and the two reasons it used to carry are both
+        # closed:
+        #
+        #   * "the SOURCE MAC cannot be set from that library" - it can. The
+        #     field is ethernet.header.sourceAddress-2, not -1; the suffix is
+        #     a position in the stack, not a name. EvpnUtils sets it and reads
+        #     it back, and TC02 passed on pc-3080 on 2026-08-14 because of it.
+        #   * "built over TCL rather than loaded from an .ixncfg" - the items
+        #     are still built in code by default, but the same build is now
+        #     also emitted as a readable script
+        #     (configurations/ixia/EVPN_traffic.tcl) which SAVES an .ixncfg.
+        #     Run it once, name the file with --ixncfg, and this step loads
+        #     rather than builds.
     )
-    return script.model_copy(update={"steps": [setup, *script.steps]})
+    # After the prerequisite check, not before it. Building traffic items
+    # takes chassis time, and if the EVI this test needs is not there the
+    # honest answer is one failed assertion at the top rather than a minute
+    # of setup followed by a table full of zeros.
+    steps = list(script.steps)
+    # After the whole EVI prerequisite block, not in the middle of it: the
+    # circuits must be bound before any traffic item is built against them.
+    at = 0
+    while at < len(steps) and ".S00" in steps[at].id:
+        at += 1
+    steps.insert(at, setup)
+    return script.model_copy(update={"steps": steps})
 
 
 def evpn_scripts(lab: LabProfile = SINGLE_DUT_3AC) -> list[TestScript]:
@@ -512,7 +689,7 @@ def evpn_scripts(lab: LabProfile = SINGLE_DUT_3AC) -> list[TestScript]:
     if len(lab.acs) >= 3:
         scripts.append(_type2(lab))
     scripts.append(_type3(lab))
-    return [_with_traffic_setup(sc) for sc in scripts]
+    return [_with_traffic_setup(sc, lab) for sc in scripts]
 
 
 def skipped_flows(lab: LabProfile) -> list[str]:

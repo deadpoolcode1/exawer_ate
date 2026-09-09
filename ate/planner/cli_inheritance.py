@@ -1,32 +1,56 @@
-"""Protocol-inheritance table for CLI sub-modes the EVPN CLI doc references
-but does not document.
+"""BGP-neighbor sub-configs that ``af-l2vpn evpn`` inherits, read from the
+base CLI manual.
 
-Background: the EVPN CLI doc treats `af-l2vpn evpn` as a single command
-with no parameters. In reality `af-l2vpn evpn` opens a BGP-neighbor
-sub-mode whose 7 sub-configs (allow-as-in, capability,
-inbound-soft-reconfiguration, maximum-prefix, policy, private-as,
-route-reflector-client) are documented in Exaware's BGP CLI manual —
-which we do not currently have. Client review (2026-05-14, Eyal Ozeri)
-flagged that those 7 sub-configs must appear in the test plan even though
-the EVPN doc is silent on them, because they are inherited from the
-parent BGP protocol per RFC 4271/4760 conventions.
+The EVPN CLI doc treats ``af-l2vpn evpn`` as a single command with no
+parameters. The SFS (``EVPN System Specification 1.00`` §2.2, "BGP Common CLI
+in Context L2VPN EVPN", **EVPNS-REQ#20**) then names the knobs the sub-mode
+inherits from base BGP, and documents the grammar of none of them. Client
+review (2026-05-14, Eyal Ozeri) required those knobs in the test plan anyway.
 
-This module hand-curates the 7 sub-configs as `CliCommand` objects so
-the existing `cli_rows.cli_command_rows()` row generator produces the
-same family (happy-path / range / mutex / default / `no` / persistence /
-help / filter / precondition) without any changes to `cli_rows.py`.
+**base + extension.** The Command Reference Guide v8.X.0 is the *base* — it
+owns the grammar, ranges, defaults and command modes of the generic BGP
+knobs. The EVPN CLI doc and the SFS are the *extension* — they own which
+knobs the ``af-l2vpn evpn`` sub-mode pulls in, and the EVPN-specific commands.
+This module is the join, and it reads both rather than reasoning about either.
 
-Future work: once the Exaware BGP CLI manual is available, run
-`extract_commands(bgp_cli_doc)` and replace these hand-curated entries
-with the real ones. `expand()` is idempotent on name — if the BGP doc
-extraction already produced the command, the inheritance entry is
-skipped.
+What changed, and why it matters
+--------------------------------
+For three months this file hand-curated the knobs "from standard BGP
+convention (RFC 4271/4760) and common vendor practice". Eyal flagged the
+result as invented on 2026-07-06, and he was right: cross-checked against the
+guide, **every one of the seven entries had at least one fabricated element**.
+The worst were not the missing ranges but the confidently wrong ones —
+``private-as {remove | replace}`` (the guide says ``remove | leave``) and
+``policy <policy-name> {in | out}`` (the guide has the operands the other way
+round). A reviewer cannot tell an invented default from a read one, which is
+exactly why the table had to stop being hand-written.
+
+Nothing here is now written by us. :mod:`ate.planner.crg_extractor` reads the
+sections off the guide; this module only re-homes them into the EVPN sub-mode
+and records the one conflict the two documents genuinely have.
+
+The ``allow-as-in`` conflict
+----------------------------
+The guide's Notes cell for ``allow-as-in`` reads *"This command is only
+available under unicast SAFI, VRF default, and VPN SAFI."* — which does not
+include ``l2vpn evpn``. EVPNS-REQ#20 lists it as an ``af-l2vpn evpn`` knob.
+Two Exaware documents, flatly disagreeing.
+
+We do not resolve it. The row is emitted with the conflict stated in the
+Comment column so QA types the command on a device and settles it, which is
+the only thing that can. See :data:`SAFI_CONFLICT_NOTE`.
 """
 from __future__ import annotations
 
+import functools
+import logging
 from dataclasses import dataclass, field
+from pathlib import Path
 
-from ate.planner.cli_extractor import CliCommand, CliParameter
+from ate.planner import crg_extractor
+from ate.planner.cli_extractor import CliCommand
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -39,310 +63,180 @@ class InheritanceEntry:
     sub_configs: list[CliCommand] = field(default_factory=list)
 
 
-# Hand-curated until the Exaware BGP CLI doc lands. Syntax, ranges, and
-# defaults follow standard BGP convention (RFC 4271 / RFC 4760 / RFC 7432)
-# and common vendor (Cisco IOS-XR, FRR) practice. QA should validate each
-# row against the actual device behaviour and edit the table in place when
-# the real doc is available.
-# Mode path is kept token-aligned with the parent `af-l2vpn evpn` command's
-# own mode path (`configuration routing bgp vrf neighbor`) plus the
-# `af-l2vpn evpn` sub-mode, so that when cli_rows sorts config commands by
-# mode path the parent sorts *before* its sub-configs. Using `<asn>` /
-# `<vrf>` placeholders here put the children ahead of the parent (`<` sorts
-# before `v`), which surfaced the SAFI options before the `af-l2vpn evpn`
-# row (client 2026-06-02, Eyal Ozeri: "the safi options appear before the
-# af-l2vpn evpn").
-_BGP_NEIGHBOR_AF_MODE = (
-    "configuration routing bgp vrf neighbor af-l2vpn evpn"
-)
+#: The address-family sub-mode the inherited knobs are re-homed into.
+#:
+#: The guide states each knob's mode as ``… neighbor afi safi``, where
+#: ``afi safi`` is its placeholder for whichever address family you are in.
+#: For this plan that family is ``af-l2vpn evpn``, so the placeholder is
+#: substituted — token-aligned with the parent's own mode path so that
+#: `cli_rows`' mode-path sort puts ``af-l2vpn evpn`` *before* its children.
+#: Using ``<asn>``/``<vrf>`` placeholders here sorted the children first
+#: (``<`` sorts before ``v``), which surfaced the SAFI options above the
+#: ``af-l2vpn evpn`` row (client 2026-06-02, Eyal Ozeri: "the safi options
+#: appear before the af-l2vpn evpn").
 _BGP_NEIGHBOR_AF_MODE_PATH = [
     "configuration", "routing", "bgp", "vrf", "neighbor", "af-l2vpn", "evpn",
 ]
+_BGP_NEIGHBOR_AF_MODE = " ".join(_BGP_NEIGHBOR_AF_MODE_PATH)
+
+#: Where the guide lives. Overridable so a caller with a different checkout
+#: layout, or a pre-converted `.txt`, can point at it.
+DEFAULT_CRG_PATH = Path("references/EVPN/Command Reference Guide v8.X.0.pdf")
+
+#: Provenance sentence carried into the plan's Comment column.
+CRG_SOURCE = (
+    f"Base BGP grammar read from Exaware's {crg_extractor.CRG_SOURCE}; "
+    "inherited into the af-l2vpn evpn sub-mode per SFS EVPNS-REQ#20."
+)
+
+#: Attached to a knob the base guide scopes to SAFIs that exclude EVPN.
+SAFI_CONFLICT_NOTE = (
+    "DOCUMENT CONFLICT — confirm on a device. SFS EVPNS-REQ#20 lists this "
+    "knob as inherited by `af-l2vpn evpn`, but {source} states the command is "
+    "only available under {safis}, which does not include l2vpn evpn. This "
+    "row is emitted because the SFS asks for it; the expectation is that the "
+    "device either accepts it under the EVPN address family or rejects it, "
+    "and QA records which."
+)
+
+#: Knobs EVPNS-REQ#20 names that the base guide has no command section for.
+#:
+#: Reported, never filled in. `group` is the neighbor-group binding rather
+#: than an address-family knob, so its absence from the BGP command chapter is
+#: expected — but it is stated here rather than left as a silent gap, because
+#: a silent gap is indistinguishable from an oversight.
+UNDOCUMENTED_NOTE = (
+    "Named by SFS EVPNS-REQ#20 but has no command section in "
+    f"{crg_extractor.CRG_SOURCE}; no grammar is asserted for it here."
+)
 
 
-def _sub(name: str, syntax: str, description: str,
-         parameters: list[CliParameter] | None = None,
-         default_behavior: str = "",
-         has_no_form: bool = True,
-         notes: str = "",
-         related_features: list[str] | None = None) -> CliCommand:
-    """Helper — produce a CliCommand for a BGP-neighbor sub-config."""
-    syntax_lines = [ln.strip() for ln in syntax.splitlines() if ln.strip()]
+def _rehome(cmd: CliCommand, conflict: str | None) -> CliCommand:
+    """Re-home a base-BGP command into the ``af-l2vpn evpn`` sub-mode.
+
+    The grammar, parameters, ranges, defaults and `no` form are carried
+    through untouched — they are the guide's, not ours. Only the mode path is
+    rewritten, and only because the guide states it generically.
+    """
+    notes = cmd.notes or ""
+    if conflict:
+        notes = (notes + " " if notes else "") + SAFI_CONFLICT_NOTE.format(
+            source=crg_extractor.CRG_SOURCE,
+            safis=" ".join(conflict.split()),
+        )
     return CliCommand(
-        name=name,
-        kind="config",
-        syntax=syntax,
-        syntax_lines=syntax_lines,
+        name=cmd.name,
+        kind=cmd.kind,
+        syntax=cmd.syntax,
+        syntax_lines=list(cmd.syntax_lines),
         mode=_BGP_NEIGHBOR_AF_MODE,
-        mode_path=_BGP_NEIGHBOR_AF_MODE_PATH,
-        mode_paths=[_BGP_NEIGHBOR_AF_MODE_PATH],
-        description=description,
-        parameters=parameters or [],
-        examples="",
+        mode_path=list(_BGP_NEIGHBOR_AF_MODE_PATH),
+        mode_paths=[list(_BGP_NEIGHBOR_AF_MODE_PATH)],
+        description=cmd.description,
+        parameters=list(cmd.parameters),
+        examples=cmd.examples,
         notes=notes,
-        has_no_form=has_no_form,
-        default_behavior=default_behavior,
-        related_features=related_features or ["BGP EVPN address-family"],
-        section="BGP EVPN address-family sub-configs (inherited from BGP CLI)",
+        has_no_form=cmd.has_no_form,
+        default_behavior=cmd.default_behavior,
+        # Names the knob itself rather than a generic "BGP EVPN
+        # address-family" for all eight. The read-back expectation is
+        # rendered from this, so a constant made all eight rows say the same
+        # uninformative thing. The hand-curated table used to put a nicer
+        # phrase here ("BGP AS_PATH loop check") — but that phrase was
+        # written by us, not read from a document, and this is the same
+        # class of invention the module exists to remove.
+        related_features=[f"`{cmd.name}` under af-l2vpn evpn"],
+        section=cmd.section,
     )
 
 
-BGP_NEIGHBOR_AF_L2VPN_EVPN = InheritanceEntry(
-    parent_command="af-l2vpn evpn",
-    parent_mode_path=["configuration", "routing", "bgp", "vrf", "neighbor"],
-    source=(
-        "Hand-curated from standard BGP behaviour (RFC 4271/4760/7432) and "
-        "common vendor convention; replace when Exaware's BGP CLI manual lands."
-    ),
-    sub_configs=[
-        _sub(
-            name="allow-as-in",
-            syntax="allow-as-in [<count>]\nno allow-as-in",
-            description=(
-                "Accept up to <count> occurrences of the local AS in the "
-                "received AS_PATH. Standard BGP AS_PATH loop check is "
-                "bypassed for the configured count."
-            ),
-            parameters=[CliParameter(
-                name="count", value_spec="Integer 1..10",
-                description="Maximum allowed occurrences of own ASN.",
-                default="3",
-            )],
-            default_behavior="disabled (no AS_PATH loops allowed)",
-            notes=("Enabling this knob disables the AS loop check for this "
-                   "neighbor and AF; use only in confederation/route-server "
-                   "scenarios where loops are intentional."),
-            related_features=["BGP AS_PATH loop check"],
-        ),
-        _sub(
-            name="capability",
-            syntax=(
-                "capability {orf-prefix-list send | orf-prefix-list receive | "
-                "orf-prefix-list both | route-refresh}\n"
-                "no capability {orf-prefix-list ... | route-refresh}"
-            ),
-            description=(
-                "Negotiate optional BGP capabilities with this neighbor for "
-                "the L2VPN EVPN AF. ORF Prefix-List per RFC 5291; "
-                "Route Refresh per RFC 2918."
-            ),
-            parameters=[
-                CliParameter(name="orf-prefix-list send", description=(
-                    "Advertise willingness to send ORF prefix-list to peer."),
-                    is_choice=True),
-                CliParameter(name="orf-prefix-list receive", description=(
-                    "Advertise willingness to receive ORF prefix-list from peer."),
-                    is_choice=True),
-                CliParameter(name="orf-prefix-list both", description=(
-                    "Both send and receive ORF prefix-list."), is_choice=True),
-                CliParameter(name="route-refresh", description=(
-                    "Advertise Route Refresh capability (RFC 2918)."),
-                    is_choice=True),
-            ],
-            default_behavior="route-refresh advertised; ORF off",
-            notes=("Negotiated in OPEN; capability mismatch is silent — the "
-                   "feature simply doesn't activate. Verify via "
-                   "`show bgp neighbor <ip> | include Capability`."),
-            related_features=["BGP capability negotiation",
-                              "RFC 5291 ORF", "RFC 2918 Route Refresh"],
-        ),
-        _sub(
-            name="inbound-soft-reconfiguration",
-            syntax=(
-                "inbound-soft-reconfiguration\n"
-                "no inbound-soft-reconfiguration"
-            ),
-            description=(
-                "Cache all received NLRIs from this neighbor so inbound "
-                "policy can be re-applied without a hard session reset. "
-                "Memory-intensive; prefer Route Refresh (RFC 2918) when "
-                "the peer supports it."
-            ),
-            default_behavior="disabled (rely on Route Refresh)",
-            notes=("Enable only when the peer does NOT support the "
-                   "route-refresh capability. Combined with `capability "
-                   "route-refresh`, route-refresh wins."),
-            related_features=["BGP soft reconfiguration"],
-        ),
-        _sub(
-            name="maximum-prefix",
-            syntax=(
-                "maximum-prefix <max> [<threshold-pct> [warning-only | "
-                "restart <interval>]]\n"
-                "no maximum-prefix"
-            ),
-            description=(
-                "Cap the number of L2VPN EVPN prefixes accepted from this "
-                "neighbor. When exceeded, the session is torn down with "
-                "NOTIFICATION code 6 sub-code 1 unless `warning-only` "
-                "(syslog only, session preserved) or `restart` "
-                "(auto-restart after <interval> minutes)."
-            ),
-            parameters=[
-                CliParameter(name="max", value_spec="Integer 1..4294967295",
-                             description="Maximum accepted prefix count."),
-                CliParameter(name="threshold-pct",
-                             value_spec="Integer 1..100",
-                             description=("Percentage of <max> at which a "
-                                          "warning is logged."),
-                             default="75"),
-                CliParameter(name="warning-only", is_choice=True,
-                             description="Log only; do not tear down."),
-                CliParameter(name="restart", is_choice=True,
-                             description=("Auto-restart after <interval> "
-                                          "minutes.")),
-                CliParameter(name="interval", value_spec="Integer 1..65535",
-                             description="Minutes before auto-restart."),
-            ],
-            default_behavior="no limit",
-            notes=("Tearing down on cap is the default action — choose "
-                   "`warning-only` for monitoring-only deployments. "
-                   "`warning-only` and `restart` are mutually exclusive."),
-            related_features=["BGP prefix-limit",
-                              "RFC 4271 NOTIFICATION code 6"],
-        ),
-        _sub(
-            name="policy",
-            syntax=(
-                "policy <policy-name> {in | out}\n"
-                "no policy <policy-name> {in | out}"
-            ),
-            description=(
-                "Attach a route-policy / route-map to the inbound or "
-                "outbound L2VPN EVPN update direction for this neighbor. "
-                "Policy is evaluated before MAC/IP route installation (in) "
-                "or before NLRI advertisement (out)."
-            ),
-            parameters=[
-                CliParameter(name="policy-name",
-                             value_spec="String 1..63 chars",
-                             description=("Name of a previously defined "
-                                          "routing-policy.")),
-                CliParameter(name="in", is_choice=True,
-                             description="Apply on inbound updates."),
-                CliParameter(name="out", is_choice=True,
-                             description="Apply on outbound updates."),
-            ],
-            default_behavior="no policy (all routes pass)",
-            notes=("A non-existent <policy-name> is a config error at commit "
-                   "time. Edits to an attached policy take effect on the "
-                   "next refresh / soft-reset."),
-            related_features=["BGP routing-policy", "EVPN route filtering"],
-        ),
-        _sub(
-            name="private-as",
-            syntax=(
-                "private-as {remove | replace}\n"
-                "no private-as"
-            ),
-            description=(
-                "Strip or replace private AS numbers (64512..65534, "
-                "4200000000..4294967294) from the AS_PATH on outbound "
-                "L2VPN EVPN updates to this neighbor."
-            ),
-            parameters=[
-                CliParameter(name="remove", is_choice=True,
-                             description=("Delete private ASNs from "
-                                          "AS_PATH.")),
-                CliParameter(name="replace", is_choice=True,
-                             description=("Replace each private ASN with "
-                                          "the local ASN.")),
-            ],
-            default_behavior="disabled (private ASNs sent verbatim)",
-            notes=("Use on eBGP toward upstream transit; mutually exclusive "
-                   "with itself — second commit replaces the first."),
-            related_features=["BGP AS_PATH manipulation"],
-        ),
-        _sub(
-            name="route-reflector-client",
-            syntax=(
-                "route-reflector-client\n"
-                "no route-reflector-client"
-            ),
-            description=(
-                "Mark this neighbor as an iBGP route-reflector client for "
-                "the L2VPN EVPN AF. Reflected L2VPN EVPN routes carry the "
-                "ORIGINATOR_ID and CLUSTER_LIST attributes per RFC 4456."
-            ),
-            default_behavior="disabled (neighbor is a regular iBGP peer)",
-            notes=("Valid only on iBGP sessions. Enabling on an eBGP "
-                   "neighbor is rejected at commit time."),
-            related_features=["BGP route reflection",
-                              "RFC 4456 ORIGINATOR_ID / CLUSTER_LIST"],
-        ),
-    ],
-)
-
-
-INHERITANCE_TABLE: list[InheritanceEntry] = [BGP_NEIGHBOR_AF_L2VPN_EVPN]
-
-
-_DEINVENT_NOTE = (
-    "Exact argument grammar, value ranges and defaults await Exaware's BGP "
-    "CLI manual — this row verifies the knob is accepted under `af-l2vpn "
-    "evpn` and is operational; validate the precise parameters against the "
-    "device."
-)
-
-
-def deinvent(commands: list[CliCommand]) -> list[CliCommand]:
-    """Pipeline transform — de-invent a list of inherited CliCommands.
-
-    Applied as an explicit step in the Requirements Builder
-    (`requirements_builder.build_catalog`) right after `expand()`, so the
-    curated inheritance table stays a faithful record of what we believe the
-    BGP knobs look like, while the *deliverable* only asserts what we can
-    stand behind. See `_deinvent` for the per-command rationale. When the
-    real Exaware BGP CLI manual is ingested, drop this step — the extracted
-    commands carry their true grammar and need no de-invention.
-    """
-    return [_deinvent(c) for c in commands]
-
-
-def _deinvent(sub: CliCommand) -> CliCommand:
-    """Strip the *invented* parameter detail from a hand-curated sub-config.
-
-    Eyal Ozeri 2026-07-06 flagged the guessed parameter grammar on the
-    inherited BGP knobs (`capability`'s ORF option enumeration, `maximum-
-    prefix`'s `<threshold-pct>/<interval>` structure and its `1..65535`
-    range) as invented — the EVPN CLI doc is silent on these and we do not
-    have the BGP CLI manual. Per the 2026-07-06 decision we test each knob
-    coarsely ("accepted & operational per the BGP manual") instead of
-    asserting fabricated boundaries: drop the parameter list and any
-    `{choice|…}` / `[optional …]` syntax structure so cli_rows no longer
-    emits invented range / mutex / default-value / variant rows. The knob's
-    name, `no` form and standard-BGP behavioural description are kept.
-    """
-    first = sub.syntax_lines[0] if sub.syntax_lines else sub.name
-    name_tok_count = len(sub.name.split())
-    had_arg = len(first.split()) > name_tok_count
-    coarse = f"{sub.name} <value>" if had_arg else sub.name
-    syntax = coarse + (f"\nno {sub.name}" if sub.has_no_form else "")
-    note = (sub.notes + " " if sub.notes else "") + _DEINVENT_NOTE
-    return CliCommand(
-        name=sub.name, kind=sub.kind, syntax=syntax,
-        syntax_lines=[ln for ln in syntax.splitlines() if ln.strip()],
-        mode=sub.mode, mode_path=sub.mode_path, mode_paths=sub.mode_paths,
-        description=sub.description, parameters=[], examples="",
-        notes=note, has_no_form=sub.has_no_form,
-        default_behavior=sub.default_behavior,
-        related_features=sub.related_features, section=sub.section,
+@functools.lru_cache(maxsize=4)
+def _load(crg_path: str) -> tuple[CliCommand, ...]:
+    """Read and re-home the inherited knobs. Cached — the PDF costs ~3 s."""
+    path = Path(crg_path)
+    if not path.exists():
+        # Emitting nothing is the correct failure. The alternative — falling
+        # back to a hand-written table — is what produced three months of
+        # invented grammar, so there is deliberately no fallback.
+        log.warning(
+            "Command Reference Guide not found at %s — the af-l2vpn evpn "
+            "sub-config rows will be omitted rather than invented.", path)
+        return ()
+    found = crg_extractor.extract(path)
+    conflicts = crg_extractor.evpn_conflicts(found)
+    missing = crg_extractor.missing_from_crg(found)
+    if missing:
+        log.info("EVPNS-REQ#20 knobs absent from the base guide: %s",
+                 ", ".join(missing))
+    return tuple(
+        _rehome(found[name], conflicts.get(name))
+        for name in crg_extractor.INHERITED_BGP_KNOBS
+        if name in found
     )
+
+
+def inherited_commands(crg_path: Path | str = DEFAULT_CRG_PATH
+                       ) -> list[CliCommand]:
+    """The ``af-l2vpn evpn`` sub-configs, as the base guide documents them."""
+    return list(_load(str(crg_path)))
+
+
+def _entry(crg_path: Path | str = DEFAULT_CRG_PATH) -> InheritanceEntry:
+    return InheritanceEntry(
+        parent_command="af-l2vpn evpn",
+        parent_mode_path=["configuration", "routing", "bgp", "vrf", "neighbor"],
+        source=CRG_SOURCE,
+        sub_configs=inherited_commands(crg_path),
+    )
+
+
+class _TableProxy(list):
+    """``INHERITANCE_TABLE`` as a lazily-populated list.
+
+    Kept a module-level name because `cli_rows`, `xlsx_writer` and the tests
+    all read it that way, but the guide is not parsed until something actually
+    asks — importing this module used to be free and should stay that way.
+    """
+
+    def _ensure(self) -> None:
+        if not list.__len__(self):
+            entry = _entry()
+            if entry.sub_configs:
+                self.append(entry)
+
+    def __iter__(self):
+        self._ensure()
+        return list.__iter__(self)
+
+    def __len__(self):
+        self._ensure()
+        return list.__len__(self)
+
+    def __getitem__(self, item):
+        self._ensure()
+        return list.__getitem__(self, item)
+
+    def __bool__(self):
+        self._ensure()
+        return list.__len__(self) > 0
+
+
+INHERITANCE_TABLE: list[InheritanceEntry] = _TableProxy()
 
 
 def expand(extracted: list[CliCommand]) -> list[CliCommand]:
-    """Produce inherited sub-config CliCommand objects for parents that
-    appear in `extracted`.
+    """Produce inherited sub-config commands for parents present in `extracted`.
 
-    For each entry in `INHERITANCE_TABLE`, if the parent_command name
-    appears among the extracted commands, the entry's sub_configs are
-    appended to the output — skipping any sub-config whose name is
-    already present in `extracted` (idempotent under repeated runs and
-    safe to call when the real BGP CLI doc is later integrated).
+    For each entry in `INHERITANCE_TABLE` whose ``parent_command`` appears
+    among the extracted commands, the entry's sub-configs are appended —
+    skipping any whose name is already there, so the step is idempotent and
+    stays safe if the EVPN CLI doc ever documents one of them itself.
 
-    `expand()` returns the curated table verbatim; the pipeline then runs
-    `deinvent()` over the result (see `build_catalog`) to strip the
-    fabricated parameter grammar before the deliverable is built.
+    There is no longer a de-invention step after this. ``deinvent()`` existed
+    to strip fabricated grammar before the deliverable was built; with the
+    grammar now read off the base guide there is nothing to strip, and
+    stripping it would throw away the ranges and defaults Eyal asked to have
+    restored (2026-07-07: "removed, not corrected").
     """
     extracted_names = {c.name for c in extracted}
     out: list[CliCommand] = []
@@ -361,8 +255,8 @@ def sub_config_names_for(parent_command: str) -> list[str]:
     """Names of the sub-configs available under `parent_command`'s sub-mode.
 
     Used by cli_rows to emit an "available options under the evpn SAFI"
-    enumeration row (client 2026-06-01, item 17) so QA can verify `?`
-    under `af-l2vpn evpn` lists exactly the inherited option set.
+    enumeration row (client 2026-06-01, item 17) so QA can verify `?` under
+    `af-l2vpn evpn` lists exactly the inherited option set.
     """
     for entry in INHERITANCE_TABLE:
         if entry.parent_command == parent_command:
@@ -370,12 +264,44 @@ def sub_config_names_for(parent_command: str) -> list[str]:
     return []
 
 
+def af_enable_parents() -> set[str]:
+    """Parent commands whose bare form IS committable on its own.
+
+    ``af-l2vpn evpn`` enables the address family by itself; its child knobs
+    are optional. That distinguishes it from a *structural* container such as
+    ``ethernet-segment`` or ``auto-discovery``, which cannot be committed
+    empty. Eyal Ozeri, 2026-07-07 (annotation [13], row 203): the AF enable is
+    committable standalone, and FLOW-015 agrees.
+    """
+    return {entry.parent_command for entry in INHERITANCE_TABLE}
+
+
 def inheritance_source_for(name: str) -> str | None:
-    """Return the human-readable source string for a sub-config name, or
-    None if the name isn't in any inheritance entry. Used by
-    xlsx_writer's Synthesized — Review sheet to show provenance."""
+    """The provenance string for a sub-config name, or None if unknown.
+
+    Used by xlsx_writer's "Synthesized — Review" sheet.
+    """
     for entry in INHERITANCE_TABLE:
         for sub in entry.sub_configs:
             if sub.name == name:
                 return entry.source
     return None
+
+
+def document_conflicts(crg_path: Path | str = DEFAULT_CRG_PATH
+                       ) -> dict[str, str]:
+    """Knobs the SFS and the base guide disagree about.
+
+    Surfaced by the CLI so a respin states the conflict out loud rather than
+    burying it in one Comment cell.
+    """
+    found = crg_extractor.extract(Path(crg_path)) \
+        if Path(crg_path).exists() else {}
+    return crg_extractor.evpn_conflicts(found)
+
+
+def undocumented_knobs(crg_path: Path | str = DEFAULT_CRG_PATH) -> list[str]:
+    """EVPNS-REQ#20 knobs with no command section in the base guide."""
+    found = crg_extractor.extract(Path(crg_path)) \
+        if Path(crg_path).exists() else {}
+    return crg_extractor.missing_from_crg(found)

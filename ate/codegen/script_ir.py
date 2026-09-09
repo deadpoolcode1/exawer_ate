@@ -91,6 +91,32 @@ class Step(BaseModel):
     #: happen. Seen on pc-3080: TC03 failed with the aged-out step demanding
     #: the very rows the test had just waited for the device to remove.
     expect_absent: bool = False
+    #: Expected lines that are KNOWN AT GENERATION TIME, not captured.
+    #:
+    #: The normal path for an expectation is `ate capture`: run the command on
+    #: a real device and record what it prints, because the shape of `show`
+    #: output cannot be known from the documents. A few expectations are not
+    #: about shape at all - "the EVI we are about to create is not there yet"
+    #: needs only the EVI's own name, which the generator chose.
+    #:
+    #: Those must not be left to a capture. Without one the expectation array
+    #: is empty, and an empty array asserts nothing: `verifyShowLinesAbsent`
+    #: with no lines passes on any output at all, including output that proves
+    #: the opposite. That is the fake-pass rule, so the lines are written here
+    #: instead and the assertion can fail from the first run.
+    expect_literal: list[str] = Field(default_factory=list)
+
+    #: A Java expression yielding `String[]`, used INSTEAD of a params
+    #: constant when the expected lines are only knowable at run time.
+    #:
+    #: The lab profile's interface names are placeholders that the SUT
+    #: rebinds during bring-up: the profile says `agg-eth-2.1001`, pc-3099
+    #: answers `x-eth0/0/32.1001` and pc-3080 `x-eth0/0/18.1001`. Writing the
+    #: placeholder into an expectation produces an assertion that can never
+    #: pass on any real testbed - which is exactly how FLOW-030.S00V failed
+    #: on pc-3099 on 2026-09-09, with "Missing lines: [agg-eth-2.1001, ...]"
+    #: against a device that had all three circuits correctly bound.
+    expect_expr: str = ""
 
     # ── traffic ──────────────────────────────────────────────────────────
     traffic_items: list[str] = Field(default_factory=list)

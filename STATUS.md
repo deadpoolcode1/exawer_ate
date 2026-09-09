@@ -1,7 +1,7 @@
 # ATE — Project Status
 
 **SOW:** PQ4476E — AI-Assisted Test Plan & Automation Skeleton Generator (10 weeks, 5 milestones)
-**Updated:** 2026-08-13
+**Updated:** 2026-09-09
 
 ## Milestones
 
@@ -25,16 +25,17 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 
 | Stage | Command | Status |
 |---|---|---|
-| Parse documents → requirements | `ate plan-feature EVPN` | ✅ 133 reqs |
-| Requirements → test plan | (same) | ✅ 269 plan rows / 698 action rows |
+| Parse documents → requirements | `ate plan-feature EVPN` | ✅ 134 reqs |
+| Requirements → test plan | (same) | ✅ 286 plan rows / 717 action rows |
 | Plan rows → typed steps | `ate match` | ✅ 537/612 = 87.7% |
 | Steps → Java suite | `ate codegen` | ✅ compiles, `-Werror -Xlint:all` |
 | Steps → DUT config | (same) | ✅ `.crt` passes their own validator |
 | Test selection | `ate queue` | ✅ dirty queue |
+| **Read a plan back / diff two versions** | `ate plan-diff` | ✅ ID-keyed change file, ships with every respin |
 | **Verify commands on a device** | `ate verify-commands` | ✅ 123 templates; **both halves now trustworthy** |
 | **Capture real expectations** | `ate capture` | ✅ 2 usable, 9 empty, 0 unsupported — **not yet fed back into the code** |
 | **Run the suite on the DUT** | `javac` + JUnit/JSystem | ✅ **TC01/02/03 all run green on pc-3080** (assert little — see limits) |
-| Build IXIA traffic items | `ate codegen` | ✅ in code, no `.ixncfg` (src MAC still blocked) |
+| Build IXIA traffic items | `ate codegen` | ✅ in code **and** as a readable `EVPN_traffic.tcl` that saves an `.ixncfg` — one chassis run away from their load-and-suspend idiom |
 
 ## M2 — SOW bullets
 
@@ -42,11 +43,11 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 |---|---|
 | Code generation from selected tests | ✅ TC01/TC02/TC03 via the dirty queue |
 | Pattern matching | ✅ 537/612 rows (87.7%) typed |
-| Demo: extract requirements from docs | ✅ 133 reqs → 269 plan rows |
+| Demo: extract requirements from docs | ✅ 134 reqs → 286 plan rows |
 | Up to 3 integration-ready test plans | ✅ compile against the real framework |
 
 Gates: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`;
-`bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 275 ATE tests pass.
+`bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 349 ATE tests pass.
 
 ## The device loop — why it exists
 
@@ -94,6 +95,43 @@ Two defects that run exposed matter more than the pass:
 
 ## Honest limits
 
+- **The 2026-08-14 hand-over shipped with no control plane, and it was a
+  regression of a fix we had already made.** Exaware reported the underlay
+  missing on 2026-08-13; it was built, and verified on pc-3080 (OSPF FULL, BGP
+  Established). The final package was then generated with `--lab 3ac` so a
+  third AC existed for FLOW-030's MAC move. That profile has no core link,
+  three emitters answered the absence with `[]`/`None`, and the suite went out
+  with no IGP, no LDP and no BGP on either side. **The client reported the same
+  defect twice.** Every gate we had passed it: it compiled, the `.crt`
+  validated, three suites ran green, the pipeline exited zero. Nothing checked
+  the artifacts.
+
+  Fixed structurally, not by resolving to be more careful
+  (`ate/codegen/capabilities.py`, `scripts/verify_handover_package.py`):
+
+  | Layer | Effect |
+  |---|---|
+  | Capability ratchet | six capabilities carry a hardware `Proof`; `ate codegen` **raises** if the emitted files drop one |
+  | Detectors read artifacts | not the profile, not the exit code — the regression had a healthy pipeline |
+  | `--lab` is required | no default, because the default is what chose the weaker rig |
+  | `LabProfile.core` has no default | absence is a `NoCore` with a `reason` and an `accepted_by`, both printed into the `.cfg` |
+  | Hand-over gate | re-checks the same capabilities inside the package, **no escape hatch**, runs under `set -e` |
+
+  Run against the shipped package it names all four lost capabilities, and
+  three step titles that admitted the rig could not support them.
+
+  **Consequence: `ate codegen --lab 3ac` refuses**, because four of its steps
+  assert BGP-carried routes on a rig with no BGP session. That is not waivable
+  — it is the fake-pass rule.
+
+  **The follow-on claim was wrong and is withdrawn (2026-09-08).** This said
+  "three ACs *and* a control plane need a fourth DUT↔IXIA port", and Exaware
+  corrected it: *"The setup includes 3 DuT-Ixia connections. It is (more than)
+  enough to create a Control Plane link and 3 ACs. An AC can reside as a
+  tagged interface."* A circuit is a port **and a VLAN**, so two circuits fit
+  on one port. `--lab 3ac-core` is the shippable profile now, it emits all
+  three suites, and the client lost TC02 for a fortnight over arithmetic that
+  was ours, not the rig's.
 - **The suites no longer fake a pass, and the rule earned its keep twice.**
   A generated test that verified nothing used to report `OK (1 test)`.
 
@@ -383,6 +421,205 @@ Type-2/Type-3 exchange, which needs the IXIA **BGP EVPN licence**.
 Note: the six `ERROR-6301` answers in the log are their own
 `configTrafficItemEndpoints` failing; our explicit bind corrects it afterwards.
 Harmless, but it is why that error still appears.
+
+## The 2026-09-08 review: Eyal's four remarks
+
+His mail, and where each one stands. **Verified on hardware on 2026-09-09**,
+pc-3099 (8.7.0 LAB 935), except where the row says otherwise.
+
+| # | His remark | State |
+|---|---|---|
+| 1 | "The ixia config file is not in TCL format, which I cannot open" | ✅ `configurations/ixia/EVPN_traffic.tcl`: one readable block per item, their proc names, and it **saves an `.ixncfg`** |
+| 2 | "The BringUpParameters.crt file doesn't load any Ixia file" | ✅ the row is emitted as soon as `--ixncfg` names a file, needs one chassis run to produce it |
+| 3 | "TC01 seems to configure an already existing evpn service" | ✅ **on hardware**: the `.cfg` no longer creates the EVI, the test does, after asserting it absent |
+| 4 | "TC02 which is declared as a passed TC is missing" | ✅ **on hardware**: three circuits bound; and now a ratchet, `topology.three_acs`, so it cannot vanish again |
+| 5 | 3 links are enough for a control plane and 3 ACs | ✅ **on hardware**: `x-eth0/0/40.1002` and `.1003` are two ACs on ONE port |
+| 6 | "Vlan 3380 ... The tool should be able to use entire 2-4094 range" | ✅ **on hardware**: 1001-1003 bound; pc-3099's own SUT VLAN (3399) untouched |
+| 7 | "except for the DuT config file I didn't see it working or established" | 🟡 TC01 **OK (1 test)** on pc-3099 with full logs. A TATE report still needs the ticket ID |
+
+### What the VLAN work actually changed
+
+The `.crt` used to bind each IXIA vport to `vlans` index 0 in the SUT file,
+which on pc-3080 is 3380, a VLAN that belongs to an external server link. The
+suite could therefore only ever run on whatever VLAN the SUT happened to
+declare first, and it was not ours.
+
+VLANs are now the lab profile's, per circuit, written literally into the
+`.cfg`, carried on each traffic item, and settable with
+`ate codegen --ac-vlans 1001,1002,1003`. The old run-time check (does the SUT
+agree with the `.cfg`?) is replaced by its opposite, which is the useful one:
+**`assertAcVlansAreFree()` fails the run if a VLAN we are about to use appears
+in the SUT's `general/vlans` list**, because those belong to other links.
+
+Which VLANs this rig actually has free is still Eyal's to say. Until he does,
+1001-1003 are the defaults and one flag changes them.
+
+### A defect this found in the shipped package
+
+Captured expectations are topology-specific, which STATUS has listed as an
+honest limit for weeks. Moving off 3380 turned it from possible to certain, so
+it is now checked: `capture.topology_mismatches` drops a capture whose lines
+name a sub-interface this profile does not have, and says so.
+
+Run against what shipped on 24 August, it finds two expectations asserting
+`x-eth0/0/18.100` and `x-eth0/0/26.100` in a package whose own `.cfg` creates
+`.3380` circuits, on a rig where `0/0/8` is the core link. **Those two
+assertions could never have matched.** They are dropped rather than asserted,
+which is why the falsifiable tally reads 3 of 23 rather than 5. The two that
+went away were never real.
+
+Re-capturing on the rig is what recovers them, and it is the first thing to do
+with lab access.
+
+### Lab session 2026-09-09: what the hardware settled
+
+| | |
+|---|---|
+| A vlan-based EVI accepting two sub-interfaces of the SAME port as two ACs | ✅ proven, `deliverables/M2/evidence_shared_port_acs.txt`, device restored as found |
+| The suite compiles | ✅ 953 sources → 1455 classes, 0 errors |
+| TC01 on hardware | ✅ `OK (1 test)` on pc-3099 |
+| `EVPN_traffic.tcl` runs and saves the `.ixncfg` | ⬜ **the one remaining blocker.** TC02 now fails on nothing else |
+| Fresh captures on VLANs 1001-1003 | ⬜ 16 steps still warn instead of asserting |
+| A TATE report | ⬜ needs the ticket ID, outstanding since 24 August |
+
+Two defects only a real run could find, both fixed and both locked by a test:
+
+1. **TC02 depended on TC01's leftovers.** Bring-up calls `loadConf()` before
+   every test method, so the EVI TC01 created was wiped before TC02's first
+   assertion. Each test now creates the EVI it uses, having first asserted it
+   absent. That satisfies remark 3 and makes each TC runnable on its own.
+2. **An expectation held a placeholder interface name.** `agg-eth-2.1001` is
+   the profile's placeholder; the SUT rebinds it, so the assertion could never
+   pass on any rig. Circuit names in expectations are now resolved on the
+   device (`EvpnUtils.eviBoundLines`).
+
+### pc-3080 cannot run Exaware's own bring-up
+
+Not our defect, and worth telling them: pc-3080 was re-imaged to `8.7.0: LAB
+0`, and bring-up dies at "Failed to enter specific session mode. Wanted mode:
+ONL". `CmpCliSession.java:69` matches the ONL shell by the literal
+`"@localhost"`; this image answers `root@router`. The same test on the same
+box in August logged `root@localhost` 78 times, today zero. Any suite fails
+there. pc-3099 (LAB 935) is unaffected.
+
+## The 2026-08-16 review — what is closed
+
+Eyal Ozeri sent four points on the M2 suite; Ron asked us to answer three
+review mails together. State as of 2026-08-19:
+
+| # | His point | State |
+|---|---|---|
+| 1 | No BGP session between DUT and IXIA | ✅ was a **regression** of the 08-13 underlay fix; ratchet + hand-over gate now make it unrepeatable |
+| 2 | Both configs lack OSPF/ISIS, LDP, BGP | ✅ same regression, same fix — `--lab 2ac-core` emits both ends |
+| 3 | VLAN shown as a parameter; 3380 untraceable | ✅ `.cfg` now emits `interface int2.3380` / `vlan-id 3380` **literally**, and names its source |
+| 4 | IXIA traffic items built in an unfriendly raw manner | ✅ VPLS idiom adopted after reading their suite — see below |
+
+### Point 3 — the VLAN, and where it comes from
+
+Their own `bringUpParams.crt` find-and-replace table parameterises `interface`
+names and **nothing else**; `VPLS_N1.cfg` carries literal `vlan-id 2` on
+literal `int2.1`. We had invented a `vlan` substitution type and then put its
+placeholder inside an interface name, producing `interface int1.vlan1`.
+
+Now literal, in their style, with the provenance printed into the `.cfg`:
+
+    sut/pc3080.xml <general><vlans index="0"><number>3380</number>
+
+Two sources for one value can disagree, so the generated Java re-reads that SUT
+slot and **throws** if it does not match the number baked into the `.cfg`. A
+silent mismatch would create the DUT sub-interface on one VLAN and tag IXIA
+frames with another — every command succeeding, nothing ever learnt. That is
+the same shape as the one-sided underlay, and it is now checked rather than
+trusted.
+
+### Point 4 — the traffic idiom, read from their suite
+
+`VplsUtils.java`, `VplsParams.java`, `VPLS_N1.cfg`, the VPLS `.crt` and
+`ixia_lib.tcl` were read directly off the dev box. Their idiom has three parts,
+and the one we were missing was the third:
+
+1. traffic items referred to **by name** — we already did that;
+2. a test **suspends and unsuspends** named items rather than rebuilding them;
+3. **every traffic step asserts the Traffic Item Statistics table**, with
+   expected Tx/Rx frame rates as `RowDataTable` rows and a tolerance.
+
+Point 3 is what makes their suites investigable. `EvpnUtils` now carries their
+five methods under their own names — `changeSuspendStatus`,
+`enableTrafficItemsAndStart`, `enableTrafficItemsAndStartSuspended`,
+`verifyTrafficItemsAreSuspended`, `verifyTrafficItemStatistics` — and
+`EvpnParams` carries the `trafficTable` in the VplsParams shape.
+
+`verifyIxiaStatistics` used to be a stub that could only call
+`CompassReporter.warning()`. It is now a real assertion and counts toward the
+falsifiable-assertion tally, which is why that tally moved from 3 paths to 4.
+
+**What still cannot be done in their idiom:** the `.ixncfg` is a proprietary
+binary (a zip around an opaque payload) and cannot be authored from documents,
+so the items are still *built* in code. That construction is confined to one
+`createTrafficItems()` call and an `.ixncfg` for the EVPN rig would replace it
+outright. Worth asking Exaware for.
+
+## The BGP knobs are no longer invented
+
+`cli_inheritance.py` hand-curated the `af-l2vpn evpn` sub-configs "from
+standard BGP convention" for three months. Eyal flagged them as invented on
+2026-07-06 and he was right: cross-checked against the Command Reference Guide
+v8.X.0, **every one of the seven entries had at least one fabricated element.**
+
+| Knob | We had (invented) | The guide |
+|---|---|---|
+| `private-as` | `{remove \| replace}` | `[remove \| leave]` |
+| `policy` | `policy <name> {in \| out}` | `policy {in \| out} policy-name` — operands reversed |
+| `maximum-prefix` | `<max> [<pct> [warning-only]]` | `number max threshold percent action [warn \| terminate]`, 2097152/75/warn |
+| `allow-as-in` | `[<count>]` | `number`, range 1-10 |
+| `capability` | one flat option list | sub-mode scoped: neighbor = dynamic/route-refresh, AF = graceful-restart/orf |
+| `inbound-soft-reconfiguration` | bare | `[enable \| disable]`, default disable |
+| `route-reflector-client` | bare | `[enable \| disable]`, default disable |
+| `weight` | **missing** | `weight weight-value`, 0-65535, default 0 |
+
+The worst were not the missing ranges but the confidently wrong ones — a
+reviewer cannot tell an invented default from a read one.
+
+New `ate/planner/crg_extractor.py` reads the sections off the guide;
+`cli_inheritance.py` only re-homes them into the EVPN sub-mode. The
+`deinvent()` pipeline step is gone: it was the right answer while the base
+manual was missing and the wrong one once it arrived, because stripping now
+would discard the ranges Eyal asked to have back ("removed, not corrected").
+
+**One conflict we will not resolve.** The guide's Notes for `allow-as-in` read
+*"This command is only available under unicast SAFI, VRF default, and VPN
+SAFI"* — which excludes `l2vpn evpn`. SFS EVPNS-REQ#20 lists it as an
+`af-l2vpn evpn` knob. Two Exaware documents, flatly disagreeing. The row is
+emitted with the conflict stated in the Comment column so a device settles it.
+**This needs Eyal or Yossi to rule.**
+
+## The plan can now be read back, not only written
+
+The pipeline could write an xlsx and never read one. That one-way street is
+why every review round was hand-triage, and why one of Eyal's files came back
+with no recoverable annotations and a whole batch had to be reconstructed from
+WhatsApp messages.
+
+`ate/planner/plan_reader.py` parses a generated (or reviewer-annotated) plan
+back into topics and actions keyed by the stable IDs the writer already emits —
+`FLOW-030`, `CLI:mac-limit`, `RFC7432bis-§7.2`. It reads the current
+deliverable as 105 topics / 717 action rows, which matches what the generator
+reports.
+
+On top of it, **`ate plan-diff`** — Eyal's first ask on 2026-07-07, "send a
+diff file with every version, I'm getting lost":
+
+    ate plan-diff plans/EVPN_test_plan_with_RFCs.xlsx        # vs git HEAD
+    ate plan-diff <new.xlsx> <old.xlsx> -o CHANGES.md
+
+Diffed by ID, never by row number, so a plan whose rows all shifted reports
+zero churn; a reworded action is one rewording, not a delete plus an add.
+**Send `plans/*_CHANGES.md` with every version.**
+
+Building it immediately paid for itself: the first run surfaced three defects
+in the plan it was diffing — grammar punctuation leaking into client-facing
+action text (`` `[dynamic` ``), continuation rows being counted as separate
+actions, and a lost per-knob phrase in the read-back expectation.
 
 ## Blocked on Exaware
 

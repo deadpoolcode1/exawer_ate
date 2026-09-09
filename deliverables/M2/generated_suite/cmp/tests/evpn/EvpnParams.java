@@ -1,15 +1,20 @@
 package cmp.tests.evpn;
 
+import cmp.infra.ixia.tableHeader.TrafficItemStatisticsHeaders;
+import cmp.tests.common.query.QueryCmdTime;
+import common.params.ColDataTable;
 import common.params.ISuiteParams;
+import common.params.RowDataTable;
 import common.params.SuiteTableParams;
 
 /**
  * Expected values and lab bindings for the EVPN suite.
  *
- * Lab profile: lab-1dut-3ac - Single DUT, three IXIA ports as local ACs on
- * one EVI, plus a BGP EVPN session to a remote PE. AC2 and AC3 source
- * identical MACs so that shifting traffic from AC2 to AC3 is a purely local
- * MAC move.
+ * Lab profile: lab-1dut-3ac-core - Single DUT on pc-3080/pc-3099. IXIA
+ * vport1 is the core: an emulated BGP EVPN peer over a point-to-point L3
+ * link. vport2 and vport3 carry THREE attachment circuits between them, as
+ * tagged sub-interfaces - AC2 and AC3 share vport3 and differ only by VLAN.
+ * Three ACs and a control plane on three links, per Exaware 2026-09-08.
  * Constants that are EMPTY are expectations that could not be derived from
  * the SFS/CLI documents - they need real device output. EvpnUtils reports a
  * warning for an empty expectation instead of passing, so an unvalidated
@@ -23,11 +28,11 @@ public class EvpnParams implements ISuiteParams {
     // ---- lab bindings (overridden from the SUT file at run time) ----
     public final String EVI_NAME = "evi-1";
     public final String BGP_NEIGHBOR = "PE2";
-    public final String AC1_INTERFACE = "agg-eth-1";
-    public final String AC2_INTERFACE = "agg-eth-2";
+    public final String AC1_INTERFACE = "agg-eth-2";
+    public final String AC2_INTERFACE = "agg-eth-3";
     public final String AC3_INTERFACE = "agg-eth-3";
-    public final String AC1_VPORT = "vport1";
-    public final String AC2_VPORT = "vport2";
+    public final String AC1_VPORT = "vport2";
+    public final String AC2_VPORT = "vport3";
     public final String AC3_VPORT = "vport3";
     public final String TI_AC1_TO_AC2 = "TI_AC1_TO_AC2";  // AC1 -> AC2
     public final String TI_AC2_TO_AC1 = "TI_AC2_TO_AC1";  // AC2 -> AC1
@@ -36,29 +41,74 @@ public class EvpnParams implements ISuiteParams {
     // ---- traffic-item build parameters ----
     // Their suites load these from a prebuilt .ixncfg; we build
     // them over TCL instead, so the suite needs no binary file.
-    public final String TI_AC1_TO_AC2_SRC_VPORT = "vport1";
-    public final String TI_AC1_TO_AC2_DST_VPORT = "vport2";
+    public final String TI_AC1_TO_AC2_SRC_VPORT = "vport2";
+    public final String TI_AC1_TO_AC2_DST_VPORT = "vport3";
     public final String TI_AC1_TO_AC2_SRC_MAC = "00:00:01:00:00:01";
-    public final String TI_AC2_TO_AC1_SRC_VPORT = "vport2";
-    public final String TI_AC2_TO_AC1_DST_VPORT = "vport1";
+    public final String TI_AC2_TO_AC1_SRC_VPORT = "vport3";
+    public final String TI_AC2_TO_AC1_DST_VPORT = "vport2";
     public final String TI_AC2_TO_AC1_SRC_MAC = "00:00:02:00:00:01";
     public final String TI_AC3_TO_AC1_SRC_VPORT = "vport3";
-    public final String TI_AC3_TO_AC1_DST_VPORT = "vport1";
+    public final String TI_AC3_TO_AC1_DST_VPORT = "vport2";
     public final String TI_AC3_TO_AC1_SRC_MAC = "00:00:02:00:00:01";
     /** TI_AC2_TO_AC1 and TI_AC3_TO_AC1 share a source MAC on purpose:
      *  that is what makes moving between those ACs a LOCAL MAC move
      *  on one PE, which must not re-advertise a Type-2 route. */
 
-    /** {name, srcVport, dstVport, srcMac} per item, for
-     *  EvpnUtils.createTrafficItems(). */
+    /** {name, srcVport, dstVport, srcMac, vlan} per item,
+     *  for EvpnUtils.createTrafficItems(). The VLAN is the
+     *  SOURCE circuit's: it is what the DUT classifies the
+     *  frame by, and on a rig where two circuits share a
+     *  vport it is the only thing that tells them apart. */
     public final String[][] TRAFFIC_ITEM_BUILD = {
-        {"TI_AC1_TO_AC2", "vport1", "vport2", "00:00:01:00:00:01"},
-        {"TI_AC2_TO_AC1", "vport2", "vport1", "00:00:02:00:00:01"},
-        {"TI_AC3_TO_AC1", "vport3", "vport1", "00:00:02:00:00:01"},
+        {"TI_AC1_TO_AC2", "vport2", "vport3", "00:00:01:00:00:01", "1001"},
+        {"TI_AC2_TO_AC1", "vport3", "vport2", "00:00:02:00:00:01", "1002"},
+        {"TI_AC3_TO_AC1", "vport3", "vport2", "00:00:02:00:00:01", "1003"},
     };
-    /** IXIA vports backing the ACs, in AC order. */
-    public final String[] AC_VPORTS = {"vport1", "vport2", "vport3"};
+    /** IXIA vports backing the ACs, one entry per port. */
+    public final String[] AC_VPORTS = {"vport2", "vport3"};
+    /** The SUT intPool index each of those vports takes. */
+    public final int[] AC_VPORT_POOL_INDEX = {1, 2};
+    /** VLAN enabled on each vport's interface (the first
+     *  circuit's; the per-item tag is what classifies). */
+    public final String[] AC_VPORT_VLAN = {"1001", "1002"};
     public final String TRAFFIC_RATE_FPS = "1000";
+
+    // ---- traffic item statistics, VPLS-suite idiom ----
+    // Shape taken from cmp/tests/vpls/VplsParams.java: a ColDataTable
+    // of TrafficItemStatisticsHeaders, one RowDataTable per expected
+    // row, and a SuiteTableParams binding them. EvpnUtils.
+    // verifyTrafficItemStatistics() reads this table, so an expected
+    // rate is a params edit rather than a code change.
+    private final String TRAFFIC_STATISTICS_TABLE = "trafficTable";
+    private final ColDataTable headersTraffic = new ColDataTable(
+            TrafficItemStatisticsHeaders.Traffic_Item.getValue(),
+            TrafficItemStatisticsHeaders.Tx_Frame_Rate,
+            TrafficItemStatisticsHeaders.Rx_Frame_Rate);
+    /** TI_AC1_TO_AC2 transmitting and being received. */
+    public final RowDataTable TI_AC1_TO_AC2_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "1000");
+    /** TI_AC2_TO_AC1 transmitting and being received. */
+    public final RowDataTable TI_AC2_TO_AC1_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "1000", "1000");
+    /** TI_AC3_TO_AC1 transmitting and being received. */
+    public final RowDataTable TI_AC3_TO_AC1_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "1000", "1000");
+    /** TI_AC1_TO_AC2 suspended: nothing sent, nothing received. */
+    public final RowDataTable TI_AC1_TO_AC2_SUSPENDED = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "0", "0");
+    /** TI_AC2_TO_AC1 suspended: nothing sent, nothing received. */
+    public final RowDataTable TI_AC2_TO_AC1_SUSPENDED = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "0", "0");
+    /** TI_AC3_TO_AC1 suspended: nothing sent, nothing received. */
+    public final RowDataTable TI_AC3_TO_AC1_SUSPENDED = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0");
+    public SuiteTableParams trafficTable =
+            new SuiteTableParams(TRAFFIC_STATISTICS_TABLE, headersTraffic);
+
+    /** Frames-per-second tolerance, as VplsParams uses. */
+    public final int DEVIATION_FOR_VERIFY_TRAFFIC = 5;
+    public final int WAIT_FOR_TRAFFIC_ITEM_STATISTICS_IN_MSEC = 30000;
+    public final QueryCmdTime TRAFFIC_ITEM_STATISTICS_QCT =
+            new QueryCmdTime(WAIT_FOR_TRAFFIC_ITEM_STATISTICS_IN_MSEC);
+
+    /** Every item, for the start-suspended prep step. */
+    public final String[] ALL_TRAFFIC_ITEMS = {"TI_AC1_TO_AC2", "TI_AC2_TO_AC1", "TI_AC3_TO_AC1"};
+    /** Running-rate rows for every item, in the same order. */
+    public final RowDataTable[] ALL_TRAFFIC_ITEMS_RUNNING = {TI_AC1_TO_AC2_RUNNING, TI_AC2_TO_AC1_RUNNING, TI_AC3_TO_AC1_RUNNING};
 
     // ---- timing ----
     public final long VERIFY_TIMEOUT_IN_MSEC = 30000L;
@@ -68,8 +118,12 @@ public class EvpnParams implements ISuiteParams {
     public final int MAC_AGING_TIME_IN_SEC = 300;
 
     // ---- expected output ----
-    /** FLOW-010.S08 - Verify evi-1 is up and all three ACs are bound
-     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
+    /** FLOW-010.S00A - Verify evi-1 does not exist before this test creates it
+     *  Known at generation time, not captured. */
+    public final String[] FLOW010_S00A_EVI_ABSENT_LINES = new String[] {"evi-1"};
+
+    /** FLOW-010.S08 - Verify evi-1 is up and all 3 attachment circuits are bound
+     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T12:07:22
      *  Command: show evpn detail
      */
     public final String[] FLOW010_S08_EVPN_DETAIL_LINES = new String[] {
@@ -88,38 +142,47 @@ public class EvpnParams implements ISuiteParams {
         "Control\\s+Word:\\s+Disabled",
         "Local\\s+Interfaces:",
         "INTERFACE\\s+ESI\\s+ES\\s+LABEL",
-        "x-eth0/0/8\\.3380\\s+-\\s+-",
-        "x-eth0/0/18\\.3380\\s+-\\s+-",
-        "x-eth0/0/26\\.3380\\s+-\\s+-"
+        "x-eth0/0/32\\.1001\\s+-\\s+-",
+        "x-eth0/0/40\\.1002\\s+-\\s+-",
+        "x-eth0/0/40\\.1003\\s+-\\s+-"
     };
 
-    /** FLOW-010.S09 - Verify the EVPN MAC address-table starts empty
-     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
-     *  Command: show evpn mac-address-table name evi-1
+    /** FLOW-010.S09 - NOT YET VALIDATED. Needs real `show evpn mac-address-table` output. */
+    public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {};
+
+    /** FLOW-010.S10 - Verify the Type-3 IMET route for this EVI is originated into the local EVI table
+     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T12:07:22
+     *  Command: show bgp l2vpn evpn table evi detail
      */
-    public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {
-        "IP",
-        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:00:00:00:00\\s+L\\s+x-eth0/0/26\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-",
-        "00:00:01:00:00:01\\s+L\\s+x-eth0/0/8\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-",
-        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/26\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-"
+    public final String[] FLOW010_S10_TYPE3_ADVERTISED_LINES = new String[] {
+        "Type=3:\\s+VLAN-ID=0,\\s+Originating\\s+Router's\\s+IP=29\\.30\\.30\\.30",
+        "MPLS\\s+Label=\\s+32768",
+        "Transmission\\s+Mode:\\s+Replication",
+        "Peer\\s+IP:\\s+0\\.0\\.0\\.0",
+        "Flags:\\s+\\*>",
+        "Metric:",
+        "Local\\s+Preference:",
+        "Weight:\\s+32768",
+        "AS\\s+Path:"
     };
 
-    /** FLOW-010.S10 - NOT YET VALIDATED. Needs real output of the route table above. */
-    public final String[] FLOW010_S10_TYPE3_ADVERTISED_LINES = new String[] {};
+    /** FLOW-010.S11 - Verify the BGP session to the peer carries the L2VPN EVPN address family in its negotiated capabilities
+     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T12:07:22
+     *  Command: show bgp neighbor 29.60.0.2 | include EVPN
+     */
+    public final String[] FLOW010_S11_EVPN_CAPABILITY_LINES = new String[] {
+        "L2VPN\\s+EVPN\\s+parameters"
+    };
+
+    /** FLOW-030.S00P - Verify evi-1 does not exist before this test creates it (bring-up reloads the .cfg before every test)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S00P_EVI_ABSENT_LINES = new String[] {"evi-1"};
 
     /** FLOW-030.S03 - NOT YET VALIDATED. Expected per-port rx rows depend on the .ixncfg port naming and offered rate. */
     public final String[] FLOW030_S03_FLOOD_TO_AC2_AC3_ROWS = new String[] {};
 
-    /** FLOW-030.S04 - Verify AC1 source MACs are learnt on agg-eth-1.100
-     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
-     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/8.3380
-     */
-    public final String[] FLOW030_S04_AC1_MACS_LEARNT_LINES = new String[] {
-        "IP",
-        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:01:00:00:01\\s+L\\s+x-eth0/0/8\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
+    /** FLOW-030.S04 - NOT YET VALIDATED. Needs real MAC-table output plus the AC1 source-MAC range. */
+    public final String[] FLOW030_S04_AC1_MACS_LEARNT_LINES = new String[] {};
 
     /** FLOW-030.S05 - NOT YET VALIDATED. Needs real output of the route table above. */
     public final String[] FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES = new String[] {};
@@ -136,44 +199,32 @@ public class EvpnParams implements ISuiteParams {
     /** FLOW-030.S12 - NOT YET VALIDATED. Expected rows depend on .ixncfg port naming. */
     public final String[] FLOW030_S12_UNICAST_TO_AC2_ROWS = new String[] {};
 
-    /** FLOW-030.S15 - Verify the AC2 MACs have shifted to agg-eth-3.100
-     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
-     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/26.3380
-     */
-    public final String[] FLOW030_S15_MACS_MOVED_TO_AC3_LINES = new String[] {
-        "IP",
-        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/26\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
+    /** FLOW-030.S15 - NOT YET VALIDATED. Needs real MAC-table output. */
+    public final String[] FLOW030_S15_MACS_MOVED_TO_AC3_LINES = new String[] {};
 
     /** FLOW-030.S17 - NOT YET VALIDATED. Expected rows depend on .ixncfg port naming. */
     public final String[] FLOW030_S17_UNICAST_TO_AC3_ROWS = new String[] {};
 
-    /** FLOW-031.S04 - Verify the AC3 MACs are removed from the EVPN MAC table once their traffic stopped and they aged out
-     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
-     *  Command: show evpn mac-address-table name evi-1
-     */
-    public final String[] FLOW031_S04_MACS_AGED_OUT_LINES = new String[] {
-        "IP",
-        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:00:00:00:00\\s+L\\s+x-eth0/0/8\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-",
-        "00:00:01:00:00:01\\s+L\\s+x-eth0/0/8\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-",
-        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/26\\.3380\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
+    /** FLOW-031.S00P - Verify evi-1 does not exist before this test creates it (bring-up reloads the .cfg before every test)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW031_S00P_EVI_ABSENT_LINES = new String[] {"evi-1"};
+
+    /** FLOW-031.S04 - NOT YET VALIDATED. Needs real MAC-table output. */
+    public final String[] FLOW031_S04_MACS_AGED_OUT_LINES = new String[] {};
 
     /** FLOW-031.S05 - NOT YET VALIDATED. Needs real BGP EVPN table output. */
     public final String[] FLOW031_S05_TYPE2_WITHDRAWN_LINES = new String[] {};
 
     /** FLOW-031.S06 - Verify the BUM routing table still lists the flood list
-     *  Captured from 10.3.80.1 (8.7.0: LAB 22) on 2026-08-14T10:32:29
+     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T12:07:22
      *  Command: show evpn broadcast-domains name evi-1
      */
     public final String[] FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES = new String[] {
         "Local\\s+BUM\\s+Label:\\s+32768",
         "Local\\s+Interfaces:",
-        "x-eth0/0/8\\.3380",
-        "x-eth0/0/18\\.3380",
-        "x-eth0/0/26\\.3380"
+        "x-eth0/0/32\\.1001",
+        "x-eth0/0/40\\.1002",
+        "x-eth0/0/40\\.1003"
     };
 
     @Override

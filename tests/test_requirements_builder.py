@@ -31,22 +31,26 @@ def test_rfc_requirements_get_rfc_provenance() -> None:
     assert all(rid.startswith("RFC9785-") for rid in rfc_ids)
 
 
-def test_cli_inheritance_emits_seven_bgp_subconfigs() -> None:
-    """When EVPN CLI doc contains `af-l2vpn evpn`, the inheritance table
-    must inject the 7 BGP-neighbor sub-configs Eyal flagged in his review."""
+#: The BGP-neighbor knobs SFS EVPNS-REQ#20 names AND the base Command
+#: Reference Guide documents. `weight` joined the set when the guide arrived
+#: (2026-07-13): EVPNS-REQ#20 always listed it, but the hand-curated table
+#: predated the guide and had missed it. `group` is in the SFS list and has
+#: no command section in the guide, so it is reported rather than emitted.
+EXPECTED_INHERITED = {
+    "allow-as-in", "capability", "inbound-soft-reconfiguration",
+    "maximum-prefix", "policy", "private-as", "route-reflector-client",
+    "weight",
+}
+
+
+def test_cli_inheritance_emits_the_req20_bgp_subconfigs() -> None:
+    """`af-l2vpn evpn` in the EVPN CLI doc pulls in the inherited BGP knobs."""
     cat = build_catalog(EVPN_SPEC, cli_doc_path=EVPN_CLI)
-    assert "allow-as-in" in cat.inherited_cmd_names
-    assert "capability" in cat.inherited_cmd_names
-    assert "inbound-soft-reconfiguration" in cat.inherited_cmd_names
-    assert "maximum-prefix" in cat.inherited_cmd_names
-    assert "policy" in cat.inherited_cmd_names
-    assert "private-as" in cat.inherited_cmd_names
-    assert "route-reflector-client" in cat.inherited_cmd_names
-    assert len(cat.inherited_cmd_names) == 7
+    assert set(cat.inherited_cmd_names) == EXPECTED_INHERITED
     # And each one shows up in the requirements list with provenance "cli-inherit".
     inherited_anchors = [r for r in cat.requirements
                           if cat.provenance.get(r.req_id) == "cli-inherit"]
-    assert len(inherited_anchors) == 7
+    assert len(inherited_anchors) == len(EXPECTED_INHERITED)
 
 
 def test_mark_claimed_promotes_unclaimed_rfc_to_synth() -> None:
@@ -76,3 +80,45 @@ def test_synth_anchor_only_contains_rfc_sources() -> None:
     cat = build_catalog(EVPN_SPEC, rfc_paths=[RFC9785])
     mark_claimed(cat, claimed_req_ids=set())
     assert all(r.source == "rfc" for r in cat.synth_anchors)
+
+
+# ---------------------------------------------------------------------------
+# Plan scoping — an EVPN test plan must not carry VPLS rows
+# ---------------------------------------------------------------------------
+
+def test_vpls_only_commands_are_dropped_from_the_evpn_plan() -> None:
+    """Eyal Ozeri, 2026-07-07: "the TP is for evpn".
+
+    `mac-address-static (VPLS)` is documented only under `l2-services vpls`,
+    so scoping it to EVPN leaves nothing to test and it must not appear.
+    """
+    cat = build_catalog(EVPN_SPEC, cli_doc_path=EVPN_CLI)
+    names = {c.name for c in cat.cli_commands}
+    assert "mac-address-static (VPLS)" not in names
+
+
+def test_dual_mode_commands_keep_only_their_evpn_mode() -> None:
+    """A shared command stays — only its VPLS mode path goes.
+
+    This is the distinction an earlier attempt got wrong: it stripped the
+    PARAMETERS off shared commands (which Eyal then reported as "removed, not
+    corrected") when what had to go was the MODE. `mac-limit` is a real EVPN
+    knob and keeps its range and default.
+    """
+    cat = build_catalog(EVPN_SPEC, cli_doc_path=EVPN_CLI)
+    by_name = {c.name: c for c in cat.cli_commands}
+
+    mac_limit = by_name["mac-limit"]
+    assert mac_limit.mode_paths, "mac-limit lost its mode paths"
+    for path in mac_limit.mode_paths:
+        assert "vpls" not in path, path
+    assert any("evpn" in p for p in mac_limit.mode_paths)
+    assert mac_limit.parameters, "scoping must not strip parameters"
+
+
+def test_shared_interface_command_is_renamed_to_evpn_only() -> None:
+    """`interface (VPLS/EVPN)` must not advertise VPLS in an EVPN plan."""
+    names = {c.name for c in
+             build_catalog(EVPN_SPEC, cli_doc_path=EVPN_CLI).cli_commands}
+    assert "interface (VPLS/EVPN)" not in names
+    assert "interface (EVPN)" in names

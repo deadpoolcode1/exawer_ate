@@ -1,0 +1,48 @@
+//full topology for suite, devices names and types:
+
+DEVICE_NAME     CLASS
+--------------------------------------------
+cmp1            cmp.infra.CmpRouter
+ixia1           cmp.infra.ixia.Ixia
+
+//connect devices topology for each TC
+
+TEST     DEVICES_TOPOLOGY
+---------------------------------------------
+default  cmp1, ixia1
+
+//devices names and configuration files parameters for evpn tests: 1= override, 2 = merge
+
+TEST      DEVICE_NAME     CONFIG_FILE_PATH                                                    LOAD_ON_BRING_UP   LOAD_TYPE TIMEOUT_SEC
+-------------------------------------------------------------------------------------------------------------------------------------------
+default   cmp1            cleanBaseConfig                                                     y                  1         1900
+                          /configurations/compass/EVPN_Base.cfg                               y                  2         1900
+
+//devices ping lists, relevant for all the tests
+
+TEST          DEVICE_NAME    PING_IP               PING_DESCRIPTION                              PING_SUCCEES_THRESHOLD     PING_RETRY_NUMBER   PING_VRF_NAME
+------------------------------------------------------------------------------------------------------------------------------------------------------------
+
+
+//find and replace parameters on devices cfg files and ixia vlan's configuration, relevant for all tests
+
+TEST        DEVICE_NAME    TYPE          FIND_PARAM                 INTPOOL_NAME     INTPOOL_INDEX
+----------------------------------------------------------------------------------------------------
+default     cmp1           interface     int1                       data1            0
+                           interface     int2                       data1            1
+                           interface     int3                       data1            2
+            ixia1          interface     vport1                     data1            0
+                           interface     vport2                     data1            1
+                           interface     vport3                     data1            2
+            cmp1           vlan          vlan1                      vlans            0
+            ixia1          vlan          vport1                     vlans            0
+                           vlan          vport2                     vlans            0
+                           vlan          vport3                     vlans            0
+
+//before after table:
+
+TEST      DEVICE_NAME   ID_ACT                 ACTION_DESCRIPTION                 ACTION_PARAMS                                                     DO_BEFORE_TEST    DO_AFTER_TEST
+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+default   test          loadTestParamFile      loading suite parameters class     cmp.tests.evpn.EvpnParams                                         y                 n
+          cmp1          verifyLCs              verify LCs are card ready state                                                                      y                 y
+                        verifyInts             verify interfaces are up                                                                             y                 n

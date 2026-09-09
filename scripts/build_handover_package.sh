@@ -28,6 +28,15 @@ echo "[2] the generated suite"
 cp -r "$ROOT/deliverables/M2/generated_suite/cmp" "$OUT/01_generated_suite/"
 find "$OUT/01_generated_suite" -type f | sed "s|$OUT/|      |"
 
+echo "[2a] gate — does this package still do what we have proven on hardware?"
+# Reads the files that are actually about to ship, not the profile that was
+# meant to produce them and not the pipeline's exit code. The 2026-08-14
+# package had a healthy pipeline, three green tests and no control plane.
+# `set -e` stops the build here, which is the whole point: this gate has no
+# escape hatch, unlike `ate codegen --accept-regression`.
+"$ROOT/.venv/bin/python" "$ROOT/scripts/verify_handover_package.py" \
+    "$OUT/01_generated_suite"
+
 echo "[3] evidence — one file per claim"
 cp "$ROOT"/deliverables/M2/evidence_*.txt  "$OUT/02_evidence/"
 cp "$ROOT"/deliverables/M2/evidence_*.json "$OUT/02_evidence/"
@@ -37,6 +46,7 @@ ls "$OUT/02_evidence" | sed 's|^|      |'
 
 echo "[4] the test plan the code was generated from"
 cp "$ROOT/plans/EVPN_test_plan_with_RFCs.xlsx" "$OUT/03_test_plan/"
+cp "$ROOT/plans/EVPN_test_plan_with_RFCs_CHANGES.md" "$OUT/03_test_plan/"
 
 echo "[5] the newest test report"
 REPORT="$(ls -t "$ROOT"/results/test-report-*.html 2>/dev/null | head -1 || true)"
@@ -56,7 +66,7 @@ else
 fi
 
 echo "[7] the hand-over document"
-"$ROOT/.venv/bin/python" "$ROOT/scripts/build_handover_docx.py"
+"$ROOT/.venv/bin/python" "$ROOT/scripts/build_handover_docx.py" "$OUT"
 
 echo "[8] zip"
 ( cd "$(dirname "$OUT")" && rm -f "$(basename "$OUT").zip" \

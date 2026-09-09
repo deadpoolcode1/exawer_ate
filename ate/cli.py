@@ -97,14 +97,53 @@ def main(argv: list[str] | None = None) -> int:
                       help="EVPN CLI doc (.docx) — commands are grounded against it")
     p_cg.add_argument("--summary", action="store_true",
                       help="Print the plan without writing files")
-    p_cg.add_argument("--lab", choices=["3ac", "2ac-core"], default="3ac",
-                      help="Lab profile to bind the flows to. '3ac' is the "
-                           "spec topology (three attachment circuits, no core "
-                           "link, so no BGP session). '2ac-core' is pc-3080 as "
-                           "cabled: IXIA vport1 is an emulated BGP EVPN peer "
-                           "over an L3 core link and the other two vports stay "
-                           "attachment circuits, which is what lets EVPN come "
-                           "up at all (default: 3ac)")
+    p_cg.add_argument("--ac-vlans", default="", metavar="V1,V2,V3",
+                      help="VLANs the attachment circuits carry, in profile "
+                           "order, e.g. '1001,1002,1003'. Anything in 2-4094 "
+                           "is accepted. Defaults to the profile's own; the "
+                           "SUT's general/vlans list is deliberately NOT used "
+                           "as a source, because those VLANs belong to other "
+                           "links on the testbed (Exaware, 2026-09-08: VLAN "
+                           "3380 there is an external server connection). The "
+                           "generated suite refuses at run time to use a VLAN "
+                           "the SUT declares")
+    p_cg.add_argument("--ixncfg", default="", metavar="FILE.ixncfg",
+                      help="IXIA configuration file the suite loads at "
+                           "bring-up, e.g. 'EVPN_3AC_CORE.ixncfg'. Produce it "
+                           "by running the generated "
+                           "configurations/ixia/EVPN_traffic.tcl once on the "
+                           "chassis - it saves the session it builds - then "
+                           "commit the file and name it here. Without it the "
+                           "items are built in code and the .crt loads no "
+                           "IXIA file")
+    p_cg.add_argument("--lab", choices=["3ac", "2ac-core", "3ac-core"],
+                      required=True,
+                      help="Lab profile to bind the flows to. REQUIRED, and "
+                           "deliberately has no default: the choice silently "
+                           "changes what the deliverable can prove, and a "
+                           "default is how the 2026-08-14 hand-over shipped "
+                           "with no control plane. '2ac-core' is pc-3080 as "
+                           "cabled - IXIA vport1 is an emulated peer over an "
+                           "L3 core link, the other two vports stay attachment "
+                           "circuits, and EVPN can actually come up. '3ac' is "
+                           "the spec topology behind the reviewed test plan: "
+                           "three attachment circuits, NO core link, so no IGP "
+                           "and no BGP - generation refuses it unless every "
+                           "lost capability is named with --accept-regression. "
+                           "'3ac-core' is both: three attachment circuits AND "
+                           "a control plane on the same three links, because "
+                           "two circuits share a port as tagged "
+                           "sub-interfaces (Exaware, 2026-09-08: 'An AC can "
+                           "reside as a tagged interface'). It is the one to "
+                           "generate a deliverable from")
+    p_cg.add_argument("--accept-regression", action="append", default=[],
+                      metavar="CAPABILITY_ID", dest="accept_regressions",
+                      help="Knowingly give up a capability already proven on "
+                           "hardware, e.g. --accept-regression underlay.bgp. "
+                           "Repeatable. Generation lists the exact ids when it "
+                           "refuses. An accepted regression can be generated "
+                           "but NOT shipped - the hand-over gate re-checks the "
+                           "same capabilities and has no escape hatch")
     p_cg.add_argument("--selected-only", action="store_true",
                       help="Only emit tests the dirty queue marks SELECTED "
                            "(the SOW's 'code generation based on selected "
@@ -126,12 +165,22 @@ def main(argv: list[str] | None = None) -> int:
     p_cap.add_argument("--jump", default=None, metavar="USER@HOST",
                        help="SSH through this host (the lab is not routable "
                             "from a laptop), e.g. ilan@192.168.31.226")
-    p_cap.add_argument("--lab", choices=["3ac", "2ac-core"], default="3ac",
+    p_cap.add_argument("--lab", choices=["3ac", "2ac-core", "3ac-core"],
+                       required=True,
                        help="Lab profile whose steps decide which commands "
-                            "are captured. Must match the profile you then "
-                            "pass to `ate codegen`, or the expectations "
-                            "describe a topology the suite does not run "
-                            "(default: 3ac)")
+                            "are captured. REQUIRED: it must match the profile "
+                            "you then pass to `ate codegen`, or the "
+                            "expectations describe a topology the suite does "
+                            "not run - which has already shipped once, as "
+                            "captures naming .100 sub-interfaces on a port "
+                            "that had become the core link")
+    p_cap.add_argument("--ac-vlans", default="", metavar="V1,V2,V3",
+                       help="VLANs the attachment circuits carry, if they are "
+                            "not the profile's defaults. Must match the "
+                            "`ate codegen --ac-vlans` that generated the "
+                            "suite: an expectation captured on another VLAN "
+                            "names sub-interfaces this rig does not have, and "
+                            "codegen will drop it")
     p_cap.add_argument("--ac-interfaces", default=None, metavar="IF1,IF2,IF3",
                        help="What this testbed actually calls the attachment "
                             "circuits, in lab.acs order, e.g. "
@@ -194,6 +243,21 @@ def main(argv: list[str] | None = None) -> int:
     p_m.add_argument("--show-unmatched", type=int, default=0,
                      help="Print N unmatched rows (default 0)")
 
+    p_pd = sub.add_parser("plan-diff",
+                          help="Diff two generated test plans by stable ID "
+                               "and write the change file that ships with "
+                               "every respin")
+    p_pd.add_argument("new_xlsx", help="The new test plan .xlsx")
+    p_pd.add_argument("old_xlsx", nargs="?", default=None,
+                      help="The previous plan. Defaults to the copy in git "
+                           "HEAD of the same path.")
+    p_pd.add_argument("-o", "--output", default=None,
+                      help="Markdown output path "
+                           "(default: <new>_CHANGES.md)")
+    p_pd.add_argument("--rationale", default="",
+                      help="Prose paragraph explaining WHY this respin "
+                           "happened, placed under the heading")
+
     args = p.parse_args(argv)
 
     if args.cmd == "parse":
@@ -208,6 +272,8 @@ def main(argv: list[str] | None = None) -> int:
         return _cmd_queue(args)
     if args.cmd == "match":
         return _cmd_match(args)
+    if args.cmd == "plan-diff":
+        return _cmd_plan_diff(args)
     if args.cmd == "capture":
         return _cmd_capture(args)
     if args.cmd == "verify-commands":
@@ -255,9 +321,15 @@ def _cmd_capture(args) -> int:
     from ate.codegen.lab import (  # noqa: PLC0415
         SINGLE_DUT_2AC_CORE,
         SINGLE_DUT_3AC,
+        SINGLE_DUT_3AC_CORE,
     )
 
-    lab = SINGLE_DUT_2AC_CORE if args.lab == "2ac-core" else SINGLE_DUT_3AC
+    lab = {"2ac-core": SINGLE_DUT_2AC_CORE,
+           "3ac-core": SINGLE_DUT_3AC_CORE,
+           "3ac": SINGLE_DUT_3AC}[args.lab]
+    if getattr(args, "ac_vlans", ""):
+        lab = lab.with_ac_vlans(
+            [int(v) for v in args.ac_vlans.split(",") if v.strip()])
     print(f"lab   : {lab.id}")
     scripts = evpn_scripts(lab)
     ac_map = None
@@ -386,6 +458,9 @@ def _cmd_match(args) -> int:
 def _cmd_codegen(args) -> int:
     """M2 code generation. Grounding failures are fatal, not warnings."""
     from ate.codegen import generate_evpn_suite  # noqa: PLC0415
+    from ate.codegen.capabilities import (  # noqa: PLC0415
+        CapabilityRegressionError,
+    )
     from ate.codegen.commands import UngroundedCommandError  # noqa: PLC0415
 
     try:
@@ -395,14 +470,36 @@ def _cmd_codegen(args) -> int:
             print("error: --plan-flows needs --from-plan <xlsx>")
             return 1
         from ate.codegen.evpn_scripts import skipped_flows
-        from ate.codegen.lab import SINGLE_DUT_2AC_CORE, SINGLE_DUT_3AC
-        lab = SINGLE_DUT_2AC_CORE if args.lab == "2ac-core" else SINGLE_DUT_3AC
-        result = generate_evpn_suite(args.sfs, args.cli_doc,
-                                     lab=lab,
-                                     plan_xlsx=args.from_plan,
-                                     plan_flows=plan_flows,
-                                     captures_path=args.captures or None)
+        from ate.codegen.lab import (
+            SINGLE_DUT_2AC_CORE,
+            SINGLE_DUT_3AC,
+            SINGLE_DUT_3AC_CORE,
+        )
+        lab = {"2ac-core": SINGLE_DUT_2AC_CORE,
+               "3ac-core": SINGLE_DUT_3AC_CORE,
+               "3ac": SINGLE_DUT_3AC}[args.lab]
+        if getattr(args, "ac_vlans", ""):
+            lab = lab.with_ac_vlans(
+                [int(v) for v in args.ac_vlans.split(",") if v.strip()])
+        if getattr(args, "ixncfg", ""):
+            from dataclasses import replace  # noqa: PLC0415
+
+            lab = replace(lab, ixncfg=args.ixncfg)
+        result = generate_evpn_suite(
+            args.sfs, args.cli_doc,
+            lab=lab,
+            plan_xlsx=args.from_plan,
+            plan_flows=plan_flows,
+            captures_path=args.captures or None,
+            accept_regressions=frozenset(args.accept_regressions))
         print(f"lab profile: {lab.id}")
+        print("AC VLANs   : "
+              + ", ".join(f"{ac.name}={lab.vlan_of(ac)} on {ac.vport}"
+                          for ac in lab.acs))
+        print("IXIA config: "
+              + (lab.ixncfg + " (loaded by bringUpParams.crt)" if lab.ixncfg
+                 else "built in code; run configurations/ixia/"
+                      "EVPN_traffic.tcl once to produce an .ixncfg"))
         # A suite that silently generates fewer tests than the plan defines is
         # the same failure as a test that silently asserts nothing: say it.
         for line in skipped_flows(lab):
@@ -410,6 +507,18 @@ def _cmd_codegen(args) -> int:
     except UngroundedCommandError as e:
         print(f"error: {e}")
         return 1
+    except CapabilityRegressionError as e:
+        print(f"error: {e}")
+        return 1
+
+    if result.accepted_regressions:
+        # Loud, and repeated at the end of the run, because this is the exact
+        # moment the 2026-08-14 package went wrong and nothing said a word.
+        print("\n*** NOT A CLIENT DELIVERABLE ***")
+        print("This run knowingly dropped capabilities proven on hardware:")
+        for cap_id in result.accepted_regressions:
+            print(f"  - {cap_id}")
+        print("The hand-over gate will refuse a package built from it.")
 
     queue = None
     if args.selected_only:
@@ -706,5 +815,72 @@ def _cmd_plan_feature(args) -> int:
     return 0
 
 
+def _cmd_plan_diff(args) -> int:
+    """Diff two plans and write the change file Eyal asked to receive.
+
+    The one-argument form diffs against the copy in git HEAD, because the
+    common case is "I regenerated; what moved?" and the previous deliverable
+    is exactly what is committed. Extracting it to a temp file rather than
+    asking the user to do it is the difference between a tool that gets used
+    every respin and one that does not.
+    """
+    import contextlib  # noqa: PLC0415
+    import subprocess  # noqa: PLC0415
+    import tempfile  # noqa: PLC0415
+    from pathlib import Path  # noqa: PLC0415
+
+    from ate.planner.plan_diff import (  # noqa: PLC0415
+        default_output_for,
+        diff_plans,
+        write_markdown,
+    )
+
+    new_path = Path(args.new_xlsx)
+    if not new_path.exists():
+        print(f"error: {new_path} does not exist")
+        return 2
+
+    cleanup: Path | None = None
+    if args.old_xlsx:
+        old_path = Path(args.old_xlsx)
+        if not old_path.exists():
+            print(f"error: {old_path} does not exist")
+            return 2
+    else:
+        try:
+            blob = subprocess.run(
+                ["git", "show", f"HEAD:{new_path.as_posix()}"],
+                check=True, capture_output=True).stdout
+        except subprocess.CalledProcessError:
+            print(f"error: {new_path} is not in git HEAD — pass the previous "
+                  f"plan explicitly as the second argument")
+            return 2
+        # Name it after the file it IS, not tmpXXXX.xlsx. The name is
+        # printed in the change file's header, which goes to the client.
+        tmpdir = Path(tempfile.mkdtemp(prefix="ate-plan-diff-"))
+        old_path = tmpdir / f"{new_path.stem}_previous{new_path.suffix}"
+        old_path.write_bytes(blob)
+        cleanup = old_path
+
+    try:
+        diff = diff_plans(old_path, new_path)
+        out = Path(args.output) if args.output else default_output_for(new_path)
+        write_markdown(diff, out, rationale=args.rationale)
+    finally:
+        if cleanup is not None:
+            cleanup.unlink(missing_ok=True)
+            with contextlib.suppress(OSError):
+                cleanup.parent.rmdir()
+
+    edited = sum(1 for t in diff.changed for a in t.actions
+                 if a.kind in ("edited", "reworded"))
+    print(f"{len(diff.added)} topics added, {len(diff.removed)} removed, "
+          f"{len(diff.changed)} changed ({edited} action rows edited)")
+    print(f"rows: {diff.old.action_count} -> {diff.new.action_count}")
+    print(f"wrote {out}")
+    return 0
+
+
 if __name__ == "__main__":
     sys.exit(main())
+

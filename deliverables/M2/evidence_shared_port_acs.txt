@@ -1,0 +1,147 @@
+========================================================================
+ATE evidence: two sub-interfaces of ONE port as two attachment
+circuits of a vlan-based EVI.
+host   : 10.3.80.1
+run at : 2026-09-09T03:56:41
+========================================================================
+
+$ show version
+8.7.0: LAB 0
+
+--- state before ---
+
+$ show configuration interface x-eth 0/0/22
+interface x-eth 0/0/22
+ speed 10000
+!
+
+$ show evpn
+%  No entries found.
+
+--- build ---
+
+$ configure
+Entering configuration mode private
+Current configuration users:
+admin ssh (cli from 192.168.31.226) on since 2026-09-09 10:44:51 private mode
+
+$ interface x-eth 0/0/22 admin-state up
+
+$ interface x-eth 0/0/22.2001 l2-transport enable
+
+$ interface x-eth 0/0/22.2001 vlan-id 2001
+
+$ interface x-eth 0/0/22.2002 l2-transport enable
+
+$ interface x-eth 0/0/22.2002 vlan-id 2002
+
+$ l2-services evpn ate-probe service-type vlan-based
+
+$ l2-services evpn ate-probe auto-discovery import-rt 65000:99
+
+$ l2-services evpn ate-probe auto-discovery export-rt 65000:99
+
+$ l2-services evpn ate-probe interface x-eth 0/0/22.2001
+
+$ l2-services evpn ate-probe interface x-eth 0/0/22.2002
+
+--- THE ASSERTION: does the device accept the commit? ---
+
+$ commit
+|/-\|/-Commit complete.
+
+$ end
+
+--- read the device back ---
+
+$ show configuration l2-services
+l2-services
+ evpn ate-probe
+  service-type vlan-based
+  interface x-eth 0/0/22.2001
+  !
+  interface x-eth 0/0/22.2002
+  !
+  auto-discovery
+   export-rt 65000:99
+   import-rt 65000:99
+  !
+ !
+!
+
+$ show evpn detail name ate-probe
+EVPN name: ate-probe
+Advertise MAC Addresses: Enabled
+ES DF Waiting Time: 3 seconds
+Export-rt: 65000:99
+Import-rt: 65000:99
+Service Type: vlan-based
+Host MAC Address Duplicate Detection: Disabled
+  Move Interval: 180 seconds
+  Move Counter: 5
+Freeze Time: 30 seconds
+MAC Aging Time: 300 seconds
+MAC Limit: 65520
+Unknown MAC Flooding: Disabled
+Control Word: Disabled
+Local Interfaces:
+INTERFACE         ESI                        ES LABEL
+x-eth0/0/22.2001  -                          -
+x-eth0/0/22.2002  -                          -
+
+$ show evpn broadcast-domains name ate-probe
+EVPN Name: ate-probe, Service Type: vlan-based
+ Local BUM Label: 40960
+  Local Interfaces:
+    x-eth0/0/22.2001
+    x-eth0/0/22.2002
+
+$ show configuration interface x-eth 0/0/22.2001
+interface x-eth 0/0/22.2001
+ l2-transport enable
+ vlan-id      2001
+!
+
+$ show configuration interface x-eth 0/0/22.2002
+interface x-eth 0/0/22.2002
+ l2-transport enable
+ vlan-id      2002
+!
+
+--- rollback ---
+
+$ configure
+Entering configuration mode private
+Current configuration users:
+admin ssh (cli from 192.168.31.226) on since 2026-09-09 10:44:51 private mode
+
+$ no l2-services evpn ate-probe
+
+$ no interface x-eth 0/0/22.2001
+
+$ no interface x-eth 0/0/22.2002
+
+$ no interface x-eth 0/0/22 admin-state
+
+$ commit
+|/-\|/-\|Commit complete.
+
+$ end
+
+--- state after rollback (must equal state before) ---
+
+$ show configuration l2-services
+% No entries found.
+
+$ show configuration interface x-eth 0/0/22
+interface x-eth 0/0/22
+ speed 10000
+!
+
+$ show evpn
+%  No entries found.
+
+========================================================================
+COMMIT ACCEPTED : True
+ROLLED BACK     : True
+========================================================================

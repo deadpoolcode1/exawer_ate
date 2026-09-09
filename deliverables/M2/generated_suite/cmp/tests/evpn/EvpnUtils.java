@@ -12,8 +12,15 @@ import cmp.infra.common.General;
 import cmp.infra.common.GlobalParam;
 import cmp.infra.ixia.Ixia;
 import cmp.infra.ixia.IxiaFunctions;
+import cmp.infra.ixia.IxiaTypes;
+import cmp.infra.ixia.tableHeader.TrafficItemStatisticsHeaders;
 import cmp.infra.reporter.CompassReporter;
 import cmp.infra.reporter.loggerImp;
+import cmp.tests.common.query.QueryFieldItem;
+import cmp.tests.common.query.QueryFieldList;
+import cmp.tests.common.query.QueryUtils;
+import common.params.RowDataTable;
+import java.util.ArrayList;
 
 /**
  * Verification helpers for the generated EVPN suite.
@@ -29,27 +36,52 @@ public class EvpnUtils implements loggerImp {
     /** intPool in the SUT file that backs the attachment circuits. */
     private static final String AC_POOL = "data1";
 
-    /**
-     * Where the attachment circuits start in that pool.
-     *
-     * Non-zero when a link is spent on the EVPN core: pc-3080's data1 pool is
-     * three DUT<->IXIA links, and binding the EVI from index 0 put it on the
-     * core port, which is L3 and not l2-transport.
-     */
-    private static final int AC_POOL_OFFSET = 0;
+    /** Attachment-circuit names, in lab-profile order. */
+    private static final String[] AC_NAMES = {"AC1", "AC2", "AC3"};
 
-    /** Index into the SUT's `general/vlans` list for the AC VLAN. */
-    private static final int AC_VLAN_INDEX = 0;
+    /**
+     * The SUT intPool index each attachment circuit lives on.
+     *
+     * Not the position in the list. On a rig that spends a link on the EVPN
+     * core the ACs start at index 1, and two circuits sharing a port repeat
+     * the same index - that repetition is the point of the 2026-09-08
+     * topology and is why this is a table rather than an offset.
+     */
+    private static final int[] AC_POOL_INDEX = {1, 2, 2};
+
+    /**
+     * The VLAN each attachment circuit carries.
+     *
+     * These come from the lab profile and are written literally into
+     * EVPN_Base.cfg from the same values, so the DUT sub-interface and the
+     * IXIA frame tag cannot disagree.
+     *
+     * They are deliberately NOT read from the SUT's `general/vlans` list any
+     * more. Exaware, 2026-09-08 (Eyal Ozeri): "Vlan 3380 appears in the SUT
+     * file because it is used on one of the interfaces to an external server
+     * connection. The tool should be able to use entire 2-4094 range."
+     * Reading that slot meant the suite ran on whatever VLAN the SUT happened
+     * to declare first, and that VLAN belonged to something else.
+     *
+     * What replaces the old check is the opposite one, in
+     * {@link #assertAcVlansAreFree()}: these VLANs must NOT collide with any
+     * the SUT declares.
+     */
+    private static final String[] AC_VLAN = {"1001", "1002", "1003"};
+
+    /** Lowest and highest VLAN an attachment circuit may carry. */
+    private static final int VLAN_MIN = 2;
+    private static final int VLAN_MAX = 4094;
 
     /**
      * The attachment circuit as THIS testbed defines it, e.g.
-     * "x-eth 0/0/8.100" - the SUT's intPool entry plus the sub-interface.
+     * "x-eth 0/0/8.1001" - the SUT's intPool entry plus its VLAN.
      *
      * A vlan-based EVI will not accept the bare port; see EVPN_Base.cfg.
      */
-    public String acInterface(int index) throws Exception {
-        return cmp.getIntPool(AC_POOL).getInter(index).getIntName()
-               + "." + acVlan();
+    public String acInterface(int ac) throws Exception {
+        return cmp.getIntPool(AC_POOL).getInter(AC_POOL_INDEX[ac]).getIntName()
+               + "." + AC_VLAN[ac];
     }
 
     /**
@@ -57,30 +89,92 @@ public class EvpnUtils implements loggerImp {
      *
      * DEVICE QUIRK, verified on pc-3080 8.7.0 LAB 22. Configuration accepts
      * the spaced form:
-     *     l2-services evpn evi-1 interface x-eth 0/0/8.3380      OK
+     *     l2-services evpn evi-1 interface x-eth 0/0/8.1001      OK
      * but the show command's `source` filter does not:
-     *     ... mac-address-table name evi-1 source x-eth 0/0/8.3380
+     *     ... mac-address-table name evi-1 source x-eth 0/0/8.1001
      *         syntax error: unknown argument
-     *     ... mac-address-table name evi-1 source x-eth0/0/8.3380   OK
+     *     ... mac-address-table name evi-1 source x-eth0/0/8.1001   OK
      *
      * Same interface, same device, two spellings - which is why the capture
      * half and the assertion half of this step disagreed for a whole run.
      */
-    public String acInterfaceCompact(int index) throws Exception {
-        return acInterface(index).replace(" ", "");
+    public String acInterfaceCompact(int ac) throws Exception {
+        return acInterface(ac).replace(" ", "");
+    }
+
+    /** The VLAN attachment circuit `ac` carries. */
+    public String acVlan(int ac) {
+        return AC_VLAN[ac];
     }
 
     /**
-     * The VLAN the attachment circuits carry, taken from the SUT file.
+     * The lines `show evpn detail` must contain once the EVI is bound: the
+     * EVI's own name, plus every attachment circuit AS THIS TESTBED NAMES IT.
      *
-     * Both sides must agree or no frame ever reaches the service: the DUT
-     * sub-interface is created as <port>.<vlan>, and the IXIA vport is tagged
-     * with the same value by the `vlan` rows in bringUpParams.crt. Reading it
-     * from the SUT rather than hard-coding it is what keeps that true on a
-     * testbed whose VLAN is different.
+     * Resolved here rather than written into EvpnParams because the lab
+     * profile's interface names are placeholders the SUT rebinds at bring-up.
+     * The profile says agg-eth-2.1001; pc-3099 answers x-eth0/0/32.1001 and
+     * pc-3080 answers x-eth0/0/18.1001. An expectation built from the
+     * placeholder cannot pass on any real rig - on 2026-09-09 it failed on
+     * pc-3099 with "Missing lines: [agg-eth-2.1001, agg-eth-3.1002,
+     * agg-eth-3.1003]" while the device had all three bound correctly.
+     *
+     * Still falsifiable: it names the EVI and every circuit, so a service
+     * that came up with a circuit missing fails here.
      */
-    public String acVlan() throws Exception {
-        return General.getInstanceByName().vlans[AC_VLAN_INDEX].getNumber();
+    public String[] eviBoundLines(String evi) throws Exception {
+        String[] lines = new String[AC_VLAN.length + 1];
+        lines[0] = evi;
+        for (int i = 0; i < AC_VLAN.length; i++) {
+            lines[i + 1] = acInterfaceCompact(i);
+        }
+        return lines;
+    }
+
+    /**
+     * Refuse to run on VLANs that are in use for something else.
+     *
+     * This is the run-time half of Exaware's 2026-09-08 point about VLAN
+     * 3380. The SUT file lists the VLANs this testbed has committed to other
+     * purposes - 3380 there is an external server connection - and a test
+     * that quietly borrows one damages a link nobody was watching. Any
+     * collision fails the run before a single command is typed.
+     *
+     * The range check is here for the same reason: 0, 1 and 4095 are not
+     * usable service VLANs, and finding that out at the commit costs a
+     * bring-up.
+     */
+    public void assertAcVlansAreFree() throws Exception {
+        java.util.List<String> reserved = new java.util.ArrayList<String>();
+        try {
+            for (int i = 0; i < General.getInstanceByName().vlans.length; i++) {
+                reserved.add(General.getInstanceByName().vlans[i].getNumber());
+            }
+        } catch (Exception e) {
+            logMsg.info("SUT declares no general/vlans list: " + e.getMessage());
+        }
+        for (int i = 0; i < AC_VLAN.length; i++) {
+            int v = Integer.parseInt(AC_VLAN[i]);
+            boolean inRange = v >= VLAN_MIN && v <= VLAN_MAX;
+            CompassReporter.passFailByCondition(inRange,
+                    AC_NAMES[i] + ": VLAN " + v + " is a usable service VLAN.",
+                    AC_NAMES[i] + ": VLAN " + v + " is outside " + VLAN_MIN
+                            + "-" + VLAN_MAX + " and the device will refuse it.");
+            if (!inRange) {
+                throw new Exception("AC VLAN out of range: " + v);
+            }
+            boolean free = !reserved.contains(AC_VLAN[i]);
+            CompassReporter.passFailByCondition(free,
+                    AC_NAMES[i] + ": VLAN " + v + " is not claimed by the SUT.",
+                    AC_NAMES[i] + ": VLAN " + v + " is declared in this SUT's "
+                            + "general/vlans list, so it belongs to another "
+                            + "link on this testbed. Regenerate with "
+                            + "`ate codegen --ac-vlans` on VLANs the lab has "
+                            + "free.");
+            if (!free) {
+                throw new Exception("AC VLAN " + v + " is reserved by the SUT");
+            }
+        }
     }
 
     /**
@@ -253,12 +347,16 @@ public class EvpnUtils implements loggerImp {
         // which Ixia.loadConfigurationFile applies while loading an .ixncfg -
         // a file this suite deliberately does not have. Whatever vports happen
         // to be left in the chassis session from an earlier run are not ours.
+        // Before anything is built: the VLANs this suite is about to put on
+        // the wire must be ours to use. See assertAcVlansAreFree().
+        assertAcVlansAreFree();
         assignAcVports();
         tagVportsWithAcVlan();
         for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
             String name = ti[0], srcVport = ti[1], dstVport = ti[2], srcMac = ti[3];
+            String vlan = ti[4];
             logMsg.info("Creating IXIA traffic item " + name
-                    + " (" + srcVport + " -> " + dstVport + ")");
+                    + " (" + srcVport + " VLAN " + vlan + " -> " + dstVport + ")");
             // Source MAC is set below, after the item exists.
             // "null" - not "" - is how their TCL spells an unset argument:
             // every proc in ixia_lib.tcl guards with
@@ -370,46 +468,69 @@ public class EvpnUtils implements loggerImp {
      * Reads the stacks back afterwards rather than trusting the append.
      */
     public void tagTrafficItemsWithAcVlan() throws Exception {
-        String vlan = acVlan();
+        int tagged = 0;
+        for (String[] ti : params.TRAFFIC_ITEM_BUILD) {
+            tagged += tagTrafficItemVlan(ti[0], ti[4]) ? 1 : 0;
+        }
+        boolean all = tagged == params.TRAFFIC_ITEM_BUILD.length;
+        CompassReporter.passFailByCondition(all,
+                "All " + tagged + " traffic items carry their AC VLAN.",
+                "Only " + tagged + " of " + params.TRAFFIC_ITEM_BUILD.length
+                        + " traffic items were VLAN-tagged - untagged frames "
+                        + "never reach a vlan-id sub-interface, so the EVI "
+                        + "will learn nothing.");
+        if (!all) {
+            throw new Exception("could not VLAN-tag the traffic items");
+        }
+    }
+
+    /**
+     * Push a VLAN header onto ONE raw traffic item and set its VLAN ID.
+     *
+     * Per item, not per suite. Two attachment circuits may share a vport and
+     * be told apart by nothing but this tag (Exaware, 2026-09-08: "An AC can
+     * reside as a tagged interface"), so tagging every item with one VLAN
+     * would put both circuits' traffic on the same sub-interface and the
+     * MAC-move assertion would be meaningless.
+     *
+     * The same TCL, in readable form and with the same proc names, is in
+     * configurations/ixia/EVPN_traffic.tcl, so the file a reviewer opens and
+     * the suite that runs build identical items.
+     */
+    private boolean tagTrafficItemVlan(String itemName, String vlan)
+            throws Exception {
         String tcl =
             "set tpl {} ; "
             + "foreach t [ixNet getL [ixNet getRoot]/traffic protocolTemplate] { "
             +   "if {[string equal -nocase [ixNet getAtt $t -displayName] {VLAN}]} { "
             +     "set tpl $t } } ; "
-            + "set tagged 0 ; set stacks {} ; "
-            + "foreach ti [ixNet getL [ixNet getRoot]/traffic trafficItem] { "
-            +   "foreach ce [ixNet getL $ti configElement] { "
-            +     "set has 0 ; "
-            +     "foreach st [ixNet getL $ce stack] { "
-            +       "if {[string match {*vlan*} $st]} { set has 1 } } ; "
-            +     "if {$has == 0 && $tpl ne {}} { "
-            +       "ixNet exec appendProtocol [lindex [ixNet getL $ce stack] 0] $tpl ; "
-            +       "ixNet commit } ; "
-            +     "foreach st [ixNet getL $ce stack] { "
-            +       "if {![string match {*vlan*} $st]} { continue } ; "
-            +       "incr tagged ; "
-            +       "foreach fld [ixNet getL $st field] { "
-            +         "if {[string match -nocase {*vlan-id*} "
-            +           "[ixNet getAtt $fld -displayName]]} { "
-            +           "ixNet setMultiAttr $fld -singleValue " + vlan
-            +             " -fieldValue " + vlan + " -valueType singleValue } } } ; "
-            +     "ixNet commit ; "
-            +     "append stacks [ixNet getL $ce stack] } } ; "
+            + "set ti [getTraffic \"" + itemName + "\"] ; "
+            + "set tagged 0 ; "
+            + "foreach ce [ixNet getL $ti configElement] { "
+            +   "set has 0 ; "
+            +   "foreach st [ixNet getL $ce stack] { "
+            +     "if {[string match {*vlan*} $st]} { set has 1 } } ; "
+            +   "if {$has == 0 && $tpl ne {}} { "
+            +     "ixNet exec appendProtocol [lindex [ixNet getL $ce stack] 0] $tpl ; "
+            +     "ixNet commit } ; "
+            +   "foreach st [ixNet getL $ce stack] { "
+            +     "if {![string match {*vlan*} $st]} { continue } ; "
+            +     "incr tagged ; "
+            +     "foreach fld [ixNet getL $st field] { "
+            +       "if {[string match -nocase {*vlan-id*} "
+            +         "[ixNet getAtt $fld -displayName]]} { "
+            +         "ixNet setMultiAttr $fld -singleValue " + vlan
+            +           " -fieldValue " + vlan + " -valueType singleValue } } } ; "
+            +   "ixNet commit } ; "
             + "puts \"\" ; "
             + "puts \"VLANTAGGED=$tagged VLANID=" + vlan + "\" ; "
             + "puts \"\"";
         String readBack = ixia.runCommand(new RawTcl(tcl));
-        boolean tagged = readBack != null && readBack.contains("VLANTAGGED=")
-                && !readBack.contains("VLANTAGGED=0");
-        CompassReporter.passFailByCondition(tagged,
-                "Traffic items carry the AC VLAN " + vlan + " ("
-                        + oneLine(readBack) + ").",
-                "Traffic items were NOT VLAN-tagged (" + oneLine(readBack)
-                        + ") - untagged frames never reach a vlan-id "
-                        + "sub-interface, so the EVI will learn nothing.");
-        if (!tagged) {
-            throw new Exception("could not VLAN-tag the traffic items");
-        }
+        boolean ok = readBack != null && readBack.contains("VLANTAGGED=")
+                && !readBack.contains("VLANTAGGED=0")
+                && readBack.contains("VLANID=" + vlan);
+        logMsg.info(itemName + ": VLAN " + vlan + " -> " + oneLine(readBack));
+        return ok;
     }
 
     public void setTrafficItemSourceMac(String trafficItemName, String mac)
@@ -528,7 +649,10 @@ public class EvpnUtils implements loggerImp {
         // on the core: the ACs are then vport2 and vport3, so creating two
         // vports leaves $ixia(vport3) undefined and the chassis answers
         // "can't read ixia(vport3): no such element in array".
-        int want = AC_POOL_OFFSET + params.AC_VPORTS.length;
+        int want = 0;
+        for (int idx : params.AC_VPORT_POOL_INDEX) {
+            want = Math.max(want, idx + 1);
+        }
         String created = ixia.runCommand(new RawTcl(
                 "set n [llength [ixNet getL [ixNet getRoot] vport]] ; "
                 + "while {$n < " + want + "} { ixNet add [ixNet getRoot] vport ; "
@@ -548,7 +672,7 @@ public class EvpnUtils implements loggerImp {
         ixia.performFunctions(IxiaFunctions.LOAD_IXIA_OBJECT);
 
         for (int i = 0; i < params.AC_VPORTS.length; i++) {
-            int poolIdx = i + AC_POOL_OFFSET;
+            int poolIdx = params.AC_VPORT_POOL_INDEX[i];
             String card = ixia.getIntPool(AC_POOL).getInter(poolIdx).getCard();
             String port = ixia.getIntPool(AC_POOL).getInter(poolIdx).getPort();
             logMsg.info("Assigning " + params.AC_VPORTS[i]
@@ -563,8 +687,16 @@ public class EvpnUtils implements loggerImp {
      * Enable the AC VLAN on every IXIA vport, and verify the chassis took it.
      */
     public void tagVportsWithAcVlan() throws Exception {
-        String vlan = acVlan();
-        for (String vport : params.AC_VPORTS) {
+        for (int v = 0; v < params.AC_VPORTS.length; v++) {
+            String vport = params.AC_VPORTS[v];
+            // The vport's own interface carries ONE VLAN, and a vport may
+            // back more than one attachment circuit. This is the first of
+            // them, and it is a hint rather than the classifier: what
+            // actually tells two circuits on one port apart is the VLAN
+            // header pushed onto each traffic item, which is per item and set
+            // in tagTrafficItemsWithAcVlan(). The interface VLAN exists so a
+            // raw endpoint resolves to the /vport:N/protocols form at all.
+            String vlan = params.AC_VPORT_VLAN[v];
             // NOT IxiaFunctions.SET_AND_VERIFY_INTERFACE_$_VLAN_$: its proc
             // does `ixNet getL $vport vlan`, and the chassis rejects that -
             // "is not a valid child of /vport (possible options are: l1Config
@@ -621,6 +753,170 @@ public class EvpnUtils implements loggerImp {
     public void stopTraffic() throws Exception {
         ixia.performFunctions(IxiaFunctions.STOP_TRAFFIC);
         logMsg.info("Traffic stopped");
+    }
+
+    // ===================================================================
+    // Traffic-item lifecycle, in the VPLS suite's idiom
+    //
+    // Exaware, 2026-08-16 (Eyal Ozeri): "The Ixia Traffic Items are built
+    // in an 'unfriendly' raw manner which will make an investigator's life
+    // very hard. Need to train the model with how to build traffic items.
+    // An example can be take from the VPLS suite."
+    //
+    // Their VplsUtils.java drives traffic through four methods, and a test
+    // never touches a TCL call directly:
+    //
+    //     changeSuspendStatus(boolean, String... items)
+    //     enableTrafficItemsAndStart(String... items)
+    //     enableTrafficItemsAndStartSuspended(String... items)
+    //     verifyTrafficItemsAreSuspended(String[] items)
+    //     verifyTrafficItemStatistics(RowDataTable... rows)
+    //
+    // The same five are below, with the same names and semantics, so a
+    // VPLS-literate investigator reads this suite without relearning
+    // anything. The raw construction that remains is confined to
+    // createTrafficItems(), called once, because we have no .ixncfg to
+    // load - see that method for what would replace it.
+    // ===================================================================
+
+    /**
+     * Suspend or unsuspend named traffic items, as VplsUtils does.
+     *
+     * `true` suspends. That reads backwards, and it is theirs: the flag is
+     * the flow group's "suspend" attribute, not an enable.
+     */
+    public void changeSuspendStatus(boolean suspend, String... trafficItems)
+            throws Exception {
+        for (String trafficItem : trafficItems) {
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_STREAM
+                    .args(trafficItem, 1, "null", "null", "null", "null",
+                          "null", suspend));
+        }
+        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
+        logMsg.info((suspend ? "Suspended" : "Unsuspended")
+                + " traffic items: " + String.join(", ", trafficItems));
+    }
+
+    /** Enable the named items and start the traffic engine. */
+    public void enableTrafficItemsAndStart(String... trafficItems)
+            throws Exception {
+        for (String trafficItem : trafficItems) {
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_$_STATE_$
+                    .args(trafficItem, true));
+        }
+        startTraffic();
+    }
+
+    /**
+     * Enable and start every item, then suspend them all.
+     *
+     * The prep step of every VPLS test: bring the whole traffic set up once,
+     * hold it silent, and let each step unsuspend only what it needs. It
+     * makes each step's traffic change small and its statistics readable,
+     * which is the property Eyal was asking for.
+     */
+    public void enableTrafficItemsAndStartSuspended(String... trafficItems)
+            throws Exception {
+        enableTrafficItemsAndStart(trafficItems);
+        changeSuspendStatus(true, trafficItems);
+    }
+
+    /**
+     * Assert the named items are transmitting and receiving nothing.
+     *
+     * This is a real assertion, not a log line: a suspended item that is in
+     * fact still sending would make every later "the MAC moved" step
+     * meaningless, and nothing else in the run would notice.
+     */
+    public void verifyTrafficItemsAreSuspended(String[] trafficItems)
+            throws Exception {
+        ArrayList<QueryFieldList> fields = new ArrayList<QueryFieldList>();
+        for (String trafficItemName : trafficItems) {
+            fields.add(trafficItemStatisticsQuery(0, 0, trafficItemName));
+        }
+        runTrafficStatisticsQuery(fields,
+                "traffic items suspended (" + String.join(", ", trafficItems) + ")");
+    }
+
+    /**
+     * Assert the Traffic Item Statistics table matches the expected rows.
+     *
+     * Mirrors VplsUtils.verifyTrafficItemStatistics: expected Tx/Rx frame
+     * rates come from the suite params table, Rx is compared with a
+     * tolerance, and the query runs against the chassis's own
+     * "Traffic Item Statistics" view.
+     *
+     * This is what a generated traffic step should have been asserting all
+     * along. Before it, a traffic step logged TCL and proved nothing about
+     * whether frames moved.
+     */
+    public void verifyTrafficItemStatistics(RowDataTable... rows)
+            throws Exception {
+        ArrayList<QueryFieldList> fields = new ArrayList<QueryFieldList>();
+        for (RowDataTable row : rows) {
+            String trafficItem = params.trafficTable.getValueStr(
+                    row, TrafficItemStatisticsHeaders.Traffic_Item);
+            Integer tx = intOrNull(params.trafficTable.getValueStr(
+                    row, TrafficItemStatisticsHeaders.Tx_Frame_Rate));
+            Integer rx = intOrNull(params.trafficTable.getValueStr(
+                    row, TrafficItemStatisticsHeaders.Rx_Frame_Rate));
+            fields.add(trafficItemStatisticsQuery(tx, rx, trafficItem));
+        }
+        runTrafficStatisticsQuery(fields, "traffic item statistics");
+    }
+
+    private Integer intOrNull(String value) {
+        return value == null ? null : Integer.valueOf(Integer.parseInt(value));
+    }
+
+    /** One item's expected row, as a query. Rx carries the tolerance. */
+    private QueryFieldList trafficItemStatisticsQuery(
+            Integer txFrameRate, Integer rxFrameRate, String trafficItem)
+            throws Exception {
+        QueryFieldList itemList = new QueryFieldList();
+        itemList.addQueryItem(QueryFieldItem.CONDITION_EQUAL$.args(
+                TrafficItemStatisticsHeaders.Traffic_Item.getValue(),
+                trafficItem));
+        if (txFrameRate != null) {
+            itemList.addQueryItem(QueryFieldItem.EXPECTED_VALUE_EQUAL$.args(
+                    TrafficItemStatisticsHeaders.Tx_Frame_Rate.getValue(),
+                    txFrameRate));
+        }
+        if (rxFrameRate != null) {
+            int low = rxFrameRate - params.DEVIATION_FOR_VERIFY_TRAFFIC;
+            if (low < 0) {
+                low = 0;
+            }
+            itemList.addQueryItem(
+                QueryFieldItem.EXPECTED_VALUE_IS_GREATER_THAN_AND_LESS_THAN$.args(
+                    TrafficItemStatisticsHeaders.Rx_Frame_Rate.getValue(),
+                    low,
+                    rxFrameRate + params.DEVIATION_FOR_VERIFY_TRAFFIC));
+        }
+        return itemList;
+    }
+
+    /**
+     * Run a Traffic Item Statistics query and count it as a real assertion.
+     *
+     * The falsifiable-assertion counter is bumped here because this check CAN
+     * fail - unlike the warning-only stub that stood in for it, which is
+     * exactly the kind of step the no-fake-pass rule exists to catch.
+     */
+    private void runTrafficStatisticsQuery(ArrayList<QueryFieldList> fields,
+                                           String what) throws Exception {
+        if (fields.isEmpty()) {
+            CompassReporter.warning("No expected rows for " + what
+                    + " - nothing was asserted.");
+            return;
+        }
+        falsifiableAssertions++;
+        QueryUtils.verifyOutputQueryResult(ixia,
+                (ICmpCliCmd) IxiaFunctions.GET_TRAFFIC_PAGE_VIEW_$.args(
+                        IxiaTypes.VIEW_TRAFFIC_ITEM_STATISTICS.getValue()),
+                params.TRAFFIC_ITEM_STATISTICS_QCT,
+                fields);
+        logMsg.info("Verified " + what);
     }
 
     /** Enable (unsuspend) or disable (suspend) one named IXIA traffic item. */
@@ -739,24 +1035,27 @@ public class EvpnUtils implements loggerImp {
     }
 
     /**
-     * IXIA per-port / per-flow statistics assertion.
+     * IXIA statistics assertion for a named set of traffic items.
      *
-     * Left as an explicit gap: the expected rows depend on the port naming and
-     * offered rate inside the .ixncfg that Exaware build for this rig, and
-     * ShowIxiaStatistics drives them from a RowDataTable populated out of the
-     * suite params table. Wiring that needs the real .ixncfg.
+     * This used to be a stub that only ever warned, on the grounds that the
+     * expected rows needed the port naming inside an .ixncfg we do not have.
+     * That was wrong twice over: the Traffic Item Statistics view is keyed by
+     * the traffic item's NAME, which this suite chooses itself, and a step
+     * that can only warn is a step that cannot fail.
+     *
+     * Reading their VPLS suite settled the shape (Eyal Ozeri, 2026-08-16:
+     * "take the example from the VPLS suite"). Expected rates now live in
+     * EvpnParams.trafficTable and are asserted here.
      */
-    public void verifyIxiaStatistics(String what, String[] expectedRows)
+    public void verifyIxiaStatistics(String what, RowDataTable[] expectedRows)
             throws Exception {
         if (expectedRows == null || expectedRows.length == 0) {
             CompassReporter.warning("IXIA statistics check '" + what
-                    + "' is not wired yet - needs the .ixncfg port naming and "
-                    + "a RowDataTable in EvpnParams. See "
-                    + "ShowIxiaStatistics.verifyDataPlanPortStatistics.");
+                    + "' has no expected rows in EvpnParams.trafficTable, so "
+                    + "nothing was asserted.");
             return;
         }
-        CompassReporter.warning("IXIA statistics check '" + what
-                + "' has expectations but no table binding yet.");
+        verifyTrafficItemStatistics(expectedRows);
     }
 
     /** Sleep, reporting the wait so the run log explains the gap. */

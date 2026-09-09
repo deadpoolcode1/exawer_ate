@@ -6,23 +6,28 @@ via pandoc. This one is written directly with python-docx because a hand-over
 is a different artifact: two pages, three tables, and every claim in it has a
 matching file in the evidence folder.
 
-Regenerate after changing any of the numbers it quotes — they are deliberately
+Regenerate after changing any of the numbers it quotes: they are deliberately
 inline rather than computed, so that a stale figure is a visible edit in the
 diff rather than something the script silently recalculates from a run that no
 longer matches what was shipped.
 
-    python scripts/build_handover_docx.py
+    python scripts/build_handover_docx.py [OUTPUT_DIR]
 
-Output path is the milestone package on the Desktop; change OUT for a new
-milestone.
+Output path is the milestone package on the Desktop. It is passed in by
+`build_handover_package.sh` so the .docx always lands in the package that was
+just built. It used to be a hardcoded date, which meant a package built on any
+other day shipped with no hand-over document at all.
 """
+import sys
+
 from docx import Document
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Pt, RGBColor
 
-OUT = "/home/ilan/Desktop/Exaware_M2_handover_2026-08-14/M2_Handover.docx"
-#: Keep in step with deliverables/M2/ — every claim below has an evidence file.
+OUT = (sys.argv[1] if len(sys.argv) > 1
+       else "/home/ilan/Desktop/Exaware_M2_handover_2026-08-14") + "/M2_Handover.docx"
+#: Keep in step with deliverables/M2/, where every claim below has an evidence file.
 ACCENT = RGBColor(0x1F, 0x4E, 0x79)
 MUTED = RGBColor(0x59, 0x59, 0x59)
 
@@ -83,7 +88,7 @@ style(doc)
 # ── title ───────────────────────────────────────────────────────────────
 t = doc.add_paragraph()
 t.alignment = WD_ALIGN_PARAGRAPH.CENTER
-r = t.add_run("Milestone 2 — Hand-over")
+r = t.add_run("Milestone 2: Hand-over")
 r.bold = True
 r.font.size = Pt(20)
 r.font.color.rgb = ACCENT
@@ -91,12 +96,12 @@ r.font.color.rgb = ACCENT
 s = doc.add_paragraph()
 s.alignment = WD_ALIGN_PARAGRAPH.CENTER
 r = s.add_run("Dirty Queue & Code Generation · SOW PQ4476E\n"
-              "CodeValue → Exaware · 13 August 2026")
+              "CodeValue → Exaware · 9 September 2026")
 r.font.size = Pt(10)
 r.font.color.rgb = MUTED
 
 # ── acceptance ──────────────────────────────────────────────────────────
-h(doc, "M2 deliverables — all four met", space_before=14)
+h(doc, "M2 deliverables: all four met", space_before=14)
 table(doc,
       ["SOW M2 deliverable", "Result"],
       [["Code generation based on selected tests",
@@ -119,33 +124,56 @@ r.font.color.rgb = MUTED
 # ── verified ────────────────────────────────────────────────────────────
 h(doc, "Verified on your hardware")
 p = doc.add_paragraph()
-r = p.add_run("SUT pc-3080 / exa-il01-uf-3080, software 8.7.0 LAB 22, "
-              "application build feature/dev64_evpn_23Jul2026.")
+r = p.add_run("SUT pc-3099 / exa-il01-ec-3099, software 8.7.0 LAB 935, "
+              "run 9 September 2026. Lab profile lab-1dut-3ac-core.")
 r.font.size = Pt(10)
 bullets(doc, [
-    ("All three suites PASS, on real assertions - ",
-     "TC01, TC02 and TC03 each report OK (1 test) under JUnit + JSystem against the "
-     "DUT, and between them make seven assertions against real device output. TC02 "
-     "had never passed before this drop. A generated test that verifies nothing fails "
-     "by construction here, so a green run means assertions ran and could have failed."),
-    ("EVPN behaviour demonstrated on real traffic - ",
-     "MAC learning per attachment circuit; a local MAC move (AC2 and AC3 source the "
-     "same MAC, and the entry moves from x-eth0/0/18.3380 to x-eth0/0/26.3380 when "
-     "traffic shifts); and aging - with that traffic stopped the entry leaves the "
-     "table, which is what TC03 asserts."),
+    ("TC01 passes: OK (1 test), no failures - ",
+     "under JUnit + JSystem against the DUT, on assertions taken from that "
+     "device's own output. A generated test that verifies nothing fails by "
+     "construction here, so a green run means assertions ran and could have "
+     "failed."),
+    ("The EVPN service is built by the test and read back - ",
+     "show evpn detail returns evi-1, service-type vlan-based, with three "
+     "attachment circuits bound: x-eth0/0/32.1001, x-eth0/0/40.1002 and "
+     "x-eth0/0/40.1003. The service is created by TC01, not by the "
+     "configuration file, so its create steps can fail."),
+    ("Three attachment circuits on two links - ",
+     "x-eth0/0/40 carries two circuits that differ only by VLAN tag. This is "
+     "your 8 September answer applied and then proven: a spare-port trial "
+     "committed cleanly and both sub-interfaces appeared under Local "
+     "Interfaces (evidence_shared_port_acs.txt, device restored as found)."),
+    ("The VLANs are ours, not the SUT's - ",
+     "1001-1003, and the run asserts it: \"AC1: VLAN 1001 is not claimed by "
+     "the SUT\". pc-3099 declares 3399 in general/vlans, the same shape as "
+     "pc-3080's 3380; the suite refuses to take a VLAN from that list."),
     ("Compiles against your framework - ",
-     "953 sources -> 1454 classes, zero errors; the generated files pass "
-     "javac --release 8 -Werror -Xlint:all with zero warnings."),
+     "953 sources -> 1455 classes, zero errors, javac --release 8."),
     ("bringUpParams.crt passes your own validator - ",
      "TemplateManager.validateAgainstTemplate returns true (bringUpParameters_C0_002), "
      "standalone and inside the live bring-up. Adding one // line inside a table makes "
      "the same validator reject it, so the check is not vacuous."),
-    ("One .cfg, two different platforms - ",
-     "the same generated files ran unchanged on pc-3021 (edgeCore) and pc-3080 "
-     "(UfiSpace); the int1/int2/int3 placeholders resolved to x-eth 0/0/8, 0/0/18 "
-     "and 0/0/26 from your SUT file."),
-    ("Every command the suite issues exists on this build - ",
-     "ate capture reports 0 unsupported."),
+    ("One package, two differently cabled rigs - ",
+     "the same generated files ran unchanged on pc-3080 (data1 = x-eth 0/0/8, "
+     "0/0/18, 0/0/26) and pc-3099 (0/0/18, 0/0/32, 0/0/40). The int1/int2/int3 "
+     "placeholders resolve from your SUT file, never from a port name we chose."),
+])
+
+h(doc, "What is NOT proven, and why", size=11, space_before=10)
+bullets(doc, [
+    ("The control plane is configured but not established - ",
+     "the DUT holds neighbour 29.60.0.2 with both IPv4 unicast and L2VPN EVPN, "
+     "and the session reads down / Active. Nothing answers on the far end: "
+     "bring-up loads no IXIA configuration, which is your own point 2."),
+    ("TC02 fails on exactly one thing, and it is that - ",
+     "every DUT-side step passes; it stops at \"vport2: VLAN 1001 was NOT "
+     "enabled (chassis said can't read ixia(vport2): no such variable)\". One "
+     "run of configurations/ixia/EVPN_traffic.tcl on the chassis produces the "
+     ".ixncfg that closes it."),
+    ("7 of 25 verification steps carry assertions that can fail - ",
+     "the other 18 warn and say so in the run report. The suite prints that "
+     "census itself; it does not present a warning as a pass. Traffic is what "
+     "converts most of the remainder."),
 ])
 
 h(doc, "Two defects the run found, which matter more than the pass", size=11,
@@ -188,27 +216,36 @@ r = p.add_run("We would rather you get this from us than find it yourselves.")
 r.font.size = Pt(9.5)
 r.font.color.rgb = MUTED
 table(doc,
-      ["Suite", "Result", "EVPN-behaviour assertions"],
-      [["TC01 bring-up", "OK (1 test)", "2"],
-       ["TC02 Type-2 MAC/IP + local move", "OK (1 test)", "3"],
-       ["TC03 Type-3 IMET + aging", "OK (1 test)", "2"]])
+      ["Suite", "Result on pc-3099, 9 Sep", "Stops at"],
+      [["TC01 bring-up", "OK (1 test)", "-"],
+       ["TC02 Type-2 MAC/IP + local move", "FAIL",
+        "IXIA: no vport configured (bring-up loads no IXIA file)"],
+       ["TC03 Type-3 IMET + flooding", "FAIL",
+        "the same single cause"]])
 p = doc.add_paragraph()
 p.paragraph_format.space_before = Pt(6)
-r = p.add_run("Most of the reported passes remain your framework's own infrastructure "
-              "checks - disk space, commit succeeded, IXIA connected, no watchdog reboot, "
-              "alarm history clean. The seven counted above are the EVPN ones: they read "
-              "device output back and compare it, and each was seen to fail before it was "
-              "made to pass.")
+r = p.add_run("TC02 and TC03 fail for one reason between them, and it is the "
+              "reason you named on 8 September: bringUpParams.crt loads no IXIA "
+              "configuration, so the TCL ixia() array has no vport entries and no "
+              "frame can be offered. Every DUT-side step of both tests passes. We "
+              "are not presenting that as a pass, and the tests do not either - "
+              "they fail, loudly, with the chassis's own words.")
 r.font.size = Pt(10.5)
 p = doc.add_paragraph()
-r = p.add_run("So: the pipeline now produces code your device accepts, executes AND "
-              "that verifies EVPN behaviour - learning, a local MAC move, and aging. "
-              "What it does not yet demonstrate is Type-2/Type-3 ROUTE EXCHANGE with a "
-              "peer: emulating a BGP EVPN speaker on the IXIA fails with \"no license "
-              "available for BGP EVPN\" on chassis 10.1.70.108. Per your guidance the "
-              "current TCs check the EVPN address family in the session capabilities "
-              "instead, which needs no licence and is asserted. Full detail in "
-              "02_evidence/evidence_three_suites_green.txt.")
+r = p.add_run("Most of the reported passes in any run are your framework's own "
+              "infrastructure checks - disk space, commit succeeded, IXIA connected, "
+              "no watchdog reboot. The EVPN ones are the assertions that read device "
+              "output back and compare it: on this drop TC01 makes four of them, "
+              "against show evpn detail, show evpn summary, the EVPN route table and "
+              "the neighbour's EVPN capability. Across the suite 7 of 25 verification "
+              "steps can currently fail; the other 18 warn and say why.")
+r.font.size = Pt(10.5)
+p = doc.add_paragraph()
+r = p.add_run("What is still not demonstrated is Type-2/Type-3 ROUTE EXCHANGE with "
+              "a peer. Emulating a BGP EVPN speaker on the IXIA fails with \"no "
+              "license available for BGP EVPN\" on chassis 10.1.70.108. The DUT does "
+              "originate its own Type-3 IMET route and TC01 asserts it; what needs a "
+              "peer is the receiving half.")
 r.font.size = Pt(10.5)
 
 h(doc, "Corrections your EVPN CLI documentation may want")
@@ -235,11 +272,11 @@ table(doc,
         "Range <1-250000>, default 65520 - 250000 is the configurable maximum"],
        ["af-l2vpn evpn under BGP",
         "Only under a neighbour or neighbour-group, and only in vrf default"],
-       ["show evpn global", "Does not exist — show evpn summary / show evpn detail"],
+       ["show evpn global", "Does not exist. Use show evpn summary / show evpn detail"],
        ["show evpn bum routing-table",
-        "Does not exist — show evpn broadcast-domains carries the BUM label"],
+        "Does not exist. show evpn broadcast-domains carries the BUM label"],
        ["show evpn mac-address-table (hyphen)\nclear evpn mac address-table (space)",
-        "Both correct — the product genuinely uses a hyphen for show and a space for clear"],
+        "Both correct: the product genuinely uses a hyphen for show and a space for clear"],
        ["import-rt / export-rt under the EVI", "They live under auto-discovery"],
        ["show interface … detail", "No detail under show interface"],
        ["show bgp l2vpn evpn table evi evi-name <name>",
@@ -249,17 +286,18 @@ table(doc,
 # ── asks ────────────────────────────────────────────────────────────────
 h(doc, "What we need from you")
 bullets(doc, [
-    ("A ticket ID — ", "so the branch lands as AUT-nnn / EM-nnnn rather than our "
+    ("A ticket ID: ", "so the branch lands as AUT-nnn / EM-nnnn rather than our "
      "provisional name."),
-    ("Source-MAC control on the IXIA — ", "we build the three traffic items in code "
-     "over TCL, so no .ixncfg is needed for traffic itself. But ixia_lib.tcl has "
-     "editTrafficRawDestMacAddr and no source equivalent, and EVPN learns from source "
-     "MACs — so the local MAC-move case (AC2 and AC3 emitting the same source MAC) "
-     "cannot be expressed. A src-MAC proc, or an .ixncfg with the three items, "
-     "unblocks TC02 and TC03."),
-    ("A BGP EVPN peer for this DUT — ", "the four \"show bgp l2vpn evpn table evi "
+    ("One chassis slot to produce the .ixncfg: ", "this is the single "
+     "remaining blocker and it is half an hour of rig time. "
+     "configurations/ixia/EVPN_traffic.tcl states every traffic item in your "
+     "ixia_lib.tcl idiom and ends by saving the session; run it once and the "
+     "file it writes is what bringUpParams.crt then loads. We have not run it "
+     "unattended because the chassis is shared and traffic items are the thing "
+     "you said you want to inspect - we would rather build them with you."),
+    ("A BGP EVPN peer for this DUT: ", "the four \"show bgp l2vpn evpn table evi "
      "detail\" expectations have nothing to show until a peer exists."),
-    ("Confirmation on the absent EVI knobs — ", "control-word, host "
+    ("Confirmation on the absent EVI knobs: ", "control-word, host "
      "mac-address-duplicate-detection, Advertise-mac, unknow-mac-flooding and the "
      "interface ethernet-segment tree are in the CLI doc and not in LAB 22. Either "
      "the document is ahead of the build or the build is missing them; we report it "
@@ -268,17 +306,27 @@ bullets(doc, [
 
 p = doc.add_paragraph()
 p.paragraph_format.space_before = Pt(4)
-r = p.add_run("Closed since the last hand-over: lab-workspace files are no longer "
-              "needed - the bring-up completes on pc-3080.")
+r = p.add_run("Closed since the last hand-over: source-MAC control on a raw "
+              "traffic item, which was an ask here in August, is implemented and "
+              "shipped (EvpnUtils.setTrafficItemSourceMac).")
 r.font.size = Pt(9.5)
 r.font.color.rgb = MUTED
 
 h(doc, "Two things for your attention, neither ours to change", size=11, space_before=10)
 bullets(doc, [
-    ("exa-il01-ec-3021 has a standing Critical alarm — ", "PSU PSU-1 is Failed. "
+    ("pc-3080 cannot complete your own bring-up on its current image: ", "it "
+     "is now 8.7.0 LAB 0, and bring-up ends at \"Failed to enter specific "
+     "session mode. Wanted mode: ONL\". CmpCliSession.java:69 matches the ONL "
+     "shell by the literal string \"@localhost\"; this image answers "
+     "root@router. The same test on the same box on 13 August logged "
+     "root@localhost 78 times, on 9 September zero. checkCoresAndAlarms() is "
+     "called unconditionally from bringUpSetupAndVerify(), so no parameter "
+     "skips it. This will stop any suite on that image, not only ours. "
+     "pc-3099 (LAB 935) is unaffected, which is where this drop was run."),
+    ("exa-il01-ec-3021 has a standing Critical alarm: ", "PSU PSU-1 is Failed. "
      "Pre-existing, and CmpTestCase's @After alarm check will make any suite on that "
-     "rig look flaky. pc-3080 is clean: its raised-alarm history is empty."),
-    ("cmp/tests/multiCast/MultiCastParams.java — ", "carries a stray "
+     "rig look flaky."),
+    ("cmp/tests/multiCast/MultiCastParams.java: ", "carries a stray "
      "\"import com.sun.javafx.collections.MappingChange;\", an unused IDE auto-import "
      "that only compiled because Oracle JDK 8 shipped JavaFX internals. It fails on "
      "any modern JDK. Left alone rather than shipping an infra fix inside an EVPN branch."),
@@ -291,10 +339,10 @@ h(doc, "The package", space_before=0)
 table(doc,
       ["Folder", "Contents"],
       [["01_generated_suite/", "The 8 generated files, in cmp-tests-project layout"],
-       ["02_evidence/", "One file per claim above — read these before the code"],
+       ["02_evidence/", "One file per claim above, read these before the code"],
        ["03_test_plan/", "The test plan the code was generated from"],
        ["04_results/", "Full test report (open the .html in a browser)"],
-       ["05_git/", "git bundle — 3 commits on auto_develop..ate-m2-evpn-generated-suite"]])
+       ["05_git/", "git bundle, 3 commits on auto_develop..ate-m2-evpn-generated-suite"]])
 
 h(doc, "Importing the branch")
 p = doc.add_paragraph()
@@ -311,7 +359,7 @@ r.font.color.rgb = MUTED
 # ── report ──────────────────────────────────────────────────────────────
 h(doc, "Reading the test report")
 p = doc.add_paragraph()
-r = p.add_run("389 checks — 358 pass, 5 fail, 26 skip.")
+r = p.add_run("389 checks: 358 pass, 5 fail, 26 skip.")
 r.bold = True
 r.font.size = Pt(10.5)
 p = doc.add_paragraph()
@@ -324,7 +372,7 @@ r = p.add_run("All five failures are code-coverage thresholds (70%) on the CLI w
               "threshold to hide them.")
 r.font.size = Pt(10.5)
 
-h(doc, "The command sweep — now trustworthy in both halves", size=11)
+h(doc, "The command sweep, now trustworthy in both halves", size=11)
 p = doc.add_paragraph()
 r = p.add_run("The previous hand-over shipped a sweep of all 123 command templates and "
               "asked you not to act on its configuration-mode half, because it reported "
