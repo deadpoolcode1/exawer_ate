@@ -1,0 +1,68 @@
+======================================================================
+TC02 GREEN ON HARDWARE
+======================================================================
+pc-3099 (10.3.99.1), 8.7.0 LAB 935. Chassis 10.1.70.108, app server
+10.1.90.108, IxNetwork 9.00. 2026-09-09, from a rebooted device.
+
+    OK (1 test)
+    Time: 662.712
+    0 failures, 170 passes
+
+This is Exaware's E4 of 2026-09-08 closed: "TC02 which is declared as
+a passed TC is missing". It is back, it runs on three attachment
+circuits with a live control plane, and it asserts things that can
+fail.
+
+WHAT IT ACTUALLY ASSERTED
+  Pass: The output of show evpn summary no longer contains the
+        expected-gone lines.             (the EVI is absent first)
+  Pass: The output of show evpn detail is as expected.
+  Pass: the loaded EVPN_3AC_CORE.ixncfg carries every traffic item
+        this test drives                            (E1/E2)
+  Pass: All 3 traffic items are tracked by traffic item, so the
+        statistics view exists.
+  Pass: tester protocols are running
+  Pass: The output of show evpn mac-address-table name evi-1
+        source x-eth0/0/32.1001 is as expected.     (AC1 learnt)
+  Pass: ... source x-eth0/0/40.1002 is as expected. (AC2 learnt)
+  Pass: ... source x-eth0/0/40.1003 is as expected. (moved to AC3)
+  Pass: The output of show bgp l2vpn evpn table evi detail is as
+        expected.                        (the Type-2 advertisement)
+  Pass: Verify NO new Type-2 was triggered by the local AC2 -> AC3
+        move (route table unchanged vs the snapshot)
+
+  Three of those name DIFFERENT sub-interfaces of the SAME EVI, which
+  is the shape Eyal's E6 unlocked: two attachment circuits share
+  x-eth0/0/40 and are told apart by their VLAN tag.
+
+  The MAC move is asserted where the evidence is - on the DUT, by the
+  MAC table and by the route table NOT changing. The IXIA counters
+  cannot show it, because AC2 and AC3 share a vport.
+
+THE TRAFFIC NUMBERS, EVERY STEP
+  Pass: TX_FRAME_RATE:1000, RX_FRAME_RATE between 1995-2005 -> [2000]
+  Pass: TX_FRAME_RATE:0,    RX_FRAME_RATE between 0-5       -> [0]
+  Pass: TX_FRAME_RATE:1000, RX_FRAME_RATE between 995-1005  -> [1000]
+  Pass: viewStatisticsPage results as expected              (x4)
+
+  Rx 2000 against Tx 1000 is the broadcast reaching BOTH circuits on
+  the shared destination port. If the EVI stopped flooding to one of
+  them it reads 1000 and the step fails.
+
+WHAT IT TOOK, IN ORDER
+  Five attempts, each failing further along than the last. Four of the
+  five were our defects:
+
+    1  statistics view absent - traffic items carried no tracking
+    2  ArrayIndexOutOfBoundsException: 6 >= 6 - rows declared after
+       the SuiteTableParams froze the table model
+    3  Missing lines: [Type=2: ... MAC=00:00:02:00:00:01] - a capture
+       of an unscoped command froze another step's route
+    4  Error in command: timeout: 100000 - THEIRS: bring-up pages
+       /var/log/syslog with `less` on a serial console
+    5  OK (1 test)
+
+  Detail: evidence_traffic_item_tracking.txt,
+  evidence_traffic_expectations.txt,
+  evidence_less_hangs_the_serial_console.txt.
+  Full console log: evidence_tc02_green_pc3099.log

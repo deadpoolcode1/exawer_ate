@@ -132,6 +132,13 @@ Two defects that run exposed matter more than the pass:
   on one port. `--lab 3ac-core` is the shippable profile now, it emits all
   three suites, and the client lost TC02 for a fortnight over arithmetic that
   was ours, not the rig's.
+- **TC02 is green on hardware (2026-09-09): `OK (1 test)`, 0 failures,
+  170 passes.** It asserts the EVI absent, then created; MACs learnt on each
+  of three circuits including the moved one; the Type-2 advertisement; that
+  the local AC2 to AC3 move triggers NO new Type-2; and the traffic rates at
+  every step. That closes Exaware's E4, "TC02 which is declared as a passed
+  TC is missing". Evidence: `deliverables/M2/evidence_tc02_green_pc3099.txt`.
+
 - **The IXIA traffic assertions could never have passed, on any rig
   (found 2026-09-09).** TC02 failed every traffic step with `No results where:
   TRAFFIC_ITEM: ...` while the traffic was running perfectly. Three separate

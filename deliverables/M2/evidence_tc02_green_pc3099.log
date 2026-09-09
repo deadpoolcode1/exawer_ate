@@ -1,0 +1,3091 @@
+JUnit version 3.8.1
+Sep 09, 2026 3:14:53 PM jsystem.framework.JSystemProperties initLogger
+INFO: Logger was init
+Sep 09, 2026 3:14:53 PM jsystem.framework.RunProperties <init>
+INFO: create run properties at :/var/tmp/ate-run/run/.run.properties
+Sep 09, 2026 3:14:54 PM jsystem.framework.sut.SutFactory getSutDirectory
+WARNING: SUT directory: /var/tmp/ate-run/run/sut couldn't be found
+Sep 09, 2026 3:14:54 PM jsystem.framework.sut.SutFactory getSutDirectory
+WARNING: SUT directory: /var/tmp/ate-run/run/sut couldn't be found
+Sep 09, 2026 3:14:54 PM jsystem.framework.sut.SutFactory getSutDirectory
+WARNING: SUT directory: /var/tmp/ate-run/run/sut couldn't be found
+.
+Test: TC02_EvpnType2MacIpAdvertisement.null
+
+(1)Steps in test: TC02_EvpnType2MacIpAdvertisement.null :
+Sep 09, 2026 3:14:54 PM jsystem.framework.report.RunnerListenersManager addTestInfo
+WARNING: Fail to load test code because source file is missing. /home/ilan/src/main/java/cmp/tests/evpn/TC02_EvpnType2MacIpAdvertisement.groovy
+Sep 09, 2026 3:14:54 PM junit.framework.SystemTestCaseImpl jsystemTestPreExecution
+INFO: Running test: null
+log4j:WARN No appenders could be found for logger (cmp.infra.reporter.loggerImp).
+log4j:WARN Please initialize the log4j system properly.
+
+15:14:54: Warning: Error reading TATE_GLOBAL_PARAM JSON Cannot invoke "String.length()" because "s" is null
+MATCH: [bringUpParameters]
+MATCH: [bringUpParameters]
+MATCH: [bringUpParameters]
+MATCH: [bringUpParameters]
+
+15:14:54: setCmprouter
+
+15:14:54: setIxiaRouter
+
+15:14:54: Init cli, host: 10.1.70.200
+The supported auth Methods are:
+publickey
+password
+Last login: Wed Sep  9 22:12:42 2026 from 10.1.70.200
+]0;root@tate:~[1;31m[root@tate ~]#[0m tclsh
+% 
+15:14:56: Starting TCL
+ source /auto/software/tools/Ixia/IxOS-6.30.701.16_veryNew/lib/IxTclNetwork/pkgIndex.tcl
+% 
+15:14:56: 6.30.701.16 iXia version
+package require IxTclNetwork
+6.30.701.16
+% 
+15:14:56: ixia1: package require IxTclNetwork
+ixNet connect 10.1.90.108 -version 6.0
+::ixNet::OK
+% 
+15:14:56: ixia1: connecting ixia client 10.1.90.108
+
+15:14:56: Pass: Connected to Ixia server : 10.1.90.108
+source /var/tmp/ate-run/cmp-infra-project/src/main/java/cmp/infra/tcl/ixia_lib.tcl
+% 
+15:14:57: Loading tcl source file
+
+15:14:57: Init cli, host: 10.1.70.200
+The supported auth Methods are:
+publickey
+password
+Last login: Wed Sep  9 22:12:08 2026 from 10.1.70.200
+-bash-3.2$ source /home/compass/bashrc.global
+[devtest@tate:~]$ 
+15:14:59: Source aliases file
+alias exa-il01-ec-3099-sc
+alias exa-il01-ec-3099-sc='ts-cl 10.1.10.40 lab-ts-10 lab lab 49'
+[devtest@tate:~]$ 
+15:14:59: Translating alias for onl0-clear
+alias exa-il01-ec-3099-reset
+alias exa-il01-ec-3099-reset='/home/compass/lab-scripts/pdu_mgmt.sh r 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:14:59: Translating alias for onl0-reset
+alias exa-il01-ec-3099-off
+alias exa-il01-ec-3099-off='/home/compass/lab-scripts/pdu_mgmt.sh d 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:14:59: Translating alias for onl0-off
+alias exa-il01-ec-3099-on
+alias exa-il01-ec-3099-on='/home/compass/lab-scripts/pdu_mgmt.sh c 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:14:59: Translating alias for onl0-on
+alias exa-il01-ec-3099-s
+alias exa-il01-ec-3099-s='telnet 10.1.10.40 2049'
+[devtest@tate:~]$ 
+15:15:00: Translating alias for onl0
+alias exa-il01-ec-3099-m
+alias exa-il01-ec-3099-m='ussh 10.3.99.1 -l admin'
+[devtest@tate:~]$ 
+15:15:00: Translating alias for onl0-m
+
+15:15:00: Init cli, host: 10.3.99.10
+alias exa-il01-ec-3099-sc
+alias exa-il01-ec-3099-sc='ts-cl 10.1.10.40 lab-ts-10 lab lab 49'
+[devtest@tate:~]$ The supported auth Methods are:
+publickey
+password
+
+15:15:00: Translating alias for cpm0-clear
+alias exa-il01-ec-3099-reset
+alias exa-il01-ec-3099-reset='/home/compass/lab-scripts/pdu_mgmt.sh r 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:15:00: Translating alias for cpm0-reset
+alias exa-il01-ec-3099-off
+alias exa-il01-ec-3099-off='/home/compass/lab-scripts/pdu_mgmt.sh d 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:15:01: Translating alias for cpm0-off
+alias exa-il01-ec-3099-on
+alias exa-il01-ec-3099-on='/home/compass/lab-scripts/pdu_mgmt.sh c 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:15:01: Translating alias for cpm0-on
+alias exa-il01-ec-3099-s
+alias exa-il01-ec-3099-s='telnet 10.1.10.40 2049'
+[devtest@tate:~]$ 
+15:15:01: Translating alias for cpm0
+alias exa-il01-ec-3099-m
+alias exa-il01-ec-3099-m='ussh 10.3.99.1 -l admin'
+[devtest@tate:~]$ Linux localhost 5.4.40-OpenNetworkLinux #1 SMP Tue May 12 19:59:28 UTC 2026 x86_64
+Last login: Wed Sep  9 22:01:00 2026 from 192.168.31.226
+root@localhost:~# 
+15:15:01: Translating alias for cpm0-m
+alias exa-il01-ec-3099-sc
+alias exa-il01-ec-3099-sc='ts-cl 10.1.10.40 lab-ts-10 lab lab 49'
+[devtest@tate:~]$ 
+15:15:01: Init cli, host: 10.1.70.200
+The supported auth Methods are:
+publickey
+password
+
+15:15:01: Translating alias for lc0-clear
+alias exa-il01-ec-3099-reset
+alias exa-il01-ec-3099-reset='/home/compass/lab-scripts/pdu_mgmt.sh r 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:15:02: Translating alias for lc0-reset
+alias exa-il01-ec-3099-off
+alias exa-il01-ec-3099-off='/home/compass/lab-scripts/pdu_mgmt.sh d 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:15:02: Translating alias for lc0-off
+alias exa-il01-ec-3099-on
+alias exa-il01-ec-3099-on='/home/compass/lab-scripts/pdu_mgmt.sh c 10.1.68.75 1'
+[devtest@tate:~]$ 
+15:15:02: Translating alias for lc0-on
+alias exa-il01-ec-3099-s
+alias exa-il01-ec-3099-s='telnet 10.1.10.40 2049'
+[devtest@tate:~]$ 
+15:15:02: Translating alias for lc0
+alias exa-il01-ec-3099-m
+alias exa-il01-ec-3099-m='ussh 10.3.99.1 -l admin'
+[devtest@tate:~]$ Last login: Wed Sep  9 22:14:54 2026 from 192.168.31.226
+]0;root@tate:~[1;31m[root@tate ~]#[0m 
+15:15:03: Translating alias for lc0-m
+source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:15:03: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+15:15:04: Init cli, host: 10.3.99.10
+The supported auth Methods are:
+publickey
+password
+
+Done
+
+Linux localhost 5.4.40-OpenNetworkLinux #1 SMP Tue May 12 19:59:28 UTC 2026 x86_64
+Last login: Wed Sep  9 22:14:59 2026 from 192.168.31.226
+root@localhost:~# export PATH=$PATH:/vbox/local/platform/myplatform
+root@localhost:~# 
+15:15:06: cmp1-onl0-MGMT session8 OS_SHELL: Export ONL platform path
+which bcmrm
+/vbox/local/platform/myplatform/bcmrm
+root@localhost:~# 
+15:15:06: cmp1-onl0-MGMT session8 OS_SHELL: Verify bcmrm path
+]0;root@tate:~[root@tate:~]# 
+15:15:07: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+root@localhost:~# 
+root@localhost:~# 
+root@localhost:~# 
+15:15:28: Init cli, host: 10.3.99.1
+The supported auth Methods are:
+publickey
+password
+Last login: Wed Sep  9 21:59:03 2026 from 192.168.31.226
+   
+			Welcome to Router CLI
+admin connected from 192.168.31.226 using ssh on router
+[?7hrouter[2026-09-09-22:15:29]# 
+root@localhost:~# 
+15:15:33: Init cli, host: 10.3.99.1
+The supported auth Methods are:
+publickey
+password
+source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:15:34: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#Last login: Wed Sep  9 22:15:27 2026 from 192.168.31.226
+   
+			Welcome to Router CLI
+admin connected from 192.168.31.226 using ssh on router
+[?7hclear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#router[2026-09-09-22:15:34]# 
+router[2026-09-09-22:15:34]# 
+15:15:36: cmp1-lc0-moduleIsUpListener MGMT session7 CLI: 
+
+Done
+
+
+root@localhost:~# ]0;root@tate:~[root@tate:~]# 
+15:15:38: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:15:39]# 
+15:15:41: cmp1-lc0-moduleIsUpListener MGMT session7 CLI: 
+os-shell
+]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:15:43: cmp1-lc0-moduleIsUpListener MGMT session7: os-shell
+su -
+Password: 
+
+root@localhost:~# root@router[CPM-0-0_A]:~# 
+15:15:45: cmp1-lc0-moduleIsUpListener MGMT session7: su -
+ssh lc0
+Last login: Wed Sep  9 21:59:16 2026 from 169.254.255.1
+root@router[LC-0-0]:~# 
+15:15:46: cmp1-lc0-moduleIsUpListener MGMT session7 OS_SHELL: execute ssh lc0
+echo $PS1 | cut -d "[" -f 2 | cut -d "$" -f 1
+LC-0-0
+root@router[LC-0-0]:~# 
+15:15:46: cmp1-lc0-moduleIsUpListener MGMT session7 OS_SHELL: : Verifying ssn succeeded
+
+root@localhost:~# 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:16:02: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#
+15:16:03: Init cli, host: 10.3.99.1
+clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#The supported auth Methods are:
+publickey
+password
+
+root@localhost:~# 
+Done
+
+Last login: Wed Sep  9 22:15:32 2026 from 192.168.31.226
+   
+			Welcome to Router CLI
+admin connected from 192.168.31.226 using ssh on router
+[?7h]0;root@tate:~[root@tate:~]# router[2026-09-09-22:16:05]# 
+15:16:06: dtsrv: execute exa-il01-ec-3099-sc
+session screen-width 512 ; session screen-length 3200
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: router[2026-09-09-22:16:07]# 
+15:16:09: adjusting session screen width/length to max 
+
+15:16:09: Init cli, host: 10.3.99.1
+The supported auth Methods are:
+publickey
+password
+
+root@localhost:~# Last login: Wed Sep  9 22:16:02 2026 from 192.168.31.226
+   
+			Welcome to Router CLI
+admin connected from 192.168.31.226 using ssh on router
+[?7hrouter[2026-09-09-22:16:10]# show system hardware detail | include Platform
+   Platform Name: x86_64-accton_as7946-74xkb-r0
+router[2026-09-09-22:16:15]# 
+root@localhost:~# 
+15:16:16: cmp1-cpm0-MGMT session9 CLI: execute show system hardware detail | include Platform
+platforms.json was not found
+/var/tmp/ate-run/cmp-tests-project/src/cmp/tests/evpn/unsupportedPlatforms.json was not found
+x86_64-accton_as7946-74xkb-r0
+
+router[2026-09-09-22:16:20]# 
+root@localhost:~# 
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:16:27]# 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:16:30: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+Done
+
+]0;root@tate:~[root@tate:~]# 
+15:16:34: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:16:33]# 
+root@localhost:~# 
+router[2026-09-09-22:16:40]# 
+root@localhost:~# 
+router[2026-09-09-22:16:46]# 
+root@localhost:~# 
+router[2026-09-09-22:16:53]# 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:16:58: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+Done
+
+
+router[2026-09-09-22:16:59]# 
+root@localhost:~# ]0;root@tate:~[root@tate:~]# 
+15:17:02: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:17:05]# 
+root@localhost:~# 
+router[2026-09-09-22:17:12]# 
+root@localhost:~# 
+router[2026-09-09-22:17:18]# 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:17:26: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#
+router[2026-09-09-22:17:25]# clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+root@localhost:~# 
+Done
+
+]0;root@tate:~[root@tate:~]# 
+15:17:30: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:17:31]# 
+root@localhost:~# 
+router[2026-09-09-22:17:38]# 
+root@localhost:~# 
+router[2026-09-09-22:17:44]# 
+root@localhost:~# 
+router[2026-09-09-22:17:50]# 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:17:53: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+Done
+
+]0;root@tate:~[root@tate:~]# 
+15:17:58: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:17:57]# 
+root@localhost:~# 
+router[2026-09-09-22:18:03]# 
+root@localhost:~# 
+15:18:06: cmp1-cpm0-SERIAL session3 CLI: 
+java.lang.Exception: Error in command: timeout: 100000
+ Response output terminal: 
+ Is cli connected: true
+	at cmp.infra.CmpCliConnection.handleCliCommandWithDebug(CmpCliConnection.java:439)
+	at cmp.infra.CmpCliConnection.handleCliCommand(CmpCliConnection.java:359)
+	at cmp.infra.CmpCliSession.runCommandRawResponse(CmpCliSession.java:395)
+	at cmp.infra.CmpCliSession.runCommandRawResponseNoReport(CmpCliSession.java:435)
+	at cmp.infra.CmpCliSession.getRealMode(CmpCliSession.java:1485)
+	at cmp.infra.CmpCliSession.changeModeToONL(CmpCliSession.java:791)
+	at cmp.infra.CmpSessionHandleModeChange.changeModeToONL(CmpSessionHandleModeChange.java:40)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at cmp.infra.CmpModule.enterToSpecificSessionMode(CmpModule.java:1736)
+	at cmp.infra.CmpModule.handleSerialSession(CmpModule.java:1726)
+	at cmp.infra.CmpModule.getSessionByMode(CmpModule.java:1700)
+	at cmp.infra.CmpRouter.getSessionByMode(CmpRouter.java:817)
+	at cmp.infra.CmpRouter.runCommandAndSwitchMode(CmpRouter.java:894)
+	at cmp.infra.CmpRouter.searchForWdRestartInSyslog(CmpRouter.java:1667)
+	at cmp.infra.CmpRouter.doPost(CmpRouter.java:1548)
+	at cmp.infra.bringUp.BringUp.checkCoresAndAlarms(BringUp.java:217)
+	at cmp.infra.bringUp.BringUp.bringUpSetupAndVerify(BringUp.java:133)
+	at cmp.infra.bringUp.BringUp.bringUpAndVerify(BringUp.java:108)
+	at cmp.infra.CmpTestCase.initCmpTestCase(CmpTestCase.java:121)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.internal.runners.MethodRoadie.runBefores(MethodRoadie.java:129)
+	at org.junit.internal.runners.MethodRoadie.runBeforesThenTestThenAfters(MethodRoadie.java:93)
+	at org.junit.internal.runners.MethodRoadie.runTest(MethodRoadie.java:84)
+	at org.junit.internal.runners.MethodRoadie.run(MethodRoadie.java:49)
+	at org.junit.internal.runners.JUnit4ClassRunner.invokeTestMethod(JUnit4ClassRunner.java:98)
+	at org.junit.internal.runners.JUnit4ClassRunner.runMethods(JUnit4ClassRunner.java:61)
+	at org.junit.internal.runners.JUnit4ClassRunner$1.run(JUnit4ClassRunner.java:54)
+	at org.junit.internal.runners.ClassRoadie.runUnprotected(ClassRoadie.java:34)
+	at org.junit.internal.runners.ClassRoadie.runProtected(ClassRoadie.java:44)
+	at org.junit.internal.runners.JUnit4ClassRunner.run(JUnit4ClassRunner.java:52)
+	at junit.framework.JSystemJUnit4ClassRunner.run(JSystemJUnit4ClassRunner.java:250)
+	at org.junit.runners.Suite.runChild(Suite.java:128)
+	at org.junit.runners.Suite.runChild(Suite.java:24)
+	at org.junit.runners.ParentRunner$3.run(ParentRunner.java:231)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:60)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:229)
+	at org.junit.runners.ParentRunner.access$000(ParentRunner.java:50)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:222)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:300)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:157)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:136)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:117)
+	at org.junit.runner.JUnitCore.runMain(JUnitCore.java:98)
+	at org.junit.runner.JUnitCore.runMainAndExit(JUnitCore.java:53)
+	at org.junit.runner.JUnitCore.main(JUnitCore.java:45)
+
+router[2026-09-09-22:18:10]# 
+root@localhost:~# 
+router[2026-09-09-22:18:16]# 
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:18:21: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+Done
+
+
+router[2026-09-09-22:18:22]# 
+root@localhost:~# ]0;root@tate:~[root@tate:~]# 
+15:18:26: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:18:29]# 
+root@localhost:~# 
+router[2026-09-09-22:18:35]# 
+root@localhost:~# 
+router[2026-09-09-22:18:42]# 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:18:49: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#
+router[2026-09-09-22:18:48]# clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+root@localhost:~# 
+Done
+
+]0;root@tate:~[root@tate:~]# 
+15:18:53: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:18:55]# 
+root@localhost:~# 
+router[2026-09-09-22:19:01]# 
+root@localhost:~# 
+router[2026-09-09-22:19:07]# 
+root@localhost:~# 
+router[2026-09-09-22:19:14]# 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:19:17: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+Done
+
+]0;root@tate:~[root@tate:~]# 
+15:19:21: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:19:20]# 
+root@localhost:~# 
+router[2026-09-09-22:19:27]# 
+root@localhost:~# 
+router[2026-09-09-22:19:33]# 
+root@localhost:~# 
+router[2026-09-09-22:19:40]# 
+root@localhost:~# source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+15:19:45: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+Done
+
+
+router[2026-09-09-22:19:46]# 
+root@localhost:~# ]0;root@tate:~[root@tate:~]# 
+15:19:49: dtsrv: execute exa-il01-ec-3099-sc
+
+
+Open Network Linux OS ONL-master, 2026-05-12.19:43-28f52e6
+
+router login: 
+router[2026-09-09-22:19:52]# 
+root@localhost:~# 
+15:19:58: cmp1-cpm0-SERIAL session3 CLI: 
+java.lang.Exception: Error in command: timeout: 100000
+ Response output terminal: 
+ Is cli connected: true
+	at cmp.infra.CmpCliConnection.handleCliCommandWithDebug(CmpCliConnection.java:439)
+	at cmp.infra.CmpCliConnection.handleCliCommand(CmpCliConnection.java:359)
+	at cmp.infra.CmpCliSession.runCommandRawResponse(CmpCliSession.java:395)
+	at cmp.infra.CmpCliSession.runCommandRawResponseNoReport(CmpCliSession.java:435)
+	at cmp.infra.CmpCliSession.getRealMode(CmpCliSession.java:1485)
+	at cmp.infra.CmpCliSession.changeModeToONL(CmpCliSession.java:795)
+	at cmp.infra.CmpSessionHandleModeChange.changeModeToONL(CmpSessionHandleModeChange.java:40)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at cmp.infra.CmpModule.enterToSpecificSessionMode(CmpModule.java:1736)
+	at cmp.infra.CmpModule.handleSerialSession(CmpModule.java:1726)
+	at cmp.infra.CmpModule.getSessionByMode(CmpModule.java:1700)
+	at cmp.infra.CmpRouter.getSessionByMode(CmpRouter.java:817)
+	at cmp.infra.CmpRouter.runCommandAndSwitchMode(CmpRouter.java:894)
+	at cmp.infra.CmpRouter.searchForWdRestartInSyslog(CmpRouter.java:1667)
+	at cmp.infra.CmpRouter.doPost(CmpRouter.java:1548)
+	at cmp.infra.bringUp.BringUp.checkCoresAndAlarms(BringUp.java:217)
+	at cmp.infra.bringUp.BringUp.bringUpSetupAndVerify(BringUp.java:133)
+	at cmp.infra.bringUp.BringUp.bringUpAndVerify(BringUp.java:108)
+	at cmp.infra.CmpTestCase.initCmpTestCase(CmpTestCase.java:121)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke0(Native Method)
+	at java.base/jdk.internal.reflect.NativeMethodAccessorImpl.invoke(NativeMethodAccessorImpl.java:77)
+	at java.base/jdk.internal.reflect.DelegatingMethodAccessorImpl.invoke(DelegatingMethodAccessorImpl.java:43)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:569)
+	at org.junit.internal.runners.MethodRoadie.runBefores(MethodRoadie.java:129)
+	at org.junit.internal.runners.MethodRoadie.runBeforesThenTestThenAfters(MethodRoadie.java:93)
+	at org.junit.internal.runners.MethodRoadie.runTest(MethodRoadie.java:84)
+	at org.junit.internal.runners.MethodRoadie.run(MethodRoadie.java:49)
+	at org.junit.internal.runners.JUnit4ClassRunner.invokeTestMethod(JUnit4ClassRunner.java:98)
+	at org.junit.internal.runners.JUnit4ClassRunner.runMethods(JUnit4ClassRunner.java:61)
+	at org.junit.internal.runners.JUnit4ClassRunner$1.run(JUnit4ClassRunner.java:54)
+	at org.junit.internal.runners.ClassRoadie.runUnprotected(ClassRoadie.java:34)
+	at org.junit.internal.runners.ClassRoadie.runProtected(ClassRoadie.java:44)
+	at org.junit.internal.runners.JUnit4ClassRunner.run(JUnit4ClassRunner.java:52)
+	at junit.framework.JSystemJUnit4ClassRunner.run(JSystemJUnit4ClassRunner.java:250)
+	at org.junit.runners.Suite.runChild(Suite.java:128)
+	at org.junit.runners.Suite.runChild(Suite.java:24)
+	at org.junit.runners.ParentRunner$3.run(ParentRunner.java:231)
+	at org.junit.runners.ParentRunner$1.schedule(ParentRunner.java:60)
+	at org.junit.runners.ParentRunner.runChildren(ParentRunner.java:229)
+	at org.junit.runners.ParentRunner.access$000(ParentRunner.java:50)
+	at org.junit.runners.ParentRunner$2.evaluate(ParentRunner.java:222)
+	at org.junit.runners.ParentRunner.run(ParentRunner.java:300)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:157)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:136)
+	at org.junit.runner.JUnitCore.run(JUnitCore.java:117)
+	at org.junit.runner.JUnitCore.runMain(JUnitCore.java:98)
+	at org.junit.runner.JUnitCore.runMainAndExit(JUnitCore.java:53)
+	at org.junit.runner.JUnitCore.main(JUnitCore.java:45)
+
+router[2026-09-09-22:19:59]# 
+root@localhost:~# 
+router[2026-09-09-22:20:05]# 
+root@localhost:~# exit
+Password: 
+source /home/compass/bashrc.global
+]0;root@tate:~[root@tate:~]# 
+Login incorrect
+localhost login: 
+15:20:13: dtsrv: execute source /home/compass/bashrc.global
+exa-il01-ec-3099-sc
+spawn telnet 10.1.10.40
+Trying 10.1.10.40...
+Connected to 10.1.10.40 (10.1.10.40).
+Escape character is '^]'.
+
+lab-ts-10#root
+Password: 
+Last login: Wed Sep  9 22:15:03 IDT 2026 from 192.168.31.226 on pts/5
+Linux localhost 5.4.40-OpenNetworkLinux #1 SMP Tue May 12 19:59:28 UTC 2026 x86_64
+root@localhost:~# 
+router[2026-09-09-22:20:12]# 
+15:20:13: cmp1-cpm0-SERIAL session3: exit
+grep -qF "kernel.printk = 1 4 1 7" /etc/sysctl.conf || echo "keernel.printk = 1 4 1 7" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+kernel.printk = 1 4 1 7
+root@localhost:~# 
+15:20:14: cmp1-cpm0-SERIAL session3 ONL: execute grep -qF "kernel.printk = 1 4 1 7" /etc/sysctl.conf || echo "kernel.printk = 1 4 1 7" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+less /var/log/syslog | grep "wd_restart_server.update_reset_couunter_file" -c
+0
+root@localhost:~# 
+15:20:14: cmp1-cpm0-SERIAL session3 ONL: execute less /var/log/syslog | grep "wd_restart_server.update_reset_counter_file" -c
+show system alarm history | include Raised
+clear line 49
+[confirm]y [OK]
+lab-ts-10#
+lab-ts-10#
+root@localhost:~# 
+Done
+
+2026-09-09 22:09:41           Raised     Critical PSU PSU-2 is Failed
+2026-09-09 22:10:11           Raised     Major    interface mgmt0/0/0 status is down
+router[2026-09-09-22:20:13]# 
+15:20:15: cmp1-cpm0-MGMT session9 CLI: execute show system alarm history | include Raised
+cd /var/cache/core/
+root@localhost:/var/cache/core# 
+15:20:15: cmp1-onl0-MGMT session8 OS_SHELL: execute cd /var/cache/core/
+ls | grep core
+root@localhost:/var/cache/core# 
+15:20:16: cmp1-onl0-MGMT session8 OS_SHELL: execute ls | grep core
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        1.0M     0  1.0M   0% /dev
+proc               0     0     0    - /proc
+sysfs              0     0     0    - /sys
+/dev/sda7        96G  4.2G   87G   5% /
+efivarfs           0     0     0    - /sys/firmware/efi/efivars
+/dev/sda6       2.0G  1.2G  688M  63% /mnt/onl/images
+/dev/sda1       256M  260K  256M   1% /boot/efi
+/dev/sda4       120M   49M   63M  44% /mnt/onl/boot
+/dev/sda5        18G   84M   17G   1% /mnt/onl/config
+tmpfs           3.2G  1.2M  3.2G   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+tmpfs           6.3G  178M  6.1G   3% /run/shm
+devpts             0     0     0    - /dev/pts
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/config
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/db
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/image_back
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/images
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/home
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/system-images
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/usb-images
+/dev/sda7        96G  4.2G   87G   5% /vbox/local/platform/myplatform
+proc               0     0     0    - /vbox/lc_image/root/proc
+sys                -     -     -    - /vbox/lc_image/root/sys
+devtmpfs        1.0M     0  1.0M   0% /vbox/lc_image/root/dev
+tmpfs           3.2G  1.2M  3.2G   1% /vbox/cpm_image/root/opt/compass/shared
+tmpfs           3.2G  1.2M  3.2G   1% /vbox/lc_image/root/opt/compass/shared
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/bcm/sdk
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/bcm/myplatform
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image/root/opt/compass/bcm/sdk
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image/root/opt/compass/bcm/myplatform
+root@localhost:/var/cache/core# 
+15:20:16: cmp1-onl0-MGMT session8 OS_SHELL: execute df -ah
+
+15:20:16: Pass: There is enough disk space, use% less than 80%
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        1.0M     0  1.0M   0% /dev
+proc               0     0     0    - /proc
+sysfs              0     0     0    - /sys
+/dev/sda7        96G  4.2G   87G   5% /
+efivarfs           0     0     0    - /sys/firmware/efi/efivars
+/dev/sda6       2.0G  1.2G  688M  63% /mnt/onl/images
+/dev/sda1       256M  260K  256M   1% /boot/efi
+/dev/sda4       120M   49M   63M  44% /mnt/onl/boot
+/dev/sda5        18G   84M   17G   1% /mnt/onl/config
+tmpfs           3.2G  1.2M  3.2G   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+tmpfs           6.3G  178M  6.1G   3% /run/shm
+devpts             0     0     0    - /dev/pts
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/config
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/db
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/image_back
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/images
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/home
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/system-images
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/usb-images
+/dev/sda7        96G  4.2G   87G   5% /vbox/local/platform/myplatform
+proc               0     0     0    - /vbox/lc_image/root/proc
+sys                -     -     -    - /vbox/lc_image/root/sys
+devtmpfs        1.0M     0  1.0M   0% /vbox/lc_image/root/dev
+tmpfs           3.2G  1.2M  3.2G   1% /vbox/cpm_image/root/opt/compass/shared
+tmpfs           3.2G  1.2M  3.2G   1% /vbox/lc_image/root/opt/compass/shared
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/bcm/sdk
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/bcm/myplatform
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image/root/opt/compass/bcm/sdk
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image/root/opt/compass/bcm/myplatform
+root@localhost:/var/cache/core# 
+15:20:16: cmp1-onl0-MGMT session8 OS_SHELL: execute df -ah
+
+15:20:16: Pass: There is enough disk space, use% less than 80%
+
+router[2026-09-09-22:20:15]# 
+15:20:16: cmp1-cpm0-MGMT session9 CLI: 
+]0;root@tate:~[root@tate:~]# 
+15:20:17: dtsrv: execute exa-il01-ec-3099-sc
+
+root@localhost:~# 
+root@localhost:~# 
+root@localhost:~#
+15:20:19: cmp1-cpm0-SERIAL session3 ONL: 
+ 
+root@localhost:~#
+15:20:19: cmp1-cpm0-SERIAL session3 ONL: 
+ grep -qF "kernel.printk = 1 4 1 7" /etc/sysctl.conf || echo "keernel.printk = 1 4 1 7" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+kernel.printk = 1 4 1 7
+root@localhost:~#
+15:20:20: cmp1-cpm0-SERIAL session3 ONL: execute grep -qF "kernel.printk = 1 4 1 7" /etc/sysctl.conf || echo "kernel.printk = 1 4 1 7" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+
+router[2026-09-09-22:20:20]# 
+15:20:21: cmp1-cpm0-MGMT session9 CLI: 
+os-shell
+
+root@localhost:/var/cache/core# ]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:20:24: cmp1-cpm0-MGMT session9: os-shell
+su -
+Password: 
+root@router[CPM-0-0_A]:~# 
+15:20:25: cmp1-cpm0-MGMT session9: su -
+cd /var/cache/core/
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:26: cmp1-cpm0-MGMT session9 OS_SHELL: execute cd /var/cache/core/
+ls | grep core
+bgpd-2026-09-09-19:55:53-pid4342-sig6.core.gz
+bgpd-2026-09-09-20:48:07-pid4179-sig6.core.gz
+bgpd-2026-09-09-21:16:37-pid4364-sig6.core.gz
+bgpd-2026-09-09-21:43:05-pid4149-sig6.core.gz
+rpki_mo-2026-09-09-08:28:16-pid4437-sig6.core.gz
+rpki_mo-2026-09-09-10:25:59-pid16684-sig6.core.gz
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:26: cmp1-cpm0-MGMT session9 OS_SHELL: execute ls | grep core
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+rootfs           96G  4.2G   87G   5% /
+proc               0     0     0    - /proc
+sys                0     0     0    - /sys
+newroot          96G  4.2G   87G   5% /
+tmpfs           4.8G     0  4.8G   0% /dev
+proc               0     0     0    - /proc
+tmpfs           976M  5.6M  971M   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+sysfs              0     0     0    - /sys
+tmpfs           2.9G     0  2.9G   0% /run/shm
+devpts             0     0     0    - /dev/pts
+tmpfs           2.9G   16K  2.9G   1% /tmp
+proc               0     0     0    - /run/netns/65534
+proc               0     0     0    - /run/netns/0
+proc               0     0     0    - /run/netns/8191
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:26: cmp1-cpm0-MGMT session9 OS_SHELL: execute df -ah
+
+15:20:26: Pass: There is enough disk space, use% less than 90%
+find /home/admin/auto/*.tar.gz -mtime +3  -exec rm {} \;
+find: `/home/admin/auto/*.tar.gz': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:27: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/auto/*.tar.gz -mtime +3 -exec rm {} \;
+find /home/admin/auto/*.tar.gz -mtime +3 root@router[CPM-0-0_A]:/var/cache/core# find /home/admin/auto/*.tar.gz -mtime +3
+find: `/home/admin/auto/*.tar.gz': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:27: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/auto/*.tar.gz -mtime +3
+
+15:20:27: Pass: Files deleted successfully
+find /home/admin/*.tar.gz -mtime +3 -exe c rm {} \;
+find: `/home/admin/*.tar.gz': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:28: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/*.tar.gz -mtime +3 -exec rm {} \;
+find /home/admin/*.tar.gz -mtime +3
+find: `/home/admin/*.tar.gz': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:28: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/*.tar.gz -mtime +3
+
+15:20:28: Pass: Files deleted successfully
+find /home/admin/*.cfg -mtime +7 -exec r m {} \;
+
+root@localhost:/var/cache/core# root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:28: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/*.cfg -mtime +7 -exec rm {} \;
+find /home/admin/*.cfg -mtime +7
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:29: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/*.cfg -mtime +7
+
+15:20:29: Pass: Files deleted successfully
+find /var/cache/core/*.gz -mtime +7 -exe c rm {} \;
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:29: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /var/cache/core/*.gz -mtime +7 -exec rm {} \;
+find /var/cache/core/*.gz -mtime +7
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:29: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /var/cache/core/*.gz -mtime +7
+
+15:20:29: Pass: Files deleted successfully
+find /home/admin/capture/*.txt -mtime +3  -exec rm {} \;
+find: `/home/admin/capture/*.txt': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:30: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/capture/*.txt -mtime +3 -exec rm {} \;
+find /home/admin/capture/*.txt -mtime +3 root@router[CPM-0-0_A]:/var/cache/core# find /home/admin/capture/*.txt -mtime +3
+find: `/home/admin/capture/*.txt': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:30: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/capture/*.txt -mtime +3
+
+15:20:30: Pass: Files deleted successfully
+find /home/admin/capture/*.cap -mtime +3  -exec rm {} \;
+find: `/home/admin/capture/*.cap': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:30: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/capture/*.cap -mtime +3 -exec rm {} \;
+find /home/admin/capture/*.cap -mtime +3 root@router[CPM-0-0_A]:/var/cache/core# find /home/admin/capture/*.cap -mtime +3
+find: `/home/admin/capture/*.cap': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:31: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/capture/*.cap -mtime +3
+
+15:20:31: Pass: Files deleted successfully
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+rootfs           96G  4.2G   87G   5% /
+proc               0     0     0    - /proc
+sys                0     0     0    - /sys
+newroot          96G  4.2G   87G   5% /
+tmpfs           4.8G     0  4.8G   0% /dev
+proc               0     0     0    - /proc
+tmpfs           976M  5.6M  971M   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+sysfs              0     0     0    - /sys
+tmpfs           2.9G     0  2.9G   0% /run/shm
+devpts             0     0     0    - /dev/pts
+tmpfs           2.9G   16K  2.9G   1% /tmp
+proc               0     0     0    - /run/netns/65534
+proc               0     0     0    - /run/netns/0
+proc               0     0     0    - /run/netns/8191
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:31: cmp1-cpm0-MGMT session9 OS_SHELL: execute df -ah
+
+15:20:31: Pass: There is enough disk space, use% less than 90%
+
+15:20:31: Init cli, host: 10.3.99.1
+The supported auth Methods are:
+publickey
+password
+Last login: Wed Sep  9 22:16:08 2026 from 192.168.31.226
+   
+			Welcome to Router CLI
+admin connected from 192.168.31.226 using ssh on router
+[?7h
+root@localhost:/var/cache/core# router[2026-09-09-22:20:33]# 
+router[2026-09-09-22:20:33]# 
+15:20:35: cmp1-lc0-MGMT session10 CLI: 
+
+root@router[CPM-0-0_A]:/var/cache/core# 
+router[2026-09-09-22:20:39]# 
+15:20:40: cmp1-lc0-MGMT session10 CLI: 
+os-shell
+
+root@localhost:/var/cache/core# ]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:20:43: cmp1-lc0-MGMT session10: os-shell
+su -
+Password: 
+
+root@router[CPM-0-0_A]:/var/cache/core# root@router[CPM-0-0_A]:~# 
+15:20:44: cmp1-lc0-MGMT session10: su -
+
+root@router[CPM-0-0_A]:~# 
+15:20:45: cmp1-lc0-MGMT session10 OS_SHELL: 
+ssh lc0
+Last login: Wed Sep  9 22:15:44 2026 from 169.254.255.1
+root@router[LC-0-0]:~# 
+15:20:46: cmp1-lc0-MGMT session10 OS_SHELL: execute ssh lc0
+echo $PS1 | cut -d "[" -f 2 | cut -d "$" -f 1
+LC-0-0
+root@router[LC-0-0]:~# 
+15:20:46: cmp1-lc0-MGMT session10 OS_SHELL: : Verifying ssn succeeded
+cd /var/cache/core/
+root@router[LC-0-0]:/var/cache/core# 
+15:20:46: cmp1-lc0-MGMT session10 OS_SHELL: execute cd /var/cache/core/
+ls | grep core
+root@router[LC-0-0]:/var/cache/core# 
+15:20:46: cmp1-lc0-MGMT session10 OS_SHELL: execute ls | grep core
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+rootfs           96G  4.2G   87G   5% /
+proc               0     0     0    - /proc
+sys                0     0     0    - /sys
+newroot          96G  4.2G   87G   5% /
+tmpfs           1.9G     0  1.9G   0% /dev
+proc               0     0     0    - /proc
+tmpfs           387M  164K  386M   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+sysfs              0     0     0    - /sys
+tmpfs           773M     0  773M   0% /run/shm
+devpts             0     0     0    - /dev/pts
+proc               0     0     0    - /run/netns/65534
+proc               0     0     0    - /run/netns/0
+proc               0     0     0    - /run/netns/8191
+root@router[LC-0-0]:/var/cache/core# 
+15:20:47: cmp1-lc0-MGMT session10 OS_SHELL: execute df -ah
+
+15:20:47: Pass: There is enough disk space, use% less than 90%
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+rootfs           96G  4.2G   87G   5% /
+proc               0     0     0    - /proc
+sys                0     0     0    - /sys
+newroot          96G  4.2G   87G   5% /
+tmpfs           1.9G     0  1.9G   0% /dev
+proc               0     0     0    - /proc
+tmpfs           387M  164K  386M   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+sysfs              0     0     0    - /sys
+tmpfs           773M     0  773M   0% /run/shm
+devpts             0     0     0    - /dev/pts
+proc               0     0     0    - /run/netns/65534
+proc               0     0     0    - /run/netns/0
+proc               0     0     0    - /run/netns/8191
+root@router[LC-0-0]:/var/cache/core# 
+15:20:47: cmp1-lc0-MGMT session10 OS_SHELL: execute df -ah
+
+15:20:47: Pass: There is enough disk space, use% less than 90%
+Writing exaSystemConf_pc3099.cfg file to remote DUT with Java Secure Channel...
+
+cleanIxia {/var/tmp/ate-run/cmp-infra-project/src/main/java/cmp/infra/ixia/default.ixncfg} 
+
+root@localhost:/var/cache/core# Connected to JSch session successfully
+Connected to JSch channel successfully
+chmod a+rwx /home/admin/exaSystemConf_pc 3099.cfg
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:50: cmp1-cpm0-MGMT session9 OS_SHELL: execute chmod a+rwx /home/admin/exaSystemConf_pc3099.cfg
+
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:50: cmp1-cpm0-MGMT session9 OS_SHELL: 
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# ps -o ppid= -p `ps -o ppid= -p $$`
+ 8148
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:56: cmp1-cpm0-MGMT session9 OS_SHELL: execute ps -o ppid= -p `ps -o ppid= -p $$`
+
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:20:56: cmp1-cpm0-MGMT session9 OS_SHELL: execute 
+exit
+logout
+]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:20:56: cmp1-cpm0-MGMT session9: exit
+
+]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:20:57: cmp1-cpm0-MGMT session9 OS_SHELL: 
+exit
+exit
+router[2026-09-09-22:20:55]# 
+15:20:57: cmp1-cpm0-MGMT session9: exit
+
+router[2026-09-09-22:20:56]# 
+15:20:57: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:20:56]# 
+15:20:58: cmp1-cpm0-MGMT session9 CLI: 
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# ::ixNet::OK
+% 
+15:21:01: ixia1: Perform function: cleanIxia {/var/tmp/ate-run/cmp-infra-project/src/main/java/cmp/infra/ixia/default.ixncfg} 
+
+15:21:01: Pass: ixia1: Perform function: cleanIxia ended without errors
+loadIxiaFile {/var/tmp/ate-run/cmp-tests-project/src/cmp/tests/evpn/configurations/ixia/EVPN_3AC_CORE.ixncfg} 10.1.70.108 
+load file tcl or ixncfg
+load file: /var/tmp/ate-run/cmp-tests-project/src/cmp/tests/evpn/configurations/ixia/EVPN_3AC_CORE.ixncfg
+configure
+Entering configuration mode private
+router[2026-09-09-22:21:01](config)# 
+15:21:03: cmp1-cpm0: Entering configure mode
+no interface x-eth 0/*/* aggregator-id
+router[2026-09-09-22:21:01](config)# 
+15:21:03: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute no interface x-eth 0/*/* aggregator-id
+commit
+% No modifications to commit.
+router[2026-09-09-22:21:02](config)# 
+15:21:04: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:21:02](config)# 
+15:21:04: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+no interface x-eth 0/*/* ipv6-address
+router[2026-09-09-22:21:02](config)# 
+15:21:04: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute no interface x-eth 0/*/* ipv6-address
+commit
+% No modifications to commit.
+router[2026-09-09-22:21:03](config)# 
+15:21:05: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:21:03](config)# 
+15:21:05: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+no interface x-eth 0/*/* ipv4-address
+router[2026-09-09-22:21:03](config)# 
+15:21:05: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute no interface x-eth 0/*/* ipv4-address
+commit
+|
+root@router[LC-0-0]:/var/cache/core# ::ixNet::OK
+% /
+15:21:06: ixia1: Perform function: loadIxiaFile {/var/tmp/ate-run/cmp-tests-project/src/cmp/tests/evpn/configurations/ixia/EVPN_3AC_CORE.ixncfg} 10.1.70.108 
+
+15:21:06: Pass: ixia1: Perform function: loadIxiaFile ended without errors
+addchassis 10.1.70.108 
+::ixNet::OK
+Commit complete.
+router[2026-09-09-22:21:04](config)# 
+15:21:06: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:21:05](config)# 
+15:21:06: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:21:06: Pass: cmp1: Commit succeed!
+
+router[2026-09-09-22:21:05](config)# 
+15:21:06: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+
+router[2026-09-09-22:21:05](config)# 
+root@localhost:/var/cache/core# 
+15:21:07: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+end
+router[2026-09-09-22:21:05]# 
+15:21:07: cmp1-cpm0: Exit configure mode
+clear system alarm history
+router[2026-09-09-22:21:06]# 
+15:21:08: cmp1-cpm0-MGMT session9 CLI: execute clear system alarm history
+
+router[2026-09-09-22:21:07]# 
+15:21:08: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:21:07]# 
+15:21:08: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:21:07]# 
+15:21:09: cmp1-cpm0-MGMT session9 CLI: 
+% 
+15:21:09: ixia1: Perform function: addchassis 10.1.70.108 
+
+15:21:09: Pass: ixia1: Perform function: addchassis ended without errors
+loadIxiaObj
+insert root to ccontainer
+load all vports
+load interface
+load protocols on vport: ::ixNet::OBJ-/vport:1
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:2
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:3
+ load traffic
+% 
+15:21:09: ixia1: Perform function: loadIxiaObj
+
+15:21:09: Pass: ixia1: Perform function: loadIxiaObj ended without errors
+waEditLacpActorSystemId 06 05 
+% 
+15:21:10: ixia1: Perform function: waEditLacpActorSystemId 06 05 
+
+15:21:10: Pass: ixia1: Perform function: waEditLacpActorSystemId ended without errors
+connectVport vport1 6 5 true 
+card:6 port:5 is busy waitting... 
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# configure
+Entering configuration mode private
+router[2026-09-09-22:21:12](config)# 
+15:21:14: cmp1-cpm0: Entering configure mode
+load override exaSystemConf_pc3099.cfg
+Loading...
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# % 
+15:21:22: ixia1: Perform function: connectVport vport1 6 5 true 
+
+15:21:22: Pass: ixia1: Perform function: connectVport ended without errors
+vportStateSet vport1 down 
+::ixNet::OK
+% 
+15:21:22: ixia1: Perform function: vportStateSet vport1 down 
+
+15:21:22: Pass: ixia1: Perform function: vportStateSet ended without errors
+sendArpAll
+% 
+15:21:23: ixia1: Perform function: sendArpAll
+
+15:21:23: Pass: ixia1: Perform function: sendArpAll ended without errors
+restartCPU vport1 
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# Operation completed successfully in 18.247 seconds
+router[2026-09-09-22:21:32](config)# 
+15:21:34: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute load override exaSystemConf_pc3099.cfg
+
+15:21:34: Pass: Loading configuration file completed successfully
+
+router[2026-09-09-22:21:32](config)# commit
+|/-\|/-\|/-\|/-\|/
+root@router[LC-0-0]:/var/cache/core# -\|/
+root@localhost:/var/cache/core# -\|/-\|/-\|/-\|Commit complete.
+router[2026-09-09-19:21:40](config)# 
+15:21:42: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+
+router(config)# top
+router(config)# 
+15:21:42: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:21:42: Pass: cmp1: Commit succeed!
+ntp vrf management server 192.168.31.254
+router(config-vrf-management-server-192.168.31.254)# 
+15:21:43: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute ntp vrf management server 192.168.31.254
+commit
+|/-\|/-\
+root@router[LC-0-0]:/var/cache/core# |/-\
+root@localhost:/var/cache/core# |/-\|/-\|/-\|/-Commit complete.
+router(config-vrf-management-server-192.168.31.254)# 
+15:21:48: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router(config)# 
+15:21:49: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:21:49: Pass: cmp1: Commit succeed!
+
+router(config)# 
+15:21:49: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+
+router(config)# 
+15:21:49: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+end
+router# 
+15:21:49: cmp1-cpm0: Exit configure mode
+session paginate disable
+router# 
+15:21:51: cmp1-cpm0-MGMT session9 CLI: execute session paginate disable
+
+router# idle
+% 
+15:21:51: cmp1-cpm0-MGMT session9 CLI: 
+
+root@router[LC-0-0]:/var/cache/core# 
+router# 
+15:21:51: ixia1: Perform function: restartCPU vport1 
+
+15:21:51: Pass: ixia1: Perform function: restartCPU ended without errors
+vportStateSet vport1 up 
+::ixNet::OK
+% 
+15:21:51: cmp1-cpm0-MGMT session9 CLI: 
+
+router# 
+15:21:51: ixia1: Perform function: vportStateSet vport1 up 
+
+15:21:51: Pass: ixia1: Perform function: vportStateSet ended without errors
+sendArpAll
+% 
+15:21:51: cmp1-cpm0-MGMT session9 CLI: 
+
+15:21:51: ixia1: Perform function: sendArpAll
+
+15:21:51: Pass: ixia1: Perform function: sendArpAll ended without errors
+waEditLacpActorSystemId 06 06 
+% 
+root@localhost:/var/cache/core# 
+15:21:52: ixia1: Perform function: waEditLacpActorSystemId 06 06 
+
+15:21:52: Pass: ixia1: Perform function: waEditLacpActorSystemId ended without errors
+connectVport vport2 6 6 true 
+configure
+Entering configuration mode private
+router(config)# 
+15:21:56: cmp1-cpm0: Entering configure mode
+commit
+% No modifications to commit.
+router(config)# 
+15:21:57: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+
+router(config)# top
+router(config)# 
+root@router[LC-0-0]:/var/cache/core# 
+15:21:57: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+session paginate disable
+router(config)# 
+15:21:58: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute session paginate disable
+commit
+|
+root@localhost:/var/cache/core# Commit complete.
+router(config)# 
+15:21:58: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router(config)# 
+15:21:58: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:21:58: Pass: cmp1: Commit succeed!
+system time-zone Asia/Jerusalem
+router(config-system)# 
+15:21:59: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute system time-zone Asia/Jerusalem
+commit
+|/-\|Commit complete.
+router(config-system)# 
+15:22:00: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router(config)# 
+15:22:00: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:22:00: Pass: cmp1: Commit succeed!
+session prompt-timestamp enable
+router(config)# 
+15:22:00: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute session prompt-timestamp enable
+commit
+|/-\Commit complete.
+router(config)# % 
+15:22:02: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:22:02](config)# 
+15:22:02: ixia1: Perform function: connectVport vport2 6 6 true 
+
+15:22:02: Pass: ixia1: Perform function: connectVport ended without errors
+vportStateSet vport2 down 
+::ixNet::OK
+% 
+15:22:02: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:22:02: Pass: cmp1: Commit succeed!
+session idle-timeout 0
+router[2026-09-09-22:22:02](config)# 
+15:22:02: ixia1: Perform function: vportStateSet vport2 down 
+
+15:22:02: Pass: ixia1: Perform function: vportStateSet ended without errors
+sendArpAll
+% 
+15:22:02: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute session idle-timeout 0
+commit
+
+15:22:02: ixia1: Perform function: sendArpAll
+
+15:22:02: Pass: ixia1: Perform function: sendArpAll ended without errors
+restartCPU vport2 
+|/Commit complete.
+router[2026-09-09-22:22:03](config)# 
+15:22:03: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:22:03](config)# 
+15:22:03: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:22:03: Pass: cmp1: Commit succeed!
+Writing EVPN_Base.cfg file to remote DUT with Java Secure Channel...
+
+
+root@router[LC-0-0]:/var/cache/core# Connected to JSch session successfully
+Connected to JSch channel successfully
+
+root@localhost:/var/cache/core# 
+router[2026-09-09-22:22:06](config)# 
+15:22:07: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# 
+router[2026-09-09-22:22:12](config)# 
+15:22:12: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+run os-shell
+]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:22:14: cmp1-cpm0-MGMT session9: run os-shell
+su -
+Password: 
+root@router[CPM-0-0_A]:~# 
+15:22:16: cmp1-cpm0-MGMT session9: su -
+chmod a+rwx /home/admin/EVPN_Base.cfg
+root@router[CPM-0-0_A]:~# 
+15:22:16: cmp1-cpm0-MGMT session9 OS_SHELL: execute chmod a+rwx /home/admin/EVPN_Base.cfg
+
+root@router[CPM-0-0_A]:~# 
+15:22:17: cmp1-cpm0-MGMT session9 OS_SHELL: 
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# ps -o ppid= -p `ps -o ppid= -p $$`
+ 9277
+root@router[CPM-0-0_A]:~# 
+15:22:22: cmp1-cpm0-MGMT session9 OS_SHELL: execute ps -o ppid= -p `ps -o ppid= -p $$`
+
+root@router[CPM-0-0_A]:~# 
+root@router[CPM-0-0_A]:~# 
+15:22:23: cmp1-cpm0-MGMT session9 OS_SHELL: execute 
+exit
+logout
+]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:22:23: cmp1-cpm0-MGMT session9: exit
+
+]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+root@router[LC-0-0]:/var/cache/core# 
+15:22:23: cmp1-cpm0-MGMT session9 OS_SHELL: 
+exit
+exit
+router[2026-09-09-22:22:23](config)# 
+15:22:24: cmp1-cpm0-MGMT session9: exit
+
+router[2026-09-09-22:22:24](config)# 
+root@localhost:/var/cache/core# 
+15:22:24: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+load merge EVPN_Base.cfg
+Loading...
+Operation completed successfully in 1.183 seconds
+router[2026-09-09-22:22:26](config)# 
+15:22:27: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute load merge EVPN_Base.cfg
+
+15:22:27: Pass: Loading configuration file completed successfully
+commit
+|/-\|Commit complete.
+router[2026-09-09-22:22:28](config)# 
+15:22:28: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:22:28](config)# 
+15:22:28: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:22:28: Pass: cmp1: Commit succeed!
+ntp vrf management server 192.168.31.254
+router[2026-09-09-22:22:28](config-vrf-management-server-192.168.31.254)# 
+15:22:29: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute ntp vrf management server 192.168.31.254
+commit 
+% idle
+% No modifications to commit.
+router[2026-09-09-22:22:29](config-vrf-management-server-192.168.31.254)# 
+15:22:29: ixia1: Perform function: restartCPU vport2 
+
+15:22:29: Pass: ixia1: Perform function: restartCPU ended without errors
+
+15:22:29: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+vportStateSet vport2 up 
+::ixNet::OK
+% top
+router[2026-09-09-22:22:29](config)# 
+15:22:29: ixia1: Perform function: vportStateSet vport2 up 
+
+15:22:29: Pass: ixia1: Perform function: vportStateSet ended without errors
+
+15:22:29: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+sendArpAll
+
+router[2026-09-09-22:22:29](config)# % 
+15:22:29: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+
+router[2026-09-09-22:22:29](config)# 
+15:22:29: ixia1: Perform function: sendArpAll
+
+15:22:29: Pass: ixia1: Perform function: sendArpAll ended without errors
+waEditLacpActorSystemId 06 07 
+% 
+15:22:30: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+end
+router[2026-09-09-22:22:30]# 
+15:22:30: ixia1: Perform function: waEditLacpActorSystemId 06 07 
+
+15:22:30: Pass: ixia1: Perform function: waEditLacpActorSystemId ended without errors
+connectVport vport3 6 7 true 
+
+root@router[LC-0-0]:/var/cache/core# 
+15:22:30: cmp1-cpm0: Exit configure mode
+session paginate disable
+
+root@localhost:/var/cache/core# router[2026-09-09-22:22:31]# 
+15:22:31: cmp1-cpm0-MGMT session9 CLI: execute session paginate disable
+
+router[2026-09-09-22:22:31]# 
+15:22:31: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:22:31]# 
+15:22:32: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:22:32]# 
+15:22:32: cmp1-cpm0-MGMT session9 CLI: 
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# configure
+Entering configuration mode private
+router[2026-09-09-22:22:37](config)# 
+15:22:37: cmp1-cpm0: Entering configure mode
+commit
+% No modifications to commit.
+router[2026-09-09-22:22:37](config)# 
+15:22:37: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:22:37](config)# 
+15:22:38: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+session paginate disable
+router[2026-09-09-22:22:38](config)# 
+15:22:38: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute session paginate disable
+commit
+% No modifications to commit.
+router[2026-09-09-22:22:38](config)# 
+15:22:38: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:22:38](config)# 
+15:22:39: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+system time-zone Asia/Jerusalem
+router[2026-09-09-22:22:39](config-system)# 
+15:22:39: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute system time-zone Asia/Jerusalem
+commit
+% No modifications to commit.
+router[2026-09-09-22:22:39](config-system)# 
+15:22:39: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:22:39](config)# 
+15:22:39: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+session prompt-timestamp enable
+router[2026-09-09-22:22:39](config)# 
+15:22:40: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute session prompt-timestamp enable
+commit
+% No modifications to commit.
+router[2026-09-09-22:22:40](config)# % 
+15:22:40: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:22:40](config)# 
+15:22:40: ixia1: Perform function: connectVport vport3 6 7 true 
+
+15:22:40: Pass: ixia1: Perform function: connectVport ended without errors
+vportStateSet vport3 down 
+::ixNet::OK
+% 
+15:22:40: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+session idle-timeout 0
+router[2026-09-09-22:22:40](config)# 
+15:22:40: ixia1: Perform function: vportStateSet vport3 down 
+
+15:22:40: Pass: ixia1: Perform function: vportStateSet ended without errors
+sendArpAll
+% 
+15:22:41: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute session idle-timeout 0
+commit
+% 
+15:22:41: ixia1: Perform function: sendArpAll
+
+15:22:41: Pass: ixia1: Perform function: sendArpAll ended without errors
+restartCPU vport3 
+No modifications to commit.
+router[2026-09-09-22:22:41](config)# 
+15:22:41: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:22:41](config)# 
+15:22:41: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# 
+router[2026-09-09-22:22:47](config)# 
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# 
+router[2026-09-09-22:22:54](config)# 
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# 
+router[2026-09-09-22:23:00](config)# 
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# 
+router[2026-09-09-22:23:06](config)# idle
+% 
+15:23:07: ixia1: Perform function: restartCPU vport3 
+
+15:23:07: Pass: ixia1: Perform function: restartCPU ended without errors
+vportStateSet vport3 up 
+::ixNet::OK
+% 
+15:23:07: ixia1: Perform function: vportStateSet vport3 up 
+
+15:23:07: Pass: ixia1: Perform function: vportStateSet ended without errors
+sendArpAll
+% 
+15:23:08: ixia1: Perform function: sendArpAll
+
+15:23:08: Pass: ixia1: Perform function: sendArpAll ended without errors
+loadIxiaObj
+insert root to ccontainer
+load all vports
+load interface
+
+router[2026-09-09-22:23:08](config)# load protocols on vport: ::ixNet::OBJ-/vport:1
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:2
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:3
+
+15:23:08: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+
+router[2026-09-09-22:23:08](config)#  load traffic
+% 
+15:23:08: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+end
+router[2026-09-09-22:23:08]# 
+15:23:08: ixia1: Perform function: loadIxiaObj
+
+15:23:08: Pass: ixia1: Perform function: loadIxiaObj ended without errors
+
+15:23:08: cmp1-cpm0: Exit configure mode
+show system build-parameters
+
+root@router[LC-0-0]:/var/cache/core# 
+root@localhost:/var/cache/core# 	Application build id = dev64@91ef2807a7
+	swapp-deps version = v6.00 : 2026-06-04_21:17:22
+	Platform build id = b166-26-g8ce069c
+	ONL build version = 2026 05 12.1943 28f52e6
+	Confd release = 5.0.7.5-debian7
+	Broadcom SDK release = 6.5.34-v15181-4.7-J1-4c4979c 6.5.34-v15181-4.7-J2-4c4979c
+	User name = buildslave
+	Software version = 8.7.0
+	Data Model version = 7
+	Date = 090826_2159
+	Development mode = FALSE
+	Build mode = LAB
+	Build number = 935
+router[2026-09-09-22:23:09]# 
+15:23:10: cmp1-cpm0-MGMT session9 CLI: execute show system build-parameters
+DUT_SW_VERSION: 8.7.0_935
+show system module
+System Date: 2026-09-09 22:23:11+03:00 
+
+HA Role:   A - active, S - standby
+
+BOX/SLOT                    ADMIN                  STATE     ADDITIONAL
+INDEX   TYPE                STATE      OPER STATE  DURATION  INFO
+-------------------------------------------------------------------
+0/lc0   EXA2400-74XK-A      Active     Card-Ready  12m28s    
+0/cpm0  EXA2400             Active  A  Card-Ready  12m34s    
+router[2026-09-09-22:23:12]# 
+15:23:13: cmp1-cpm0-MGMT session9 CLI: execute show system module
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+
+15:23:13: Beginning of test: null
+show system build-parameters
+	Application build id = dev64@91ef2807a7
+	swapp-deps version = v6.00 : 2026-06-04_21:17:22
+	Platform build id = b166-26-g8ce069c
+	ONL build version = 2026 05 12.1943 28f52e6
+	Confd release = 5.0.7.5-debian7
+	Broadcom SDK release = 6.5.34-v15181-4.7-J1-4c4979c 6.5.34-v15181-4.7-J2-4c4979c
+	User name = buildslave
+	Software version = 8.7.0
+	Data Model version = 7
+	Date = 090826_2159
+	Development mode = FALSE
+	Build mode = LAB
+	Build number = 935
+router[2026-09-09-22:23:13]# 
+15:23:13: cmp1-cpm0-MGMT session9 CLI: execute show system build-parameters
+
+15:23:13: Working on build #: 8.7.0_935
+
+15:23:13: Pass: AC1: VLAN 1001 is a usable service VLAN.
+
+15:23:13: Pass: AC1: VLAN 1001 is not claimed by the SUT.
+
+15:23:13: Pass: AC2: VLAN 1002 is a usable service VLAN.
+
+15:23:13: Pass: AC2: VLAN 1002 is not claimed by the SUT.
+
+15:23:13: Pass: AC3: VLAN 1003 is a usable service VLAN.
+
+15:23:13: Pass: AC3: VLAN 1003 is not claimed by the SUT.
+show evpn summary
+%  No entries found.
+router[2026-09-09-22:23:13]# 
+15:23:14: cmp1-cpm0-MGMT session9 CLI: show evpn summary
+
+15:23:14: Pass: The output of show evpn summary no longer contains the expected-gone lines.
+
+router[2026-09-09-22:23:14]# 
+15:23:14: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:23:14]# 
+15:23:14: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:23:14]# 
+15:23:15: cmp1-cpm0-MGMT session9 CLI: 
+
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# configure
+Entering configuration mode private
+router[2026-09-09-22:23:20](config)# 
+15:23:20: cmp1-cpm0: Entering configure mode
+l2-services evpn evi-1 service-type vlan-based
+router[2026-09-09-22:23:20](config-l2-services-evpn-evi-1)# 
+15:23:20: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: l2-services evpn evi-1 service-type vlan-based
+commit
+|Commit complete.
+router[2026-09-09-22:23:20](config-l2-services-evpn-evi-1)# 
+15:23:21: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:23:21](config)# 
+15:23:21: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:23:21: Pass: cmp1: Commit succeed!
+l2-services evpn evi-1 auto-discovery
+router[2026-09-09-22:23:21](config-evpn-evi-1-auto-discovery)# 
+15:23:21: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: l2-services evpn evi-1 auto-discovery
+commit
+% No modifications to commit.
+router[2026-09-09-22:23:21](config-evpn-evi-1-auto-discovery)# 
+root@localhost:/var/cache/core# 
+15:23:21: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:23:22](config)# 
+root@router[LC-0-0]:/var/cache/core# 
+15:23:22: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:23:22: Warning: cmp1: Commit result (% No modifications to commit.).
+l2-services evpn evi-1 auto-discovery import-rt 65000:1
+router[2026-09-09-22:23:22](config-evpn-evi-1-auto-discovery)# 
+15:23:22: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: l2-services evpn evi-1 auto-discovery import-rt 65000:1
+commit
+|Commit complete.
+router[2026-09-09-22:23:22](config-evpn-evi-1-auto-discovery)# 
+15:23:23: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:23:23](config)# 
+15:23:23: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:23:23: Pass: cmp1: Commit succeed!
+l2-services evpn evi-1 auto-discovery export-rt 65000:1
+router[2026-09-09-22:23:23](config-evpn-evi-1-auto-discovery)# 
+15:23:23: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: l2-services evpn evi-1 auto-discovery export-rt 65000:1
+commit
+|Commit complete.
+router[2026-09-09-22:23:24](config-evpn-evi-1-auto-discovery)# 
+15:23:24: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:23:24](config)# 
+15:23:24: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:23:24: Pass: cmp1: Commit succeed!
+l2-services evpn evi-1 interface x-eth 0/0/32.1001
+router[2026-09-09-22:23:24](config-evpn-evi-1-interface-x-eth-0/0/32.1001)# 
+15:23:24: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: l2-services evpn evi-1 interface x-eth 0/0/32.1001
+commit
+|Commit complete.
+router[2026-09-09-22:23:25](config-evpn-evi-1-interface-x-eth-0/0/32.1001)# 
+15:23:25: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:23:25](config)# 
+15:23:25: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:23:25: Pass: cmp1: Commit succeed!
+l2-services evpn evi-1 interface x-eth 0/0/40.1002
+router[2026-09-09-22:23:25](config-evpn-evi-1-interface-x-eth-0/0/40.1002)# 
+15:23:25: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: l2-services evpn evi-1 interface x-eth 0/0/40.1002
+commit
+|Commit complete.
+router[2026-09-09-22:23:26](config-evpn-evi-1-interface-x-eth-0/0/40.1002)# 
+15:23:26: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:23:26](config)# 
+15:23:26: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:23:26: Pass: cmp1: Commit succeed!
+l2-services evpn evi-1 interface x-eth 0/0/40.1003
+router[2026-09-09-22:23:26](config-evpn-evi-1-interface-x-eth-0/0/40.1003)# 
+15:23:26: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: l2-services evpn evi-1 interface x-eth 0/0/40.1003
+commit
+|Commit complete.
+router[2026-09-09-22:23:27](config-evpn-evi-1-interface-x-eth-0/0/40.1003)# 
+15:23:27: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:23:27](config)# 
+15:23:27: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:23:27: Pass: cmp1: Commit succeed!
+
+router[2026-09-09-22:23:27](config)# 
+15:23:28: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+
+router[2026-09-09-22:23:28](config)# 
+15:23:28: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+end
+router[2026-09-09-22:23:28]# 
+root@localhost:/var/cache/core# 
+15:23:28: cmp1-cpm0: Exit configure mode
+show evpn detail
+EVPN name: evi-1
+Advertise MAC Addresses: Enabled
+ES DF Waiting Time: 3 seconds
+Export-rt: 65000:1
+Import-rt: 65000:1
+Service Type: vlan-based
+Host MAC Address Duplicate Detection: Disabled
+  Move Interval: 180 seconds
+  Move Counter: 5
+Freeze Time: 30 seconds
+MAC Aging Time: 300 seconds
+MAC Limit: 65520
+Unknown MAC Flooding: Disabled
+Control Word: Disabled
+
+Local Interfaces:
+INTERFACE         ESI                        ES LABEL    
+---------------------------------------------------------
+x-eth0/0/32.1001  -                          -           
+x-eth0/0/40.1002  -                          -           
+x-eth0/0/40.1003  -                          -           
+
+router[2026-09-09-22:23:28]# 
+root@router[LC-0-0]:/var/cache/core# 
+15:23:28: cmp1-cpm0-MGMT session9 CLI: show evpn detail
+
+15:23:28: Pass: The output of show evpn detail is as expected.
+
+15:23:28: Pass: AC1: VLAN 1001 is a usable service VLAN.
+
+15:23:28: Pass: AC1: VLAN 1001 is not claimed by the SUT.
+
+15:23:28: Pass: AC2: VLAN 1002 is a usable service VLAN.
+
+15:23:28: Pass: AC2: VLAN 1002 is not claimed by the SUT.
+
+15:23:28: Pass: AC3: VLAN 1003 is a usable service VLAN.
+
+15:23:28: Pass: AC3: VLAN 1003 is not claimed by the SUT.
+set ateNames {}; foreach it [ixNet getL [ixNet getRoot]/traffic trafficItem] { lappend ateNames [ixNet getAtt $it -name] }; join $ateNames { }
+TI_AC1_TO_AC2 TI_AC2_TO_AC1 TI_AC3_TO_AC1
+% 
+15:23:28: ixia1: runCommand
+
+15:23:28: Pass: the loaded EVPN_3AC_CORE.ixncfg carries every traffic item this test drives: 
+TI_AC1_TO_AC2 TI_AC2_TO_AC1 TI_AC3_TO_AC1
+configTrafficItemTracking TI_AC1_TO_AC2 null null trackingenabled0 null null null 
+insert root to ccontainer
+load all vports
+load interface
+load protocols on vport: ::ixNet::OBJ-/vport:1
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:2
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:3
+ load traffic
+% 
+15:23:29: ixia1: Perform function: configTrafficItemTracking TI_AC1_TO_AC2 null null trackingenabled0 null null null 
+
+15:23:29: Pass: ixia1: Perform function: configTrafficItemTracking ended without errors
+configTrafficItemTracking TI_AC2_TO_AC1 null null trackingenabled0 null null null 
+insert root to ccontainer
+load all vports
+load interface
+load protocols on vport: ::ixNet::OBJ-/vport:1
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:2
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:3
+ load traffic
+% 
+15:23:29: ixia1: Perform function: configTrafficItemTracking TI_AC2_TO_AC1 null null trackingenabled0 null null null 
+
+15:23:29: Pass: ixia1: Perform function: configTrafficItemTracking ended without errors
+configTrafficItemTracking TI_AC3_TO_AC1 null null trackingenabled0 null null null 
+insert root to ccontainer
+load all vports
+load interface
+load protocols on vport: ::ixNet::OBJ-/vport:1
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:2
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:3
+ load traffic
+% 
+15:23:30: ixia1: Perform function: configTrafficItemTracking TI_AC3_TO_AC1 null null trackingenabled0 null null null 
+
+15:23:30: Pass: ixia1: Perform function: configTrafficItemTracking ended without errors
+ixNet getAtt [getTraffic TI_AC1_TO_AC2]/tracking -trackBy
+trackingenabled0
+% 
+15:23:30: ixia1: runCommand
+ixNet getAtt [getTraffic TI_AC2_TO_AC1]/tracking -trackBy
+trackingenabled0
+% 
+15:23:30: ixia1: runCommand
+ixNet getAtt [getTraffic TI_AC3_TO_AC1]/tracking -trackBy
+trackingenabled0
+% 
+15:23:30: ixia1: runCommand
+
+15:23:30: Pass: All 3 traffic items are tracked by traffic item, so the statistics view exists.
+generateAllTrafficItems
+::ixNet::OK
+% 
+15:23:31: ixia1: Perform function: generateAllTrafficItems
+
+15:23:31: Pass: ixia1: Perform function: generateAllTrafficItems ended without errors
+
+router[2026-09-09-22:23:34]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# trafficItemConfig TI_AC1_TO_AC2 true 
+::ixNet::OK
+% 
+15:23:39: ixia1: Perform function: trafficItemConfig TI_AC1_TO_AC2 true 
+
+15:23:39: Pass: ixia1: Perform function: trafficItemConfig ended without errors
+trafficItemConfig TI_AC2_TO_AC1 true 
+::ixNet::OK
+% 
+15:23:39: ixia1: Perform function: trafficItemConfig TI_AC2_TO_AC1 true 
+
+15:23:39: Pass: ixia1: Perform function: trafficItemConfig ended without errors
+trafficItemConfig TI_AC3_TO_AC1 true 
+::ixNet::OK
+% 
+15:23:39: ixia1: Perform function: trafficItemConfig TI_AC3_TO_AC1 true 
+
+15:23:39: Pass: ixia1: Perform function: trafficItemConfig ended without errors
+trafficApply
+
+router[2026-09-09-22:23:40]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# 
+router[2026-09-09-22:23:46]# stopped
+
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# true
+% 
+15:23:52: ixia1: Perform function: trafficApply
+
+15:23:52: Pass: ixia1: Perform function: trafficApply ended without errors
+trafficStart
+stopped
+false
+% 
+15:23:52: ixia1: Perform function: trafficStart
+
+15:23:52: Pass: ixia1: Perform function: trafficStart ended without errors
+configTrafficItemStream TI_AC1_TO_AC2 1 null null null null null true 
+::ixNet::OK
+% 
+15:23:52: ixia1: Perform function: configTrafficItemStream TI_AC1_TO_AC2 1 null null null null null true 
+
+15:23:52: Pass: ixia1: Perform function: configTrafficItemStream ended without errors
+configTrafficItemStream TI_AC2_TO_AC1 1 null null null null null true 
+::ixNet::OK
+% 
+15:23:53: ixia1: Perform function: configTrafficItemStream TI_AC2_TO_AC1 1 null null null null null true 
+
+15:23:53: Pass: ixia1: Perform function: configTrafficItemStream ended without errors
+configTrafficItemStream TI_AC3_TO_AC1 1 null null null null null true 
+::ixNet::OK
+% 
+router[2026-09-09-22:23:53]# 
+15:23:53: ixia1: Perform function: configTrafficItemStream TI_AC3_TO_AC1 1 null null null null null true 
+
+15:23:53: Pass: ixia1: Perform function: configTrafficItemStream ended without errors
+trafficApply
+
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# ::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+% 
+15:23:55: ixia1: Perform function: trafficApply
+
+15:23:55: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+startProtocols
+remove protocol arp from the list
+remove protocol ping from the list
+remove protocol static from the list
+start protocols on vport:::ixNet::OBJ-/vport:1
+bfd: false
+bgp: true
+bgp : start res : ::ixNet::OK
+cfm: false
+eigrp: false
+elmi: false
+igmp: false
+isis: false
+lacp: false
+ldp: true
+ldp : start res : ::ixNet::OK
+linkOam: false
+lisp: false
+mld: false
+mplsOam: false
+mplsTp: false
+openFlow: false
+ospf: true
+ospf : start res : ::ixNet::OK
+ospfV3: false
+pimsm: false
+rip: false
+ripng: false
+rsvp: false
+stp: false
+start protocols on vport:::ixNet::OBJ-/vport:2
+bfd: false
+bgp: false
+cfm: false
+eigrp: false
+elmi: false
+igmp: false
+isis: false
+lacp: false
+ldp: false
+linkOam: false
+lisp: false
+mld: false
+mplsOam: false
+mplsTp: false
+openFlow: false
+ospf: false
+ospfV3: false
+pimsm: false
+rip: false
+ripng: false
+rsvp: false
+stp: false
+start protocols on vport:::ixNet::OBJ-/vport:3
+bfd: false
+bgp: false
+cfm: false
+eigrp: false
+elmi: false
+igmp: false
+isis: false
+lacp: false
+ldp: false
+linkOam: false
+lisp: false
+mld: false
+mplsOam: false
+mplsTp: false
+openFlow: false
+ospf: false
+ospfV3: false
+pimsm: false
+rip: false
+ripng: false
+rsvp: false
+stp: false
+% 
+15:23:57: ixia1: Perform function: startProtocols
+
+15:23:57: Pass: ixia1: Perform function: startProtocols ended without errors
+
+router[2026-09-09-22:23:59]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# 
+router[2026-09-09-22:24:06]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# 
+router[2026-09-09-22:24:12]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# 
+router[2026-09-09-22:24:18]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# 
+router[2026-09-09-22:24:25]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# 
+router[2026-09-09-22:24:31]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# 
+router[2026-09-09-22:24:38]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# loadIxiaObj
+insert root to ccontainer
+load all vports
+load interface
+load protocols on vport: ::ixNet::OBJ-/vport:1
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:2
+ load traffic
+load protocols on vport: ::ixNet::OBJ-/vport:3
+ load traffic
+% 
+15:24:42: ixia1: Perform function: loadIxiaObj
+
+15:24:42: Pass: ixia1: Perform function: loadIxiaObj ended without errors
+set ateStates {}; foreach vp [ixNet getL [ixNet getRoot] vport] {   foreach p {ospf ldp bgp} {     if {![catch {set en [ixNet getAtt $vp/protocols/$p -enabled]}]} {       if {$en} { lappend ateStates $p=[ixNet getAtt $vp/protocols/$p -runningState] } } } }; join $ateStates { }
+ospf=started ldp=started bgp=started
+% 
+15:24:42: ixia1: runCommand
+
+15:24:42: Pass: tester protocols are running: 
+ospf=started ldp=started bgp=started
+clear evpn mac address-table name evi-1
+router[2026-09-09-22:24:43]# 
+15:24:43: cmp1-cpm0-MGMT session9 CLI: clear evpn mac address-table name evi-1
+
+router[2026-09-09-22:24:43]# 
+15:24:43: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:24:43]# 
+15:24:43: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:24:43]# 
+15:24:43: cmp1-cpm0-MGMT session9 CLI: 
+
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# configure
+Entering configuration mode private
+router[2026-09-09-22:24:48](config)# 
+15:24:49: cmp1-cpm0: Entering configure mode
+commit
+% No modifications to commit.
+router[2026-09-09-22:24:49](config)# 
+15:24:49: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute commit
+top
+router[2026-09-09-22:24:49](config)# 
+15:24:49: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: execute top
+
+15:24:49: Warning: cmp1: Commit result (% No modifications to commit.).
+configTrafficItemStream TI_AC1_TO_AC2 1 null null null null null false 
+::ixNet::OK
+% 
+15:24:50: ixia1: Perform function: configTrafficItemStream TI_AC1_TO_AC2 1 null null null null null false 
+
+15:24:50: Pass: ixia1: Perform function: configTrafficItemStream ended without errors
+trafficApply
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+% 
+15:24:50: ixia1: Perform function: trafficApply
+
+15:24:50: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC2_TO_AC1 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:24:50: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:24:50: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+root@localhost:/var/cache/core# viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC2_TO_AC1 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+root@router[LC-0-0]:/var/cache/core# 
+15:24:52: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:24:52: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 852          1704         852          null         426           852           286272             572544             109056       27264            54528            218112          436224          218.112          436.224          0.218            0.436            3086                           3000                           3640                           00:00:57.448    00:00:58.299              
+TI_AC2_TO_AC1 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+router[2026-09-09-22:24:55](config)# 
+15:24:55: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:24:55: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 2852         5704         2852         null         1000          2000          672000             1344000            365056       64000            128000           512000          1024000         512              1024             0.512            1.024            3087                           3000                           3640                           00:00:57.448    00:01:00.299              
+TI_AC2_TO_AC1 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:24:57: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:24:57: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+15:24:57: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:24:57: Pass: Expected:(RX_FRAME_RATE: between  1995-2005), DUT output:(RX_FRAME_RATE:[2000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:24:57: Pass: viewStatisticsPage results as expected
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 2852         5704         2852         null         1000          2000          672000             1344000            365056       64000            128000           512000          1024000         512              1024             0.512            1.024            3087                           3000                           3640                           00:00:57.448    00:01:00.299              
+TI_AC2_TO_AC1 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:24:57: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:24:57: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+15:24:57: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:24:57: Pass: Expected:(RX_FRAME_RATE: between  1995-2005), DUT output:(RX_FRAME_RATE:[2000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:24:57: Pass: Expected:( one result only - TX_FRAME_RATE:0), DUT output:(TX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:24:57: Pass: Expected:(RX_FRAME_RATE: between  0-5), DUT output:(RX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:24:57: Pass: Expected:( one result only - TX_FRAME_RATE:0), DUT output:(TX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:24:57: Pass: Expected:(RX_FRAME_RATE: between  0-5), DUT output:(RX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:24:57: Pass: viewStatisticsPage results as expected
+
+router[2026-09-09-22:24:57](config)# 
+15:24:57: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+
+router[2026-09-09-22:24:57](config)# 
+15:24:58: cmp1-cpm0-MGMT session9 CLI_CONFIGURE: 
+end
+router[2026-09-09-22:24:58]# 
+root@localhost:/var/cache/core# 
+15:24:58: cmp1-cpm0: Exit configure mode
+show evpn mac-address-table name evi-1 source x-eth0/0/32.1001
+
+LOC:  L - local, R - remote
+L-FL: D - dynamic, S - static
+R-FL: N - learnt, U - Unlearnt
+ACT:  S - Single-Active, A - All-Active
+
+EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960
+    
+                                                                            IP                    
+VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  
+--------------------------------------------------------------------------------------------------
+      00:00:01:00:00:01  L    x-eth0/0/32.1001  0    D     -    -      -                          
+
+router[2026-09-09-22:24:58]# 
+15:24:58: cmp1-cpm0-MGMT session9 CLI: show evpn mac-address-table name evi-1 source x-eth0/0/32.1001
+
+15:24:58: Pass: The output of show evpn mac-address-table name evi-1 source x-eth0/0/32.1001 is as expected.
+show bgp l2vpn evpn table evi detail
+Flags:   s - suppressed, d - damped, h - history, * - valid, > - best
+i - internal, S - stale, = - multipath, a - alternate
+Origin:  i - IGP, e - EGP, ? - incomplete
+EVI Name = evi-1
+Type=2: VLAN-ID=0, MAC=00:00:01:00:00:01
+  ESI=0:0000.0000.0000.0000.0000
+  MPLS Label= 40960
+  Static Flag: 0
+  Sequence Number: 0
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:24:49 2026
+Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30
+  MPLS Label= 32768
+  Transmission Mode: Replication
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:23:20 2026
+router[2026-09-09-22:24:58]# 
+15:24:58: cmp1-cpm0-MGMT session9 CLI: show bgp l2vpn evpn table evi detail
+
+15:24:58: Pass: The output of show bgp l2vpn evpn table evi detail is as expected.
+configTrafficItemStream TI_AC2_TO_AC1 1 null null null null null false 
+::ixNet::OK
+% 
+15:24:59: ixia1: Perform function: configTrafficItemStream TI_AC2_TO_AC1 1 null null null null null false 
+
+15:24:59: Pass: ixia1: Perform function: configTrafficItemStream ended without errors
+trafficApply
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+% 
+root@router[LC-0-0]:/var/cache/core# 
+15:24:59: ixia1: Perform function: trafficApply
+
+15:24:59: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 4852         9704         4852         null         1000          2000          672000             1344000            621056       64000            128000           512000          1024000         512              1024             0.512            1.024            3087                           3000                           3640                           00:00:57.448    00:01:02.299              
+TI_AC2_TO_AC1 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:24:59: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:24:59: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 6852         13704        6852         null         1000          2000          672000             1344000            877056       64000            128000           512000          1024000         512              1024             0.512            1.024            3087                           3000                           3640                           00:00:57.448    00:01:04.299              
+TI_AC2_TO_AC1 0            0            0            0            0             0             0                  0                  0            0                0                0               0               0                0                0                0                null                           null                           null                           null            null                      
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:01: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:01: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 10852        21704        10852        null         1000          2000          672000             1344000            1389056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:08.299              
+TI_AC2_TO_AC1 1796         1796         0            0            898           898           603456             603456             114944       57472            57472            459776          459776          459.776          459.776          0.46             0.46             3036                           3000                           3540                           00:01:06.503    00:01:08.298              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:04: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:04: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+router[2026-09-09-22:25:04]# 
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 12852        25704        12852        null         1000          2000          672000             1344000            1645056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:10.299              
+TI_AC2_TO_AC1 3796         3796         0            0            1000          1000          672000             672000             242944       64000            64000            512000          512000          512              512              0.512            0.512            3036                           3000                           3540                           00:01:06.503    00:01:10.298              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:06: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:06: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+15:25:06: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:06: Pass: Expected:(RX_FRAME_RATE: between  995-1005), DUT output:(RX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:06: Pass: viewStatisticsPage results as expected
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 12852        25704        12852        null         1000          2000          672000             1344000            1645056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:10.299              
+TI_AC2_TO_AC1 3796         3796         0            0            1000          1000          672000             672000             242944       64000            64000            512000          512000          512              512              0.512            0.512            3036                           3000                           3540                           00:01:06.503    00:01:10.298              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:06: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:06: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+15:25:06: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:25:06: Pass: Expected:(RX_FRAME_RATE: between  1995-2005), DUT output:(RX_FRAME_RATE:[2000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:25:06: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:06: Pass: Expected:(RX_FRAME_RATE: between  995-1005), DUT output:(RX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:06: Pass: Expected:( one result only - TX_FRAME_RATE:0), DUT output:(TX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:25:06: Pass: Expected:(RX_FRAME_RATE: between  0-5), DUT output:(RX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:25:06: Pass: viewStatisticsPage results as expected
+show evpn mac-address-table name evi-1 source x-eth0/0/32.1001
+
+LOC:  L - local, R - remote
+L-FL: D - dynamic, S - static
+R-FL: N - learnt, U - Unlearnt
+ACT:  S - Single-Active, A - All-Active
+
+EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960
+    
+                                                                            IP                    
+VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  
+--------------------------------------------------------------------------------------------------
+      00:00:01:00:00:01  L    x-eth0/0/32.1001  0    D     -    -      -                          
+
+router[2026-09-09-22:25:06]# 
+15:25:06: cmp1-cpm0-MGMT session9 CLI: show evpn mac-address-table name evi-1 source x-eth0/0/32.1001
+
+15:25:06: Pass: The output of show evpn mac-address-table name evi-1 source x-eth0/0/32.1001 is as expected.
+show evpn mac-address-table name evi-1 source x-eth0/0/40.1002
+
+LOC:  L - local, R - remote
+L-FL: D - dynamic, S - static
+R-FL: N - learnt, U - Unlearnt
+ACT:  S - Single-Active, A - All-Active
+
+EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960
+    
+                                                                            IP                    
+VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  
+--------------------------------------------------------------------------------------------------
+      00:00:02:00:00:01  L    x-eth0/0/40.1002  0    D     -    -      -                          
+
+router[2026-09-09-22:25:07]# 
+15:25:07: cmp1-cpm0-MGMT session9 CLI: show evpn mac-address-table name evi-1 source x-eth0/0/40.1002
+
+15:25:07: Pass: The output of show evpn mac-address-table name evi-1 source x-eth0/0/40.1002 is as expected.
+show bgp l2vpn evpn table evi detail
+Flags:   s - suppressed, d - damped, h - history, * - valid, > - best
+i - internal, S - stale, = - multipath, a - alternate
+Origin:  i - IGP, e - EGP, ? - incomplete
+EVI Name = evi-1
+Type=2: VLAN-ID=0, MAC=00:00:01:00:00:01
+  ESI=0:0000.0000.0000.0000.0000
+  MPLS Label= 40960
+  Static Flag: 0
+  Sequence Number: 0
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:24:49 2026
+Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01
+  ESI=0:0000.0000.0000.0000.0000
+  MPLS Label= 40960
+  Static Flag: 0
+  Sequence Number: 0
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:24:58 2026
+Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30
+  MPLS Label= 32768
+  Transmission Mode: Replication
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:23:20 2026
+router[2026-09-09-22:25:07]# 
+15:25:07: cmp1-cpm0-MGMT session9 CLI: show bgp l2vpn evpn table evi detail
+
+15:25:07: Pass: The output of show bgp l2vpn evpn table evi detail is as expected.
+configTrafficItemStream TI_AC2_TO_AC1 1 null null null null null true 
+::ixNet::OK
+% 
+15:25:07: ixia1: Perform function: configTrafficItemStream TI_AC2_TO_AC1 1 null null null null null true 
+
+15:25:07: Pass: ixia1: Perform function: configTrafficItemStream ended without errors
+trafficApply
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+% 
+15:25:08: ixia1: Perform function: trafficApply
+
+15:25:08: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 14852        29704        14852        null         1000          2000          672000             1344000            1901056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:12.299              
+TI_AC2_TO_AC1 5796         5796         0            0            1000          1000          672000             672000             370944       64000            64000            512000          512000          512              512              0.512            0.512            3036                           3000                           3560                           00:01:06.503    00:01:12.298              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:08: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:08: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 16852        33704        16852        null         1000          2000          672000             1344000            2157056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:14.299              
+TI_AC2_TO_AC1 7796         7796         0            0            1000          1000          672000             672000             498944       64000            64000            512000          512000          512              512              0.512            0.512            3036                           3000                           3560                           00:01:06.503    00:01:14.298              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:10: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:10: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+root@localhost:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 18852        37704        18852        null         1000          2000          672000             1344000            2413056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:16.299              
+TI_AC2_TO_AC1 8647         8647         0            0            425.5         425.5         285936             285936             553408       27232            27232            217856          217856          217.856          217.856          0.218            0.218            3036                           3000                           3560                           00:01:06.503    00:01:15.149              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:12: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:12: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+router[2026-09-09-22:25:13]# viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 20852        41704        20852        null         1000          2000          672000             1344000            2669056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:18.299              
+TI_AC2_TO_AC1 8647         8647         0            0            0             0             0                  0                  553408       0                0                0               0               0                0                0                0                3036                           3000                           3560                           00:01:06.503    00:01:15.149              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:15: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:15: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+15:25:15: Pass: Expected:( one result only - TX_FRAME_RATE:0), DUT output:(TX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:15: Pass: Expected:(RX_FRAME_RATE: between  0-5), DUT output:(RX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:15: Pass: viewStatisticsPage results as expected
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 20852        41704        20852        null         1000          2000          672000             1344000            2669056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:18.299              
+TI_AC2_TO_AC1 8647         8647         0            0            0             0             0                  0                  553408       0                0                0               0               0                0                0                0                3036                           3000                           3560                           00:01:06.503    00:01:15.149              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:15: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:15: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+15:25:15: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:25:15: Pass: Expected:(RX_FRAME_RATE: between  1995-2005), DUT output:(RX_FRAME_RATE:[2000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:25:15: Pass: Expected:( one result only - TX_FRAME_RATE:0), DUT output:(TX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:15: Pass: Expected:(RX_FRAME_RATE: between  0-5), DUT output:(RX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:15: Pass: Expected:( one result only - TX_FRAME_RATE:0), DUT output:(TX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:25:15: Pass: Expected:(RX_FRAME_RATE: between  0-5), DUT output:(RX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:25:15: Pass: viewStatisticsPage results as expected
+show bgp l2vpn evpn table evi detail
+Flags:   s - suppressed, d - damped, h - history, * - valid, > - best
+i - internal, S - stale, = - multipath, a - alternate
+Origin:  i - IGP, e - EGP, ? - incomplete
+EVI Name = evi-1
+Type=2: VLAN-ID=0, MAC=00:00:01:00:00:01
+  ESI=0:0000.0000.0000.0000.0000
+  MPLS Label= 40960
+  Static Flag: 0
+  Sequence Number: 0
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:24:49 2026
+Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01
+  ESI=0:0000.0000.0000.0000.0000
+  MPLS Label= 40960
+  Static Flag: 0
+  Sequence Number: 0
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:24:58 2026
+Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30
+  MPLS Label= 32768
+  Transmission Mode: Replication
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:23:20 2026
+router[2026-09-09-22:25:15]# 
+15:25:15: cmp1-cpm0-MGMT session9 CLI: show bgp l2vpn evpn table evi detail
+configTrafficItemStream TI_AC3_TO_AC1 1 null null null null null false 
+::ixNet::OK
+% 
+15:25:16: ixia1: Perform function: configTrafficItemStream TI_AC3_TO_AC1 1 null null null null null false 
+
+15:25:16: Pass: ixia1: Perform function: configTrafficItemStream ended without errors
+trafficApply
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+% 
+15:25:16: ixia1: Perform function: trafficApply
+
+15:25:16: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 22852        45704        22852        null         1000          2000          672000             1344000            2925056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:20.299              
+TI_AC2_TO_AC1 8647         8647         0            0            0             0             0                  0                  553408       0                0                0               0               0                0                0                0                3036                           3000                           3560                           00:01:06.503    00:01:15.149              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:16: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:16: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+root@localhost:/var/cache/core# viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 24852        49704        24852        null         1000          2000          672000             1344000            3181056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:22.299              
+TI_AC2_TO_AC1 8647         8647         0            0            0             0             0                  0                  553408       0                0                0               0               0                0                0                0                3036                           3000                           3560                           00:01:06.503    00:01:15.149              
+TI_AC3_TO_AC1 360          360          0            0            0             0             0                  0                  23040        0                0                0               0               0                0                0                0                3036                           3000                           3540                           00:00:00.314    00:00:00.673              
+END TABLE!
+% 
+15:25:18: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:18: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+root@router[LC-0-0]:/var/cache/core# viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 26852        53704        26852        null         1000          2000          672000             1344000            3437056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:24.299              
+TI_AC2_TO_AC1 8647         8647         0            0            0             0             0                  0                  553408       0                0                0               0               0                0                0                0                3036                           3000                           3560                           00:01:06.503    00:01:15.149              
+TI_AC3_TO_AC1 1389         1389         0            0            514.5         514.5         345744             345744             88896        32928            32928            263424          263424          263.424          263.424          0.263            0.263            3036                           3000                           3540                           00:00:00.314    00:01:24.298              
+END TABLE!
+% 
+15:25:20: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:20: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+router[2026-09-09-22:25:21]# viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 28852        57704        28852        null         1000          2000          672000             1344000            3693056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:26.299              
+TI_AC2_TO_AC1 8647         8647         0            0            0             0             0                  0                  553408       0                0                0               0               0                0                0                0                3036                           3000                           3560                           00:01:06.503    00:01:15.149              
+TI_AC3_TO_AC1 3389         3389         0            0            1000          1000          672000             672000             216896       64000            64000            512000          512000          512              512              0.512            0.512            3036                           3000                           3540                           00:00:00.314    00:01:26.298              
+END TABLE!
+% 
+15:25:23: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:23: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+15:25:23: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:25:23: Pass: Expected:(RX_FRAME_RATE: between  995-1005), DUT output:(RX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:25:23: Pass: viewStatisticsPage results as expected
+show evpn mac-address-table name evi-1 source x-eth0/0/40.1003
+
+LOC:  L - local, R - remote
+L-FL: D - dynamic, S - static
+R-FL: N - learnt, U - Unlearnt
+ACT:  S - Single-Active, A - All-Active
+
+EVPN Name: evi-1, Service Model: vlan-based, Local Label: 40960
+    
+                                                                            IP                    
+VLAN  MAC ADDRESS        LOC  SOURCE            ESI  L-FL  ACT  FLAGS  SEQ  ADDRESS  LABEL  R-FL  
+--------------------------------------------------------------------------------------------------
+      00:00:02:00:00:01  L    x-eth0/0/40.1003  0    D     -    -      -                          
+
+router[2026-09-09-22:25:23]# 
+15:25:23: cmp1-cpm0-MGMT session9 CLI: show evpn mac-address-table name evi-1 source x-eth0/0/40.1003
+
+15:25:23: Pass: The output of show evpn mac-address-table name evi-1 source x-eth0/0/40.1003 is as expected.
+show bgp l2vpn evpn table evi detail
+Flags:   s - suppressed, d - damped, h - history, * - valid, > - best
+i - internal, S - stale, = - multipath, a - alternate
+Origin:  i - IGP, e - EGP, ? - incomplete
+EVI Name = evi-1
+Type=2: VLAN-ID=0, MAC=00:00:01:00:00:01
+  ESI=0:0000.0000.0000.0000.0000
+  MPLS Label= 40960
+  Static Flag: 0
+  Sequence Number: 0
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:24:49 2026
+Type=2: VLAN-ID=0, MAC=00:00:02:00:00:01
+  ESI=0:0000.0000.0000.0000.0000
+  MPLS Label= 40960
+  Static Flag: 0
+  Sequence Number: 0
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:24:58 2026
+Type=3: VLAN-ID=0, Originating Router's IP=29.30.30.30
+  MPLS Label= 32768
+  Transmission Mode: Replication
+  Peer IP: 0.0.0.0
+  Flags: *> 
+  Metric: 
+  Local Preference: 
+  Weight: 32768
+  AS Path: 
+  Last update: Wed Sep  9 22:23:20 2026
+router[2026-09-09-22:25:23]# 
+15:25:23: cmp1-cpm0-MGMT session9 CLI: show bgp l2vpn evpn table evi detail
+
+15:25:23: Pass: Verify NO new Type-2 was triggered by the local AC2 -> AC3 move (route table unchanged vs the snapshot): unchanged, as expected.
+viewStatisticsPage {Traffic Item Statistics} 
+TABLE START:
+TRAFFIC_ITEM  TX_FRAMES    RX_FRAMES    FRAMES_DELTA LOSS_%       TX_FRAME_RATE RX_FRAME_RATE TX_L1_RATE_(BITPS) RX_L1_RATE_(BITPS) RX_BYTES     TX_RATE_(BYTEPS) RX_RATE_(BYTEPS) TX_RATE_(BITPS) RX_RATE_(BITPS) TX_RATE_(KBITPS) RX_RATE_(KBITPS) TX_RATE_(MBITPS) RX_RATE_(MBITPS) STORE-FORWARD_AVG_LATENCY_(NS) STORE-FORWARD_MIN_LATENCY_(NS) STORE-FORWARD_MAX_LATENCY_(NS) FIRST_TIMESTAMP LAST_TIMESTAMP            
+------------  ------------ ------------ ------------ ------------ ------------- ------------- ------------------ ------------------ ------------ ---------------- ---------------- --------------- --------------- ---------------- ---------------- ---------------- ---------------- ------------------------------ ------------------------------ ------------------------------ --------------- --------------            
+TI_AC1_TO_AC2 28852        57704        28852        null         1000          2000          672000             1344000            3693056      64000            128000           512000          1024000         512              1024             0.512            1.024            3086                           3000                           3640                           00:00:57.448    00:01:26.299              
+TI_AC2_TO_AC1 8647         8647         0            0            0             0             0                  0                  553408       0                0                0               0               0                0                0                0                3036                           3000                           3560                           00:01:06.503    00:01:15.149              
+TI_AC3_TO_AC1 3389         3389         0            0            1000          1000          672000             672000             216896       64000            64000            512000          512000          512              512              0.512            0.512            3036                           3000                           3540                           00:00:00.314    00:01:26.298              
+END TABLE!
+% 
+root@localhost:/var/cache/core# 
+15:25:24: ixia1: Perform function: viewStatisticsPage {Traffic Item Statistics} 
+
+15:25:24: Pass: ixia1: Perform function: viewStatisticsPage ended without errors
+
+15:25:24: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:25:24: Pass: Expected:(RX_FRAME_RATE: between  1995-2005), DUT output:(RX_FRAME_RATE:[2000]), Condition:(TRAFFIC_ITEM: TI_AC1_TO_AC2 )
+
+15:25:24: Pass: Expected:( one result only - TX_FRAME_RATE:0), DUT output:(TX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:24: Pass: Expected:(RX_FRAME_RATE: between  0-5), DUT output:(RX_FRAME_RATE:[0]), Condition:(TRAFFIC_ITEM: TI_AC2_TO_AC1 )
+
+15:25:24: Pass: Expected:( one result only - TX_FRAME_RATE:1000), DUT output:(TX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:25:24: Pass: Expected:(RX_FRAME_RATE: between  995-1005), DUT output:(RX_FRAME_RATE:[1000]), Condition:(TRAFFIC_ITEM: TI_AC3_TO_AC1 )
+
+15:25:24: Pass: viewStatisticsPage results as expected
+show system module
+System Date: 2026-09-09 22:25:25+03:00 
+
+
+root@router[LC-0-0]:/var/cache/core# HA Role:   A - active, S - standby
+
+BOX/SLOT                    ADMIN                  STATE     ADDITIONAL
+INDEX   TYPE                STATE      OPER STATE  DURATION  INFO
+-------------------------------------------------------------------
+0/lc0   EXA2400-74XK-A      Active     Card-Ready  14m42s    
+0/cpm0  EXA2400             Active  A  Card-Ready  14m48s    
+router[2026-09-09-22:25:26]# 
+15:25:27: cmp1-cpm0-MGMT session9 CLI: execute show system module
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+ grep -qF "kernel.printk = 1 4 1 7" /etc/sysctl.conf || echo "keernel.printk = 1 4 1 7" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+kernel.printk = 1 4 1 7
+root@localhost:~#
+15:25:27: cmp1-cpm0-SERIAL session3 ONL: execute grep -qF "kernel.printk = 1 4 1 7" /etc/sysctl.conf || echo "kernel.printk = 1 4 1 7" | sudo tee -a /etc/sysctl.conf && sudo sysctl -p
+ less /var/log/syslog | grep "wd_restart_server.update_reset_couunter_file" -c
+0
+root@localhost:~#
+15:25:27: cmp1-cpm0-SERIAL session3 ONL: execute less /var/log/syslog | grep "wd_restart_server.update_reset_counter_file" -c
+
+15:25:27: Pass: On cmp exa-il01-ec-3099 WD did not rebooted DUT during the TC
+show system alarm history | include Raised
+2026-09-09 22:21:21           Raised     Major    interface x-eth0/0/18 status is down
+2026-09-09 22:22:40           Raised     Major    interface x-eth0/0/40 status is down
+router[2026-09-09-22:25:28]# 
+15:25:28: cmp1-cpm0-MGMT session9 CLI: execute show system alarm history | include Raised
+cd /var/cache/core/
+root@localhost:/var/cache/core# 
+15:25:29: cmp1-onl0-MGMT session8 OS_SHELL: execute cd /var/cache/core/
+ls | grep core
+root@localhost:/var/cache/core# 
+15:25:29: cmp1-onl0-MGMT session8 OS_SHELL: execute ls | grep core
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        1.0M     0  1.0M   0% /dev
+proc               0     0     0    - /proc
+sysfs              0     0     0    - /sys
+/dev/sda7        96G  4.2G   87G   5% /
+efivarfs           0     0     0    - /sys/firmware/efi/efivars
+/dev/sda6       2.0G  1.2G  688M  63% /mnt/onl/images
+/dev/sda1       256M  260K  256M   1% /boot/efi
+/dev/sda4       120M   49M   63M  44% /mnt/onl/boot
+/dev/sda5        18G   84M   17G   1% /mnt/onl/config
+tmpfs           3.2G  1.2M  3.2G   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+tmpfs           6.3G  178M  6.1G   3% /run/shm
+devpts             0     0     0    - /dev/pts
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/config
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/db
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/image_back
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/images
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/home
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/system-images
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/usb-images
+/dev/sda7        96G  4.2G   87G   5% /vbox/local/platform/myplatform
+proc               0     0     0    - /vbox/lc_image/root/proc
+sys                -     -     -    - /vbox/lc_image/root/sys
+devtmpfs        1.0M     0  1.0M   0% /vbox/lc_image/root/dev
+tmpfs           3.2G  1.2M  3.2G   1% /vbox/cpm_image/root/opt/compass/shared
+tmpfs           3.2G  1.2M  3.2G   1% /vbox/lc_image/root/opt/compass/shared
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/bcm/sdk
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/bcm/myplatform
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image/root/opt/compass/bcm/sdk
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image/root/opt/compass/bcm/myplatform
+root@localhost:/var/cache/core# 
+15:25:29: cmp1-onl0-MGMT session8 OS_SHELL: execute df -ah
+
+15:25:29: Pass: There is enough disk space, use% less than 80%
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+devtmpfs        1.0M     0  1.0M   0% /dev
+proc               0     0     0    - /proc
+sysfs              0     0     0    - /sys
+/dev/sda7        96G  4.2G   87G   5% /
+efivarfs           0     0     0    - /sys/firmware/efi/efivars
+/dev/sda6       2.0G  1.2G  688M  63% /mnt/onl/images
+/dev/sda1       256M  260K  256M   1% /boot/efi
+/dev/sda4       120M   49M   63M  44% /mnt/onl/boot
+/dev/sda5        18G   84M   17G   1% /mnt/onl/config
+tmpfs           3.2G  1.2M  3.2G   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+tmpfs           6.3G  178M  6.1G   3% /run/shm
+devpts             0     0     0    - /dev/pts
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/config
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/db
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/image_back
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/images
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/home
+/dev/sda5        18G   84M   17G   1% /vbox/cpm_image/root/opt/compass/system-images
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/usb-images
+/dev/sda7        96G  4.2G   87G   5% /vbox/local/platform/myplatform
+proc               0     0     0    - /vbox/lc_image/root/proc
+sys                -     -     -    - /vbox/lc_image/root/sys
+devtmpfs        1.0M     0  1.0M   0% /vbox/lc_image/root/dev
+tmpfs           3.2G  1.2M  3.2G   1% /vbox/cpm_image/root/opt/compass/shared
+tmpfs           3.2G  1.2M  3.2G   1% /vbox/lc_image/root/opt/compass/shared
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/bcm/sdk
+/dev/sda7        96G  4.2G   87G   5% /vbox/cpm_image/root/opt/compass/bcm/myplatform
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image/root/opt/compass/bcm/sdk
+/dev/sda7        96G  4.2G   87G   5% /vbox/lc_image/root/opt/compass/bcm/myplatform
+root@localhost:/var/cache/core# 
+15:25:29: cmp1-onl0-MGMT session8 OS_SHELL: execute df -ah
+
+15:25:29: Pass: There is enough disk space, use% less than 80%
+
+router[2026-09-09-22:25:29]# 
+15:25:29: cmp1-cpm0-MGMT session9 CLI: 
+
+root@router[LC-0-0]:/var/cache/core# 
+router[2026-09-09-22:25:34]# 
+15:25:35: cmp1-cpm0-MGMT session9 CLI: 
+os-shell
+
+root@localhost:/var/cache/core# ]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:25:37: cmp1-cpm0-MGMT session9: os-shell
+su -
+Password: 
+root@router[LC-0-0]:/var/cache/core# 
+root@router[CPM-0-0_A]:~# 
+15:25:39: cmp1-cpm0-MGMT session9: su -
+cd /var/cache/core/
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:39: cmp1-cpm0-MGMT session9 OS_SHELL: execute cd /var/cache/core/
+ls | grep core
+bgpd-2026-09-09-19:55:53-pid4342-sig6.core.gz
+bgpd-2026-09-09-20:48:07-pid4179-sig6.core.gz
+bgpd-2026-09-09-21:16:37-pid4364-sig6.core.gz
+bgpd-2026-09-09-21:43:05-pid4149-sig6.core.gz
+rpki_mo-2026-09-09-08:28:16-pid4437-sig6.core.gz
+rpki_mo-2026-09-09-10:25:59-pid16684-sig6.core.gz
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:40: cmp1-cpm0-MGMT session9 OS_SHELL: execute ls | grep core
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+rootfs           96G  4.2G   87G   5% /
+proc               0     0     0    - /proc
+sys                0     0     0    - /sys
+newroot          96G  4.2G   87G   5% /
+tmpfs           4.8G     0  4.8G   0% /dev
+proc               0     0     0    - /proc
+tmpfs           976M  5.6M  971M   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+sysfs              0     0     0    - /sys
+tmpfs           2.9G     0  2.9G   0% /run/shm
+devpts             0     0     0    - /dev/pts
+tmpfs           2.9G   16K  2.9G   1% /tmp
+proc               0     0     0    - /run/netns/65534
+proc               0     0     0    - /run/netns/0
+proc               0     0     0    - /run/netns/8191
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:40: cmp1-cpm0-MGMT session9 OS_SHELL: execute df -ah
+
+15:25:40: Pass: There is enough disk space, use% less than 90%
+find /home/admin/auto/*.tar.gz -mtime +3  -exec rm {} \;
+find: `/home/admin/auto/*.tar.gz': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:40: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/auto/*.tar.gz -mtime +3 -exec rm {} \;
+find /home/admin/auto/*.tar.gz -mtime +3 root@router[CPM-0-0_A]:/var/cache/core# find /home/admin/auto/*.tar.gz -mtime +3
+find: `/home/admin/auto/*.tar.gz': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:41: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/auto/*.tar.gz -mtime +3
+
+15:25:41: Pass: Files deleted successfully
+find /home/admin/*.tar.gz -mtime +3 -exe c rm {} \;
+find: `/home/admin/*.tar.gz': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:41: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/*.tar.gz -mtime +3 -exec rm {} \;
+find /home/admin/*.tar.gz -mtime +3
+find: `/home/admin/*.tar.gz': No such file or directory
+
+root@localhost:/var/cache/core# root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:42: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/*.tar.gz -mtime +3
+
+15:25:42: Pass: Files deleted successfully
+find /home/admin/*.cfg -mtime +7 -exec r m {} \;
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:42: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/*.cfg -mtime +7 -exec rm {} \;
+find /home/admin/*.cfg -mtime +7
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:42: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/*.cfg -mtime +7
+
+15:25:42: Pass: Files deleted successfully
+find /var/cache/core/*.gz -mtime +7 -exe c rm {} \;
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:43: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /var/cache/core/*.gz -mtime +7 -exec rm {} \;
+find /var/cache/core/*.gz -mtime +7
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:43: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /var/cache/core/*.gz -mtime +7
+
+15:25:43: Pass: Files deleted successfully
+find /home/admin/capture/*.txt -mtime +3  -exec rm {} \;
+find: `/home/admin/capture/*.txt': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:43: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/capture/*.txt -mtime +3 -exec rm {} \;
+find /home/admin/capture/*.txt -mtime +3 root@router[CPM-0-0_A]:/var/cache/core# find /home/admin/capture/*.txt -mtime +3
+find: `/home/admin/capture/*.txt': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:44: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/capture/*.txt -mtime +3
+
+15:25:44: Pass: Files deleted successfully
+find /home/admin/capture/*.cap -mtime +3  -exec rm {} \;
+find: `/home/admin/capture/*.cap': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:44: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/capture/*.cap -mtime +3 -exec rm {} \;
+find /home/admin/capture/*.cap -mtime +3 root@router[CPM-0-0_A]:/var/cache/core# 
+root@router[LC-0-0]:/var/cache/core# find /home/admin/capture/*.cap -mtime +3
+find: `/home/admin/capture/*.cap': No such file or directory
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:44: cmp1-cpm0-MGMT session9 OS_SHELL: execute find /home/admin/capture/*.cap -mtime +3
+
+15:25:45: Pass: Files deleted successfully
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+rootfs           96G  4.2G   87G   5% /
+proc               0     0     0    - /proc
+sys                0     0     0    - /sys
+newroot          96G  4.2G   87G   5% /
+tmpfs           4.8G     0  4.8G   0% /dev
+proc               0     0     0    - /proc
+tmpfs           976M  5.6M  971M   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+sysfs              0     0     0    - /sys
+tmpfs           2.9G     0  2.9G   0% /run/shm
+devpts             0     0     0    - /dev/pts
+tmpfs           2.9G   16K  2.9G   1% /tmp
+proc               0     0     0    - /run/netns/65534
+proc               0     0     0    - /run/netns/0
+proc               0     0     0    - /run/netns/8191
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:45: cmp1-cpm0-MGMT session9 OS_SHELL: execute df -ah
+
+15:25:45: Pass: There is enough disk space, use% less than 90%
+cd /var/cache/core/
+root@router[LC-0-0]:/var/cache/core# 
+15:25:45: cmp1-lc0-MGMT session10 OS_SHELL: execute cd /var/cache/core/
+ls | grep core
+root@router[LC-0-0]:/var/cache/core# 
+15:25:45: cmp1-lc0-MGMT session10 OS_SHELL: execute ls | grep core
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+rootfs           96G  4.2G   87G   5% /
+proc               0     0     0    - /proc
+sys                0     0     0    - /sys
+newroot          96G  4.2G   87G   5% /
+tmpfs           1.9G     0  1.9G   0% /dev
+proc               0     0     0    - /proc
+tmpfs           387M  164K  386M   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+sysfs              0     0     0    - /sys
+tmpfs           773M     0  773M   0% /run/shm
+devpts             0     0     0    - /dev/pts
+proc               0     0     0    - /run/netns/65534
+proc               0     0     0    - /run/netns/0
+proc               0     0     0    - /run/netns/8191
+root@router[LC-0-0]:/var/cache/core# 
+15:25:46: cmp1-lc0-MGMT session10 OS_SHELL: execute df -ah
+
+15:25:46: Pass: There is enough disk space, use% less than 90%
+df -ah
+Filesystem      Size  Used Avail Use% Mounted on
+rootfs           96G  4.2G   87G   5% /
+proc               0     0     0    - /proc
+sys                0     0     0    - /sys
+newroot          96G  4.2G   87G   5% /
+tmpfs           1.9G     0  1.9G   0% /dev
+proc               0     0     0    - /proc
+tmpfs           387M  164K  386M   1% /run
+tmpfs           5.0M     0  5.0M   0% /run/lock
+sysfs              0     0     0    - /sys
+tmpfs           773M     0  773M   0% /run/shm
+devpts             0     0     0    - /dev/pts
+proc               0     0     0    - /run/netns/65534
+proc               0     0     0    - /run/netns/0
+proc               0     0     0    - /run/netns/8191
+root@router[LC-0-0]:/var/cache/core# 
+15:25:46: cmp1-lc0-MGMT session10 OS_SHELL: execute df -ah
+
+15:25:46: Pass: There is enough disk space, use% less than 90%
+
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:46: cmp1-cpm0-MGMT session9 OS_SHELL: 
+
+root@localhost:/var/cache/core# ps -o ppid= -p `ps -o ppid= -p $$`
+ 9926
+root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:52: cmp1-cpm0-MGMT session9 OS_SHELL: execute ps -o ppid= -p `ps -o ppid= -p $$`
+
+
+root@router[LC-0-0]:/var/cache/core# root@router[CPM-0-0_A]:/var/cache/core# 
+15:25:52: cmp1-cpm0-MGMT session9 OS_SHELL: execute 
+exit
+logout
+]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:25:52: cmp1-cpm0-MGMT session9: exit
+
+]0;admin@router: ~admin@router[CPM-0-0_A]:~$ 
+15:25:53: cmp1-cpm0-MGMT session9 OS_SHELL: 
+exit
+exit
+router[2026-09-09-22:25:53]# 
+15:25:53: cmp1-cpm0-MGMT session9: exit
+
+router[2026-09-09-22:25:53]# 
+15:25:53: cmp1-cpm0-MGMT session9 CLI: 
+
+router[2026-09-09-22:25:53]# 
+15:25:53: cmp1-cpm0-MGMT session9 CLI: 
+show system module
+
+root@localhost:/var/cache/core# System Date: 2026-09-09 22:25:54+03:00 
+
+HA Role:   A - active, S - standby
+
+BOX/SLOT                    ADMIN                  STATE     ADDITIONAL
+INDEX   TYPE                STATE      OPER STATE  DURATION  INFO
+-------------------------------------------------------------------
+0/lc0   EXA2400-74XK-A      Active     Card-Ready  15m11s    
+0/cpm0  EXA2400             Active  A  Card-Ready  15m17s    
+router[2026-09-09-22:25:56]# 
+15:25:56: cmp1-cpm0-MGMT session9 CLI: execute show system module
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+MATCH: [show system module]
+
+15:25:56: Failures list: 
+
+15:25:56: Warning: Error reading TATE_GLOBAL_PARAM JSON Cannot invoke "String.length()" because "s" is null
+
+15:25:56: Warning: cmp1: Commit result (% No modifications to commit.).
+
+15:25:56: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+
+15:25:56: Warning: cmp1: Commit result (% No modifications to commit.).
+
+15:25:56: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+
+15:25:56: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+
+15:25:56: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+
+15:25:56: Warning: ixia1: Perform function: trafficApply - Ixia error: 
+::ixNet::ERROR-7008-Could not apply traffic,Error in L2/L3 Traffic Apply
+
+Start time: Wed Sep 09 15:14:54 EDT 2026
+
+End time  : Wed Sep 09 15:25:56 EDT 2026
+
+Test running time: 662 sec.
+
+Time: 662.712
+
+OK (1 test)
+
