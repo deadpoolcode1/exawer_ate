@@ -1,48 +1,68 @@
-Subject: Re: (M2 hand-over, run on pc-3099)
+Subject: RE: (M2 hand-over, pc-3099)
 
 Hi Eyal,
 
 Package attached. Run on pc-3099, 8.7.0 LAB 935.
 
-The automation report you asked for is 06_automation_report/index.html. Open
-it directly, no server. One page per test: numbered steps, the command sent,
-the device output, and the parsed verdict. For example:
-
-  1.  Verify evi-1 does not exist before this test creates it
-      cmp1-cpm0-MGMT session9 CLI: show evpn summary
-  10. Verify evi-1 is up and all 3 attachment circuits are bound
-      cmp1-cpm0-MGMT session9 CLI: show evpn detail
-      Pass: The output of show evpn detail is as expected.
+The automation report you asked for is 06_automation_report/index.html.
+Open it directly, no server. It is the report from the run that passed:
+one page per test, numbered steps, the command sent, the device output
+and the parsed verdict.
 
 Your four points:
 
-1. Ixia file not in TCL / cannot open. Done. You had the raw ixNet dump. Now
-   EVPN_traffic.tcl in your idiom, plus a real EVPN_3AC_CORE.ixncfg.
-2. .crt loads no Ixia file. Done. Bring-up brings the tester up alone: OSPF
-   Full, BGP up on 29.60.0.2.
-3. TC01 configures an existing service. Done. The .cfg no longer creates the
-   EVI; each TC creates it after asserting it absent.
-4. TC02 missing. Back. Three ACs, two sharing x-eth0/0/40, VLANs 1001-1003.
+1. Ixia file not in TCL / cannot open. Done. configurations/ixia/
+   EVPN_traffic.tcl states every item in readable form, and
+   EVPN_3AC_CORE.ixncfg is what IxNetwork saved from running it.
+2. .crt loads no Ixia file. Done. Bring-up loads the .ixncfg, and the
+   tester comes up on its own: OSPF Full, BGP up on 29.60.0.2.
+3. TC01 configures an existing service. Done. The .cfg no longer
+   creates the EVI. Each TC asserts it absent, then creates it.
+4. TC02 missing. Back, and green:
 
-Traffic now works end to end. The circuits classify and the EVI learns:
+     TC02_EvpnType2MacIpAdvertisement   OK (1 test)   662 s
+     0 failures, 170 passing assertions
 
-  x-eth0/0/32.1001   RX 107.45 k
-  00:00:01:00:00:01  L  x-eth0/0/32.1001  D
-  00:00:02:00:00:01  L  x-eth0/0/40.1002  D
+   Three ACs, two of them sharing x-eth0/0/40, VLANs 1001-1003. It
+   asserts the MACs learnt on each circuit including the moved one, the
+   Type-2 advertisement, and that the local AC2 to AC3 move triggers no
+   new Type-2.
 
-Two defects on your side:
+Running it found four defects of ours, all fixed:
 
-- bgpd aborts when an EVI is deleted. assert (_Bool)(ipi_evi_p),
-  bgp_evi.c:310, bgp_evi_delete. The EVI then survives in operational state
-  after it has left the configuration, so nothing can start clean without a
-  reboot. Backtrace: 02_evidence/evidence_bgpd_crash_on_evi_delete.txt
-- Bring-up matches the ONL shell by the literal "@localhost"
-  (CmpCliSession.java:69). After a reboot the box comes up as "router" and
-  bring-up cannot enter ONL mode at all. I set the hostname back on pc-3099;
-  pc-3080 still has this and no suite can run there.
+- Our traffic items carried no tracking, so IxNetwork never built the
+  "Traffic Item Statistics" view and every traffic assertion failed
+  while the traffic was running correctly. ixia_lib's trafficApply
+  reads that view on its last line, which is where the misleading
+  "ERROR-7008 Could not apply traffic" came from.
+- Expected Rx assumed Rx = Tx. AC2 and AC3 share a vport, so a flooded
+  frame is counted twice: TI_AC1_TO_AC2 is Tx 1000 / Rx 2000. That 2x
+  is now the flooding assertion.
+- TC03 aged out MACs it had never learnt, because its prep starts every
+  traffic item suspended. It learns first now.
+- Our absence checks asked once. Your MAC aging time is 300 s but the
+  sweep is coarser: measured here, the entry was still present at 342 s
+  and gone by 442 s. They poll now.
 
-Still needed: ticket ID for the branch, and your wording for the deprecated
-show commands and the tech-support command.
+Expectations were re-captured against a device with traffic running:
+16 of 16 usable. Falsifiable assertions went from 7 of 26 to 17 of 26.
+
+Two on your side:
+
+- bgpd aborts when an EVI is deleted: assert (_Bool)(ipi_evi_p),
+  bgp_evi.c:310, bgp_evi_delete. The EVI then survives in operational
+  state after leaving the configuration, so nothing starts clean
+  without a reboot. Backtrace in 02_evidence/.
+- Bring-up runs "less /var/log/syslog | grep ... -c" on the serial
+  console. less opens /dev/tty and waits for a keypress, so it times
+  out at 100 s. Not a size problem: it hung on a 7.9 KB file. cat in
+  place of less fixes it.
+  Separately, bring-up matches the ONL shell on the literal
+  "@localhost", and the hostname goes back to "router" a few minutes
+  after boot, so any suite can lose that race.
+
+Still needed from you: a ticket ID for the branch, and your wording for
+the deprecated show commands and the tech-support command.
 
 Thanks,
 Ilan
