@@ -3,8 +3,9 @@ import time
 
 sys.path.insert(0, "/tmp")
 from dut import Dut
+from rig import dut_ip
 
-d = Dut("10.3.99.1")
+d = Dut(dut_ip())
 print(d.run("configure", limit=60))
 print(d.run("no l2-services evpn evi-1", limit=60))
 print(d.run("commit", limit=180))

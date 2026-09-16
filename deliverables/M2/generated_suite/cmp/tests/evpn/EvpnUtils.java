@@ -208,8 +208,55 @@ public class EvpnUtils implements loggerImp {
                     + "': " + String.valueOf(output).trim());
             throw new Exception("device rejected the command: " + command.toString());
         }
-        cmp.commitAndVerification(command.getCmdSessionType(),
-                GlobalParam.LOAD_CONF_FILE_TIMEOUT_DEFAULT_MSEC);
+        // A configuration step that commits nothing configured nothing.
+        //
+        // `commitAndVerification` turns "No modifications to commit" into a
+        // WARNING and carries on, so such a step reported success. Exaware
+        // found two of them in the TC02 report on 2026-09-15 (Oded Engel):
+        // step 3 entered the `auto-discovery` container, which is a mode
+        // descent and stages nothing, and step 12 ran a `clear` through the
+        // configuration path, where it never belonged. Neither step could
+        // have failed, whatever the device did.
+        //
+        // This is the fake-pass rule applied to configuration: the step
+        // claims it changed the device, so the commit has to agree.
+        String commitResult = cmp.commit(command.getCmdSessionType());
+        if (String.valueOf(commitResult).contains("No modifications to commit")) {
+            CompassReporter.fail("'" + command.toString() + "' committed "
+                    + "NOTHING: the device had no modification to apply, so "
+                    + "this step cannot have done its work. Either the node "
+                    + "is a container rather than a leaf, or the command is "
+                    + "operational and does not belong on the config path.");
+            throw new Exception("configuration step committed nothing: "
+                    + command.toString());
+        }
+        // Deliberately NOT counted as a falsifiable assertion. This can fail,
+        // but it establishes that the device accepted configuration, not that
+        // EVPN behaves. A suite that only configured would otherwise satisfy
+        // assertSomethingWasVerified() while verifying nothing, which is the
+        // fake pass this whole counter exists to prevent.
+    }
+
+    /**
+     * Run an operational command and verify the device accepted it.
+     *
+     * `clear`, `ping`, `request` and the rest are executed, not configured.
+     * Sending one through {@link #configAndVerifyAccepted} enters
+     * configuration mode and commits, and the commit then reports "No
+     * modifications to commit" because an operational command stages
+     * nothing. That is what step 12 of the shipped TC02 did.
+     */
+    public void execAndVerifyAccepted(ICmpCliCmd command) throws Exception {
+        String output = cmp.runCommandAndSwitch(command.toString(), command);
+        if (wasRejected(output)) {
+            CompassReporter.fail("Device REJECTED '" + command.toString()
+                    + "': " + String.valueOf(output).trim());
+            throw new Exception("device rejected the command: " + command.toString());
+        }
+        // Not a falsifiable assertion, for the same reason as above: the
+        // device accepted an operational command, which says nothing about
+        // EVPN behaviour.
+        logMsg.info("Accepted: " + command.toString());
     }
 
     /** Did the CLI refuse the command it was given? */
@@ -1027,6 +1074,22 @@ public class EvpnUtils implements loggerImp {
      *
      * `true` suspends. That reads backwards, and it is theirs: the flag is
      * the flow group's "suspend" attribute, not an enable.
+     *
+     * There is deliberately NO apply here. Suspending is a commit, not an
+     * apply: `configTrafficItemStream` ends in `ixNet commit`, and
+     * ixia_lib's own `suspendAllTrafficItems` sets `-suspend` and commits
+     * with no apply of any kind. We used to follow it with `trafficApply`,
+     * which is `ixNet exec apply` on a traffic engine that is already
+     * started, and IxNetwork answers that with
+     *
+     *     ::ixNet::ERROR-7008-Could not apply traffic,
+     *     Error in L2/L3 Traffic Apply
+     *
+     * Exaware reported it on 2026-09-15 (Oded Engel) against steps 10, 13,
+     * 17, 22 and 25 of the shipped TC02 report. The suspend itself always
+     * took effect - the statistics in that same report read Tx 1000 on the
+     * unsuspended item and 0 on the other two - so the apply bought nothing
+     * and cost five chassis errors per run and the test's final verdict.
      */
     public void changeSuspendStatus(boolean suspend, String... trafficItems)
             throws Exception {
@@ -1035,7 +1098,6 @@ public class EvpnUtils implements loggerImp {
                     .args(trafficItem, 1, "null", "null", "null", "null",
                           "null", suspend));
         }
-        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info((suspend ? "Suspended" : "Unsuspended")
                 + " traffic items: " + String.join(", ", trafficItems));
     }

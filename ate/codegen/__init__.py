@@ -114,6 +114,7 @@ def generate_evpn_suite(sfs_path: str | Path,
     # them - and say which, because a silently smaller set of assertions is
     # the thing this pipeline exists to refuse.
     from ate.codegen.capture import (  # noqa: PLC0415
+        captures_with_rig_ports,
         route_type_mismatches,
         topology_mismatches,
     )
@@ -131,6 +132,19 @@ def generate_evpn_suite(sfs_path: str | Path,
     for key, why in route_type_mismatches(captures, all_steps).items():
         captures.pop(key, None)
         capture_notes.append(f"DROPPED capture {key}: {why}")
+
+    # LAST, because it erases the port names the two checks above read.
+    #
+    # A captured line names the port the capture rig happened to use, and the
+    # port is the one part codegen cannot know - it comes from the SUT at run
+    # time, which is why `bringUpParams.crt` binds circuits by intPool index.
+    # Without this, TC01 failed a healthy pc-3080 by asserting pc-3099's
+    # ports 32 and 40 (2026-09-16). Run before `topology_mismatches` it would
+    # hide the stale-VLAN captures that check exists to drop.
+    for key in captures_with_rig_ports(captures):
+        capture_notes.append(
+            f"de-pinned capture {key}: the physical port is the rig's, not "
+            f"EVPN's; matched by VLAN instead")
 
     # PIPELINE RULE: nothing may fake a pass. A verification step that cannot
     # fail is worse than a missing one - a red test gets fixed, a green test

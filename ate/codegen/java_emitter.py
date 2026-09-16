@@ -25,6 +25,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from ate.codegen.commands import all_commands
+from ate.codegen.fake_pass import FakePassError
 from ate.codegen.lab import VLAN_MAX, VLAN_MIN, LabProfile
 from ate.codegen.script_ir import Step, StepKind, TestScript
 
@@ -223,10 +224,15 @@ def _line_to_regex(line: str) -> str:
       the exact number of spaces would make the test fail on a longer EVI name
       while the behaviour it checks is unchanged.
     """
+    from ate.codegen.capture import depin_rig_port  # noqa: PLC0415
+
     out = []
     for chunk in line.strip().split():
         out.append("".join("\\" + c if c in _RE_META else c for c in chunk))
-    return "\\s+".join(out)
+    # The port a sub-interface sits on belongs to the rig, not to EVPN. It is
+    # replaced AFTER escaping, because escaping would turn the replacement
+    # pattern into a literal. See `depin_rig_port`.
+    return depin_rig_port("\\s+".join(out))
 
 
 def _captured_expectation(key: str, st: Step, cap: dict) -> list[str]:
@@ -1270,6 +1276,22 @@ _UTILS_BODY = '''
      *
      * `true` suspends. That reads backwards, and it is theirs: the flag is
      * the flow group's "suspend" attribute, not an enable.
+     *
+     * There is deliberately NO apply here. Suspending is a commit, not an
+     * apply: `configTrafficItemStream` ends in `ixNet commit`, and
+     * ixia_lib's own `suspendAllTrafficItems` sets `-suspend` and commits
+     * with no apply of any kind. We used to follow it with `trafficApply`,
+     * which is `ixNet exec apply` on a traffic engine that is already
+     * started, and IxNetwork answers that with
+     *
+     *     ::ixNet::ERROR-7008-Could not apply traffic,
+     *     Error in L2/L3 Traffic Apply
+     *
+     * Exaware reported it on 2026-09-15 (Oded Engel) against steps 10, 13,
+     * 17, 22 and 25 of the shipped TC02 report. The suspend itself always
+     * took effect - the statistics in that same report read Tx 1000 on the
+     * unsuspended item and 0 on the other two - so the apply bought nothing
+     * and cost five chassis errors per run and the test's final verdict.
      */
     public void changeSuspendStatus(boolean suspend, String... trafficItems)
             throws Exception {
@@ -1278,7 +1300,6 @@ _UTILS_BODY = '''
                     .args(trafficItem, 1, "null", "null", "null", "null",
                           "null", suspend));
         }
-        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         logMsg.info((suspend ? "Suspended" : "Unsuspended")
                 + " traffic items: " + String.join(", ", trafficItems));
     }
@@ -1763,8 +1784,55 @@ def _ac_binding_java(lab: LabProfile) -> str:
                     + "': " + String.valueOf(output).trim());
             throw new Exception("device rejected the command: " + command.toString());
         }}
-        cmp.commitAndVerification(command.getCmdSessionType(),
-                GlobalParam.LOAD_CONF_FILE_TIMEOUT_DEFAULT_MSEC);
+        // A configuration step that commits nothing configured nothing.
+        //
+        // `commitAndVerification` turns "No modifications to commit" into a
+        // WARNING and carries on, so such a step reported success. Exaware
+        // found two of them in the TC02 report on 2026-09-15 (Oded Engel):
+        // step 3 entered the `auto-discovery` container, which is a mode
+        // descent and stages nothing, and step 12 ran a `clear` through the
+        // configuration path, where it never belonged. Neither step could
+        // have failed, whatever the device did.
+        //
+        // This is the fake-pass rule applied to configuration: the step
+        // claims it changed the device, so the commit has to agree.
+        String commitResult = cmp.commit(command.getCmdSessionType());
+        if (String.valueOf(commitResult).contains("No modifications to commit")) {{
+            CompassReporter.fail("'" + command.toString() + "' committed "
+                    + "NOTHING: the device had no modification to apply, so "
+                    + "this step cannot have done its work. Either the node "
+                    + "is a container rather than a leaf, or the command is "
+                    + "operational and does not belong on the config path.");
+            throw new Exception("configuration step committed nothing: "
+                    + command.toString());
+        }}
+        // Deliberately NOT counted as a falsifiable assertion. This can fail,
+        // but it establishes that the device accepted configuration, not that
+        // EVPN behaves. A suite that only configured would otherwise satisfy
+        // assertSomethingWasVerified() while verifying nothing, which is the
+        // fake pass this whole counter exists to prevent.
+    }}
+
+    /**
+     * Run an operational command and verify the device accepted it.
+     *
+     * `clear`, `ping`, `request` and the rest are executed, not configured.
+     * Sending one through {{@link #configAndVerifyAccepted}} enters
+     * configuration mode and commits, and the commit then reports "No
+     * modifications to commit" because an operational command stages
+     * nothing. That is what step 12 of the shipped TC02 did.
+     */
+    public void execAndVerifyAccepted(ICmpCliCmd command) throws Exception {{
+        String output = cmp.runCommandAndSwitch(command.toString(), command);
+        if (wasRejected(output)) {{
+            CompassReporter.fail("Device REJECTED '" + command.toString()
+                    + "': " + String.valueOf(output).trim());
+            throw new Exception("device rejected the command: " + command.toString());
+        }}
+        // Not a falsifiable assertion, for the same reason as above: the
+        // device accepted an operational command, which says nothing about
+        // EVPN behaviour.
+        logMsg.info("Accepted: " + command.toString());
     }}
 
     /** Did the CLI refuse the command it was given? */
@@ -1867,6 +1935,38 @@ def _arg_expr(arg: str, lab: LabProfile, command: str = "") -> str:
     return _jstr(arg)
 
 
+def _reject_unfalsifiable_config(step: Step) -> None:
+    """Refuse a CONFIG step whose command cannot produce a modification.
+
+    Generation raises rather than emitting, which is the fake-pass rule: a
+    step that reports success without being able to fail is worse than no
+    step, because a red test gets fixed and a green one that checks nothing
+    gets trusted.
+
+    Both shapes shipped in the TC02 report of 2026-09-09 and both were found
+    by the client rather than by us (Oded Engel, 2026-09-15). The device was
+    fine in each case; the commit simply had nothing to apply, and
+    `commitAndVerification` turns that into a warning and carries on.
+    """
+    entry = next((c for c in all_commands() if c.key == step.command), None)
+    if entry is None:
+        return
+    kind = entry.effective_node_kind
+    if kind == "container":
+        raise FakePassError(
+            f"{step.id} configures '{entry.template}', which is a CLI "
+            f"CONTAINER, not a leaf. Entering it stages nothing, so the "
+            f"commit reports 'No modifications to commit' and the step "
+            f"cannot fail. The leaves beneath it already carry the full "
+            f"path, so drop this step.")
+    if kind == "exec":
+        raise FakePassError(
+            f"{step.id} runs '{entry.template}' as a CONFIG step, but it is "
+            f"an OPERATIONAL command. It stages nothing, so entering "
+            f"configuration mode and committing reports 'No modifications "
+            f"to commit'. Use StepKind.EXEC.")
+
+
 def _render_step(step: Step, lab: LabProfile,
                  captured: set[str] | None = None) -> list[str]:
     """One IR step → its Java lines (level banner + the call)."""
@@ -1884,7 +1984,10 @@ def _render_step(step: Step, lab: LabProfile,
     cmd_expr = f"EvpnCommands.{step.command}" + (f".args({args})" if args else "")
 
     if step.kind is StepKind.CONFIG:
+        _reject_unfalsifiable_config(step)
         out.append(f"        evpnUtils.configAndVerifyAccepted({cmd_expr});")
+    elif step.kind is StepKind.EXEC:
+        out.append(f"        evpnUtils.execAndVerifyAccepted({cmd_expr});")
     elif step.kind in (StepKind.VERIFY_CLI, StepKind.VERIFY_ROUTE):
         expect = (step.expect_expr if step.expect_expr
                   else f"testParams.{step.expect_key}" if step.expect_key

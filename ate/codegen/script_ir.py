@@ -28,6 +28,16 @@ class StepKind(str, Enum):
 
     #: Apply CLI on the DUT and validate the commit.
     CONFIG = "config"
+    #: Run an OPERATIONAL command (`clear`, `ping`, `request`) and verify the
+    #: device accepted it. No configuration mode and no commit.
+    #:
+    #: Split from CONFIG on 2026-09-16. `clear evpn mac address-table` was
+    #: emitted as a CONFIG step, so it entered configuration mode and
+    #: committed; a clear stages nothing, the commit answered "No
+    #: modifications to commit", and the framework turned that into a
+    #: warning. The step ran, did its work, and could not have failed if it
+    #: had not.
+    EXEC = "exec"
     #: Build the lab's traffic items on the chassis before any are used.
     #: Their own suites load a prebuilt .ixncfg instead; we cannot synthesise
     #: that binary, but `IxiaFunctions.CONFIGURE_NEW_TRAFFIC_ITEM` builds the

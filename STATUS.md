@@ -1,7 +1,7 @@
 # ATE — Project Status
 
 **SOW:** PQ4476E — AI-Assisted Test Plan & Automation Skeleton Generator (10 weeks, 5 milestones)
-**Updated:** 2026-09-09
+**Updated:** 2026-09-16
 
 ## Milestones
 
@@ -33,8 +33,9 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Test selection | `ate queue` | ✅ dirty queue |
 | **Read a plan back / diff two versions** | `ate plan-diff` | ✅ ID-keyed change file, ships with every respin |
 | **Verify commands on a device** | `ate verify-commands` | ✅ 123 templates; **both halves now trustworthy** |
-| **Capture real expectations** | `ate capture` | ✅ 2 usable, 9 empty, 0 unsupported — **not yet fed back into the code** |
-| **Run the suite on the DUT** | `javac` + JUnit/JSystem | ✅ **TC01/02/03 all run green on pc-3080** (assert little — see limits) |
+| **Capture real expectations** | `ate capture` | ✅ 16 of 16 usable; ports de-pinned so one capture serves any rig |
+| **One report for the whole suite** | `scripts/lab/merge_reports.py` | ✅ one index naming all three, gated by `verify_automation_report.py` |
+| **Run the suite on the DUT** | `javac` + JUnit/JSystem | ✅ **TC01/02/03 all `OK (1 test)` on pc-3080, 2026-09-16, 0 warnings** |
 | Build IXIA traffic items | `ate codegen` | ✅ in code **and** as a readable `EVPN_traffic.tcl` that saves an `.ixncfg` — one chassis run away from their load-and-suspend idiom |
 
 ## M2 — SOW bullets
@@ -197,6 +198,97 @@ Two defects that run exposed matter more than the pass:
   MAC table prints its legend and no addresses because nothing has been learnt:
   no traffic has run through the EVI. `capture` refuses legend-only output
   rather than recording an assertion that passes on any device.
+- **We shipped a run report we had never opened, and the client read it
+  first (2026-09-15).** Exaware (Oded Engel) opened the
+  `06_automation_report/index.html` we had just asked him to open and found,
+  in order: one index covering one test where the mail promised three, and
+  warnings on six steps. He was right on every count, and there was one more
+  he had not reached: the report's own last line said **"Final test status is
+  : Warning"** while our mail said "OK (1 test), 0 failures". Both were true.
+  JUnit counts failures; JSystem counts warnings; we validated on the exit
+  code and never read the artifact.
+
+  The package gate reads the emitted `.cfg` and `.java`. It read **nothing**
+  under `06_automation_report`, which was a `cp -r` guarded only by the folder
+  existing. Same shape as the 2026-08-14 underlay regression: a healthy
+  pipeline, exit zero, and a gate pointed at the wrong artifact.
+
+  | Defect | Cause | Fix |
+  |---|---|---|
+  | One index, TC02 only | the difido reporter rewrites `execution.js` on every JVM start; three suites ran as three `JUnitCore` invocations | `run_suite.sh` runs all three in ONE JVM and archives the report directory first |
+  | 65 unlisted test folders, 10 MB | the reporter never cleans `tests/` | same |
+  | `auto-discovery` committed nothing | it is a CLI **container**, not a leaf; the `import-rt`/`export-rt` leaves already carry the full path | the registry classifies `leaf` / `container` / `exec`; generation **raises** on a container in a config step, and the step is gone |
+  | `clear …` committed nothing | an **operational** command on the config path | new `StepKind.EXEC`; runs and is never committed |
+  | `ERROR-7008` on 5 steps | `changeSuspendStatus` called `trafficApply` on an already-started engine; their own `suspendAllTrafficItems` sets `-suspend` and commits, with no apply | the apply is gone |
+  | `TATE_GLOBAL_PARAM` null | we run under JUnitCore, not through TATE | open, tied to the ticket ID |
+
+  A configuration step that commits nothing now **fails**: that is the
+  fake-pass rule applied to configuration, because such a step ran, did no
+  work a commit could see, and reported success.
+
+  Gated, not just fixed: `scripts/verify_automation_report.py` refuses a
+  package whose report names fewer suites than it ships, carries a test
+  folder the index does not list, holds an undeclared warning, or whose own
+  verdict is not `Pass`. Run over the package we sent, it names all five of
+  Oded's findings independently, plus the verdict line. It runs from
+  `build_handover_package.sh` under `set -e`, and it has both fixtures: the
+  rejected report it must refuse (kept as
+  `deliverables/M2/automation_report_2026-09-10_rejected/`) and the merged one
+  it must pass. A gate with no failing fixture is a gate nobody can show works.
+
+  **Re-run on pc-3080 (8.7.0 LAB 938), 2026-09-16, one reboot per test:**
+
+  | | | |
+  |---|---|---|
+  | TC01 bring-up | **`OK (1 test)`** | 12 steps, 0 warnings |
+  | TC02 Type-2 + MAC move | **`OK (1 test)`** | 27 steps, 165 passes, 0 warnings |
+  | TC03 Type-3 IMET + aging | **`OK (1 test)`** | 0 warnings |
+
+  Every warning Oded listed is gone from the report, and the merged index
+  names all three. `deliverables/M2/automation_report/`.
+
+  **One report and a clean device pull apart, and that is a device defect.**
+  Running the three in one JVM does give one index, and it runs TC02 and TC03
+  on a box TC01 has poisoned, because Exaware's own bring-up deletes the EVI
+  when it loads the base config and that delete crashes two processes (below).
+  So each test runs from its own reboot and
+  `scripts/lab/merge_reports.py` merges the three reports into one index. It
+  copies each test folder verbatim and **refuses** if one class appears in two
+  source reports, because hiding one of two runs is the defect it exists to
+  prevent.
+- **Two processes core on an EVI delete, pc-3080 / 8.7.0 LAB 938. Both are
+  Exaware's.** Triggered by their own bring-up running
+  `load override exaSystemConf_pc3080.cfg`, which removes the EVI:
+
+  | Process | Assertion |
+  |---|---|
+  | `bgpd` | `assert(!dbl_link_on_list(&bpm->prefix_chain, node))`, `zebos/bgpd/bgp_node.c:43`, `bgp_node_clean` ← `bgp_table_finish`. The known EVI-delete crash, now with an exact assertion |
+  | `rpki_mo` | `assert(0)` in `_mo_handler_call`, `confd/lib/cmi_subsc.c:1376`, handling `rpki__handler_commit_delete`. **New** |
+
+  After either, every commit answers `Aborted: application communication
+  failure` and the cores make `BringUp.checkCoresAndAlarms` fail every later
+  test. Any suite on that image hits this, not just ours.
+- **`TATE_GLOBAL_PARAMS` is dereferenced without a null check.**
+  `TateGlobalParams.initFromJson` calls `URLDecoder.decode` straight on
+  `System.getenv("TATE_GLOBAL_PARAMS")`, which is null outside a TATE run, so
+  every run outside TATE opens its report with a warning. The runners export
+  `{}`; the missing null check is theirs.
+- **A captured expectation pinned the capture rig's physical port
+  (found 2026-09-16 on pc-3080).** TC01 failed a healthy device with
+  `Missing lines: [x-eth0/0/32\.1001, x-eth0/0/40\.1002, x-eth0/0/40\.1003]`
+  — pc-3099's ports, where the captures were taken. The same three circuits on
+  pc-3080 are ports 8, 18 and 26. `topology_mismatches` could not catch it:
+  it compares the VLAN suffix, and the VLANs are identical because the
+  **profile** chooses them. The port is the one part of the line codegen
+  cannot know, which is why the `.crt` binds circuits by intPool index, so it
+  is now matched as `[\w/-]+\.1001` and the VLAN stays exact. Eight of the
+  sixteen captures were affected. The port is still pinned where pinning is
+  right: `eviBoundLines()` builds those lines from the SUT of the rig it runs
+  on.
+- **The lab scripts carried one rig's addresses as literals.** Six files were
+  hardwired to pc-3099; moving to pc-3080 meant editing all six, which is how
+  a rig change becomes a source change. They read `ATE_RIG` now, with no
+  default, because these scripts reboot a router.
 - **The 3 delivered suites are hand-curated at step level.** The tool emits the
   Java; a human wrote the 33 steps. Mechanically generated suites are prefixed
   `TCM<nnn>` so the two can never be confused.

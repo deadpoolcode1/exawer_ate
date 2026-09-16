@@ -1,0 +1,76 @@
+Subject: RE: AI Automation sync - CodeValue\Exaware Sep-9
+Thread:  Gmail thread 1a085e6f618aa32a
+Reply to message id 1a0a564ff3bc691c (Oded Engel, 15 Sep)
+To:      odede@exaware.com, ron@exaware.com
+Cc:      eyal.ozeri@exaware.com, yuval.hoffman@exaware.com,
+         yossi.fridman@exaware.com, shanyl@codevalue.com, shlomim@exaware.com,
+         David.Zelig@exaware.com, oded.ades@exaware.com
+Attach:  ~/Desktop/Exaware_M2_handover_2026-09-16.zip   (964 KB)
+
+Hi Oded,
+
+All five were real. Thanks. New package attached, run on pc-3080,
+8.7.0 LAB 938.
+
+One you had not reached: the last line of that report said "Final test
+status is : Warning" while my mail said "0 failures". JUnit counts
+failures, JSystem counts warnings. I validated on the exit code and
+never opened the report I sent you.
+
+Your list:
+
+1. One index.html, only TC02. Fixed. The difido reporter rewrites
+   execution.js on every JVM start, so three separate runs left an
+   index naming the last one, on top of 65 stale folders it never
+   listed. The new index names all three.
+2. TATE_GLOBAL_PARAM. Fixed our side by exporting {}. The cause is
+   yours: TateGlobalParams.initFromJson calls URLDecoder.decode on
+   System.getenv("TATE_GLOBAL_PARAMS"), which is null outside TATE,
+   and decode throws on null. Any run outside TATE hits it.
+3. Step 3, auto-discovery, no modifications to commit. Fixed.
+   auto-discovery is a container, not a leaf, and import-rt/export-rt
+   already carry the full path. The step is gone. A config step that
+   commits nothing now fails instead of warning.
+4. Step 12, clear + commit. Your diagnosis was exact. clear is
+   operational, it is no longer on the config path.
+5. ERROR-7008 on steps 10, 13, 17, 22, 25. Fixed. We called
+   trafficApply after suspending, on an already-started engine.
+   Your own suspendAllTrafficItems sets -suspend and commits, with no
+   apply. Removed.
+
+Result, one reboot per test:
+
+     TC01_EvpnVlanBasedBringUp          OK (1 test)   12 steps
+     TC02_EvpnType2MacIpAdvertisement   OK (1 test)   27 steps, 165 passes
+     TC03_EvpnType3ImetFlooding         OK (1 test)
+
+Zero warnings in the report.
+
+Why one reboot per test: running all three in one JVM gives one index
+and a poisoned device. Your bring-up deletes the EVI when it loads the
+base config, and on LAB 938 that delete cores two processes:
+
+  bgpd     assert(!dbl_link_on_list(&bpm->prefix_chain, node))
+           zebos/bgpd/bgp_node.c:43, bgp_node_clean
+  rpki_mo  assert(0) in _mo_handler_call
+           confd/lib/cmi_subsc.c:1376, rpki__handler_commit_delete
+
+After either, every commit answers "Aborted: application communication
+failure" and the cores make checkCoresAndAlarms fail every later test.
+Any suite on that image hits this. Backtraces in 02_evidence/.
+
+One more we found by moving rigs: our captured expectations had
+pc-3099's port numbers frozen into them, so TC01 failed a healthy
+pc-3080 demanding x-eth0/0/32.1001. They match by VLAN now.
+
+The package build refuses to ship a report that names fewer tests than
+the package, holds a test folder the index does not list, carries an
+undeclared warning, or whose verdict is not Pass. Run against the
+package I sent you on 10 September it finds all five of your points on
+its own.
+
+05_git is empty and says why: we still need a ticket ID (AUT-nnn /
+EM-nnnn) to push the branch and to get a real TATE run recorded.
+
+Thanks,
+Ilan

@@ -2,10 +2,12 @@ import warnings
 
 import paramiko
 
+from rig import onl_ip
+
 warnings.filterwarnings("ignore")
 c = paramiko.SSHClient()
 c.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-c.connect("10.3.99.10", username="root", password="root", timeout=30,
+c.connect(onl_ip(), username="root", password="root", timeout=30,
           look_for_keys=False, allow_agent=False)
 def run(cmd):
     i, o, e = c.exec_command(cmd)

@@ -51,6 +51,24 @@ class EvpnCommand:
     #: True when the documented syntax looks like a doc typo. Emitted with a
     #: visible warning comment instead of a silent fix.
     doc_suspect: str = ""
+    #: What kind of CLI node this is, which decides how a step may use it.
+    #:
+    #: Added 2026-09-16, after Exaware (Oded Engel) read the shipped TC02
+    #: report and found two configuration steps whose commit reported
+    #: "No modifications to commit". Neither step could fail:
+    #:
+    #:   "leaf"      sets a value. A config step may use it, and the commit
+    #:               must report a modification.
+    #:   "container" is a mode descent and stages nothing on its own. It may
+    #:               NOT be a step: the leaves beneath it carry their own full
+    #:               path (`... auto-discovery import-rt %s`), so a step that
+    #:               only enters the container is redundant as well as
+    #:               unfalsifiable.
+    #:   "exec"      is operational (`clear`, `ping`, `request`). It runs and
+    #:               is never committed. Putting one on the config path is
+    #:               what made step 12 warn.
+    #:   "show"      is a read. The default, because most entries are.
+    node_kind: str = "show"
     #: Grounding for a BASE-CLI command, documented in the Command Reference
     #: Guide rather than the EVPN CLI doc.
     #:
@@ -61,6 +79,19 @@ class EvpnCommand:
     #: exists to close. Naming the other document keeps grounding explicit and
     #: auditable instead of absent.
     base_cli_source: str = ""
+
+    @property
+    def effective_node_kind(self) -> str:
+        """`node_kind` with its default resolved from the session mode.
+
+        Most entries are reads, so "show" is the field default and a
+        configuration entry does not have to restate the obvious. Anything
+        that runs in CLI_CONFIGURE and has not said otherwise is a leaf: it
+        sets a value, and its commit must report a modification.
+        """
+        if self.node_kind != "show":
+            return self.node_kind
+        return "leaf" if self.mode == CLI_CONFIGURE else "show"
 
 
 EVPN_COMMANDS: list[EvpnCommand] = [
@@ -86,6 +117,11 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         mode=CLI_CONFIGURE,
         source="auto-discovery",
         doc_syntax="auto-discovery",
+        # A container, not a leaf. `import-rt` and `export-rt` below already
+        # carry the full `... auto-discovery import-rt %s` path, so entering
+        # the container on its own stages nothing and commits nothing. It
+        # shipped as step 3 of TC02 and Exaware reported the warning.
+        node_kind="container",
     ),
     # DEVICE-VERIFIED 2026-08-11: `l2-services evpn <name> ?` offers only
     # auto-discovery / interface / mac-aging-time / mac-limit / service-type,
@@ -219,6 +255,11 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         source="clear evpn mac address-table",
         doc_syntax=("clear evpn mac address-table [name evpn-name "
                     "[source interface | mac mac-address]]"),
+        # Operational, not configuration. It shipped on the config path as
+        # step 12 of TC02, which entered configuration mode and committed;
+        # a clear stages nothing, so the commit reported "No modifications
+        # to commit" and the step could not fail.
+        node_kind="exec",
     ),
 
     # ── BGP EVPN tables ──────────────────────────────────────────────────

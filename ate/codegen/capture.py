@@ -191,6 +191,57 @@ def topology_mismatches(captures: dict, lab) -> dict[str, str]:
     return out
 
 
+#: A sub-interface written as `<port>.<vlan>` - `x-eth0/0/32.1001`,
+#: `agg-eth-2.1001`, or the same after `_line_to_regex` has escaped the dot.
+_PORT_THEN_VLAN = re.compile(r"\b[a-z]+-?eth[\s\d/-]*\d(\\?\.\d+)\b")
+
+#: What replaces the port: any port, same VLAN.
+_ANY_PORT = r"[\\w/-]+\1"
+
+
+def depin_rig_port(regex: str) -> str:
+    r"""Take the PHYSICAL PORT out of a captured sub-interface expectation.
+
+    Found on pc-3080, 2026-09-16. TC01 failed a healthy device with
+
+        Missing lines: [x-eth0/0/32\.1001\s+-\s+-, x-eth0/0/40\.1002\s+-\s+-,
+                        x-eth0/0/40\.1003\s+-\s+-]
+
+    Those ports are pc-3099's, where the capture was taken. The same three
+    circuits on pc-3080 are ports 8, 18 and 26. Nothing was wrong with the
+    DUT; the assertion was describing a different testbed.
+
+    `topology_mismatches` above did not catch it and could not: it compares
+    the VLAN suffix, and the VLANs (1001-1003) are identical on both rigs
+    because the PROFILE chooses them. Only the port differs, and the port is
+    the one part of the line codegen cannot know - it comes from the SUT at
+    run time, which is exactly why `bringUpParams.crt` binds circuits by
+    intPool index and never by port name.
+
+    So the port becomes a pattern and the VLAN stays exact. What the step is
+    about is "the circuit carrying VLAN 1001 is bound"; which physical port
+    the lab cabled it to is a property of the rig. The suite still pins the
+    port where pinning is right - `eviBoundLines()` builds those lines from
+    `acInterface()`, i.e. from the SUT of the rig it is running on.
+
+    This runs on the ESCAPED regex, not the raw captured line: `_line_to_regex`
+    escapes every metacharacter, so a pattern inserted before it would be
+    escaped into a literal and could never match.
+    """
+    return _PORT_THEN_VLAN.sub(_ANY_PORT, regex)
+
+
+def captures_with_rig_ports(captures: dict) -> list[str]:
+    """Keys whose captured lines name a physical port, for the codegen notes.
+
+    Detection only. The rewrite happens in `_line_to_regex`, where the line
+    has already been escaped.
+    """
+    return sorted(
+        key for key, cap in (captures or {}).items()
+        if any(_PORT_THEN_VLAN.search(line) for line in cap.get("lines") or []))
+
+
 def route_type_mismatches(captures: dict, steps=None) -> dict[str, str]:
     """Captures that show a DIFFERENT route type from the one the step is about.
 

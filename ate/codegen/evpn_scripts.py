@@ -133,17 +133,13 @@ def _bring_up(lab: LabProfile) -> TestScript:
             req_ids=_R_BRINGUP,
         ),
         Step(
-            id="FLOW-010.S02",
-            kind=StepKind.CONFIG,
-            text=f"Enable auto-discovery on {evi}",
-            command="CONFIGURE_L2_SERVICES_EVPN_$_AUTO_DISCOVERY",
-            args=[evi],
-            req_ids=_R_BRINGUP,
-        ),
-        Step(
             id="FLOW-010.S03",
             kind=StepKind.CONFIG,
-            text=f"Set import-rt / export-rt on {evi}",
+            # The title says what the step does, and only that. It used to
+            # read "import-rt / export-rt" while setting import-rt alone; the
+            # export-rt is S04 below. A step title that claims more than its
+            # command does is read by a reviewer as coverage that is not there.
+            text=f"Set import-rt on {evi}",
             command="CONFIGURE_L2_SERVICES_EVPN_$_IMPORT_RT_$",
             args=[evi, "65000:1"],
             req_ids=_R_BRINGUP,
@@ -161,7 +157,7 @@ def _bring_up(lab: LabProfile) -> TestScript:
         steps.append(Step(
             id=f"FLOW-010.S{i:02d}",
             kind=StepKind.CONFIG,
-            text=f"Bind access circuit {ac.name} ({ac.ac_interface}) to {evi}",
+            text=f"Bind access circuit {ac.name} (VLAN {lab.vlan_of(ac)}) to {evi}",
             command="CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$",
             args=[evi, ac.ac_interface],
             req_ids=_R_BRINGUP,
@@ -286,14 +282,6 @@ def _requires_evi(flow: str, lab: LabProfile) -> list[Step]:
             req_ids=_R_BRINGUP,
         ),
         Step(
-            id=f"{flow}.S00R",
-            kind=StepKind.CONFIG,
-            text=f"Enable auto-discovery on {evi}",
-            command="CONFIGURE_L2_SERVICES_EVPN_$_AUTO_DISCOVERY",
-            args=[evi],
-            req_ids=_R_BRINGUP,
-        ),
-        Step(
             id=f"{flow}.S00S",
             kind=StepKind.CONFIG,
             text=f"Set import-rt on {evi}",
@@ -314,7 +302,7 @@ def _requires_evi(flow: str, lab: LabProfile) -> list[Step]:
         steps.append(Step(
             id=f"{flow}.S00U{i}",
             kind=StepKind.CONFIG,
-            text=f"Bind access circuit {ac.name} ({ac.ac_interface}) to {evi}",
+            text=f"Bind access circuit {ac.name} (VLAN {lab.vlan_of(ac)}) to {evi}",
             command="CONFIGURE_L2_SERVICES_EVPN_$_INTERFACE_$",
             args=[evi, ac.ac_interface],
             req_ids=_R_BRINGUP,
@@ -350,7 +338,7 @@ def _type2(lab: LabProfile) -> TestScript:
         *_requires_evi("FLOW-030", lab),
         Step(
             id="FLOW-030.S01",
-            kind=StepKind.CONFIG,
+            kind=StepKind.EXEC,
             text="Clear the EVPN MAC address-table so learning starts clean",
             command="CLEAR_EVPN_MAC_ADDRESS_TABLE_NAME_$",
             args=[evi],
@@ -394,7 +382,7 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S04",
             kind=StepKind.VERIFY_CLI,
-            text=f"Verify AC1 source MACs are learnt on {ac1.ac_interface}",
+            text=f"Verify AC1 source MACs are learnt on AC1 (VLAN {lab.vlan_of(ac1)})",
             command="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
             args=[evi, ac1.ac_interface],
             expect_key="FLOW030_S04_AC1_MACS_LEARNT_LINES",
@@ -460,7 +448,7 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S09",
             kind=StepKind.VERIFY_CLI,
-            text=f"Verify AC2 source MACs are learnt on {ac2.ac_interface}",
+            text=f"Verify AC2 source MACs are learnt on AC2 (VLAN {lab.vlan_of(ac2)})",
             command="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
             args=[evi, ac2.ac_interface],
             expect_key="FLOW030_S09_AC2_MACS_LEARNT_LINES",
@@ -525,7 +513,7 @@ def _type2(lab: LabProfile) -> TestScript:
         Step(
             id="FLOW-030.S15",
             kind=StepKind.VERIFY_CLI,
-            text=f"Verify the AC2 MACs have shifted to {ac3.ac_interface}",
+            text=f"Verify the AC2 MACs have shifted to AC3 (VLAN {lab.vlan_of(ac3)})",
             command="SHOW_EVPN_MAC_ADDRESS_TABLE_NAME_$_SOURCE_$",
             args=[evi, ac3.ac_interface],
             expect_key="FLOW030_S15_MACS_MOVED_TO_AC3_LINES",

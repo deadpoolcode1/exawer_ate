@@ -2212,3 +2212,298 @@ def test_a_capture_never_freezes_padding_bytes_or_a_timestamp() -> None:
     assert not any("last update" in ln.lower() for ln in lines), (
         "a per-run timestamp must never become an assertion")
     assert any("Type=3" in ln for ln in lines), "the real content must survive"
+
+
+def test_a_config_step_never_names_a_container_or_an_exec_command() -> None:
+    """Generation refuses a configuration step that cannot commit anything.
+
+    Exaware, 2026-09-15 (Oded Engel), reading the TC02 report we shipped:
+
+        3. Enable auto-discovery on evi-1 - Warning: cmp1: Commit result
+        (% No modifications to commit.)
+        12. Clear the EVPN MAC address-table ... - This is due to the fact
+        that you clear counters yet try to commit which there is no
+        configuration change.
+
+    Two shapes, one defect. `auto-discovery` is a CONTAINER: entering it is a
+    mode descent and stages nothing, and the `import-rt` / `export-rt` leaves
+    beneath it already carry the full path. `clear ...` is OPERATIONAL: it is
+    executed, never committed. Both steps ran, did no work a commit could
+    see, and reported success, because `commitAndVerification` turns "No
+    modifications to commit" into a warning.
+
+    This is the fake-pass rule applied to configuration, so it raises at
+    generation rather than warning at run time.
+    """
+    from ate.codegen.commands import all_commands
+    from ate.codegen.fake_pass import FakePassError
+    from ate.codegen.java_emitter import _reject_unfalsifiable_config
+    from ate.codegen.script_ir import Step, StepKind
+
+    by_kind = {}
+    for entry in all_commands():
+        by_kind.setdefault(entry.effective_node_kind, entry)
+
+    assert "container" in by_kind, "the registry must classify containers"
+    assert "exec" in by_kind, "the registry must classify operational commands"
+
+    for kind in ("container", "exec"):
+        step = Step(id="T.S01", kind=StepKind.CONFIG, text="x",
+                    command=by_kind[kind].key)
+        with pytest.raises(FakePassError):
+            _reject_unfalsifiable_config(step)
+
+    leaf = Step(id="T.S02", kind=StepKind.CONFIG, text="x",
+                command=by_kind["leaf"].key)
+    _reject_unfalsifiable_config(leaf)  # must not raise
+
+
+def test_suspending_a_traffic_item_does_not_apply_traffic() -> None:
+    """`changeSuspendStatus` must not call trafficApply.
+
+    Exaware reported `ERROR-7008 Could not apply traffic, Error in L2/L3
+    Traffic Apply` on five steps of the shipped TC02 (2026-09-15). Read
+    against their own `ixia_lib.tcl`:
+
+      * `trafficApply` is `ixNet exec apply`, which IxNetwork refuses on a
+        traffic engine that is already started;
+      * `configTrafficItemStream` already ends in `ixNet commit`;
+      * their own `suspendAllTrafficItems` sets `-suspend` and commits, with
+        no apply of any kind.
+
+    The suspend always took effect - the statistics in that same report read
+    Tx 1000 on the unsuspended item and 0 on the other two - so the apply
+    bought nothing and cost five chassis errors and the run's verdict.
+    """
+    from ate.codegen.java_emitter import emit_utils
+    from ate.codegen.lab import SINGLE_DUT_3AC_CORE
+
+    utils = emit_utils(SINGLE_DUT_3AC_CORE).content
+    body = utils.split("public void changeSuspendStatus", 1)[1]
+    body = body.split("public void enableTrafficItemsAndStart", 1)[0]
+    assert "APPLY_TRAFFIC" not in body, (
+        "suspending is a commit, not an apply - see ixia_lib's own "
+        "suspendAllTrafficItems")
+
+
+def test_a_captured_expectation_never_pins_the_rigs_physical_port() -> None:
+    """Captured sub-interface lines must match by VLAN, not by port.
+
+    pc-3080, 2026-09-16: TC01 failed a healthy device with
+
+        Missing lines: [x-eth0/0/32\\.1001, x-eth0/0/40\\.1002,
+                        x-eth0/0/40\\.1003]
+
+    Those ports are pc-3099's, where the capture was taken. The same three
+    circuits on pc-3080 are ports 8, 18 and 26. `topology_mismatches` could
+    not catch it: it compares the VLAN suffix, and the VLANs are identical
+    because the profile chooses them.
+
+    The port is the one part of the line codegen cannot know - it comes from
+    the SUT at run time, which is why the `.crt` binds circuits by intPool
+    index and never by port name.
+    """
+    import re
+
+    from ate.codegen.java_emitter import _line_to_regex
+
+    # The whole path a captured line takes: escaped, then de-pinned.
+    pattern = _line_to_regex("x-eth0/0/32.1001    -    -")
+    untouched = _line_to_regex("EVPN Name: evi-1, Service Model: vlan-based")
+
+    assert "0/0/32" not in pattern, f"the capture rig's port survived: {pattern}"
+    assert "eth" not in untouched.replace("Service", ""), untouched
+
+    assert re.search(pattern, "x-eth0/0/8.1001   -   -"), \
+        f"must match the same circuit on another rig: {pattern}"
+    assert not re.search(pattern, "x-eth0/0/8.1002   -   -"), \
+        f"must still discriminate the VLAN: {pattern}"
+
+
+def test_depinning_runs_after_the_stale_topology_check() -> None:
+    """Order matters: de-pinning erases what `topology_mismatches` reads.
+
+    `topology_mismatches` finds a stale capture by the VLAN on a named
+    sub-interface (`x-eth0/0/18.100`). De-pinning removes the interface name,
+    so running it first leaves nothing for that check to match and a capture
+    taken on VLAN 100 would ship into a suite whose circuits are on 1001.
+
+    The rewrite itself now happens in `_line_to_regex`, after escaping, so
+    what this pins is the ORDER OF THE REPORTED NOTES, which is the order a
+    reader of the codegen summary sees the two decisions in.
+    """
+    import inspect
+
+    import ate.codegen as codegen
+
+    source = inspect.getsource(codegen.generate_evpn_suite)
+    assert source.index("topology_mismatches(captures") \
+        < source.index("captures_with_rig_ports(captures"), \
+        "report de-pinning AFTER the stale-topology check, never before"
+
+
+def test_the_report_gate_refuses_the_package_the_client_rejected() -> None:
+    """The 2026-09-10 report must not pass the gate written after it.
+
+    Exaware (Oded Engel, 2026-09-15) opened `06_automation_report/index.html`
+    in the package we had just asked him to open and reported, in order: one
+    index covering one test where the mail promised three, and warnings on six
+    steps. Everything he found is in the files still in this repo, and none of
+    it had been read by us before the package went out.
+
+    This runs the gate over that exact report and requires it to name the same
+    things independently: the missing suites, the stale folders nobody claims,
+    each undeclared warning, and the report's own "Final test status is :
+    Warning" - which is the one that contradicted our mail's "0 failures".
+    """
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    report = root / "deliverables/M2/automation_report_2026-09-10_rejected"
+    suite = root / "deliverables/M2/generated_suite"
+    if not (report / "execution.js").is_file():
+        pytest.skip("the shipped report is not in this checkout")
+
+    spec = importlib.util.spec_from_file_location(
+        "verify_automation_report", root / "scripts/verify_automation_report.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    assert mod.main(["x", str(report), str(suite)]) == 1, (
+        "the report the client rejected must not pass the gate")
+
+    tests = mod._tests_in_execution(mod._js_object(report / "execution.js"))
+    assert len(tests) == 1, "the shipped report named exactly one test"
+    assert mod._shipped_test_classes(suite) == {
+        "TC01_EvpnVlanBasedBringUp",
+        "TC02_EvpnType2MacIpAdvertisement",
+        "TC03_EvpnType3ImetFlooding",
+    }, "the package shipped three suites"
+
+    problems, _ = mod._check_one_test(report, tests[0])
+    joined = "\n".join(problems)
+    assert "Final test status is : Warning" in joined, (
+        "the gate must catch a report whose own verdict contradicts the mail")
+    for expected in ("TATE_GLOBAL_PARAM",
+                     "No modifications to commit",
+                     "ERROR-7008"):
+        assert expected in joined, f"the gate missed {expected}"
+
+
+def test_the_report_gate_passes_the_report_that_replaced_it() -> None:
+    """The merged 2026-09-16 report must pass the same gate.
+
+    A gate that refuses everything proves nothing. This is the report built
+    from three rebooted runs on pc-3080 - TC01, TC02 and TC03 each `OK
+    (1 test)` - merged by `scripts/lab/merge_reports.py` into one index.
+
+    It also pins the verdict word. JSystem writes "Final test status is :
+    Pass", not "Success", and the first version of this gate looked for
+    "Success" and would have refused every good package ever built.
+    """
+    import importlib.util
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    report = root / "deliverables/M2/automation_report"
+    suite = root / "deliverables/M2/generated_suite"
+    if not (report / "execution.js").is_file():
+        pytest.skip("the merged report is not in this checkout")
+
+    spec = importlib.util.spec_from_file_location(
+        "verify_automation_report", root / "scripts/verify_automation_report.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    assert mod.main(["x", str(report), str(suite)]) == 0, (
+        "three green runs merged into one index must ship")
+
+    tests = mod._tests_in_execution(mod._js_object(report / "execution.js"))
+    assert {(t.get("className") or "").rsplit(".", 1)[-1] for t in tests} == {
+        "TC01_EvpnVlanBasedBringUp",
+        "TC02_EvpnType2MacIpAdvertisement",
+        "TC03_EvpnType3ImetFlooding",
+    }, "the merged index must name all three, which is Oded's first finding"
+
+
+def test_merging_one_report_per_test_yields_one_index_naming_all_three(tmp_path) -> None:
+    """Three rebooted runs must merge into one index, with no run lost.
+
+    Exaware, 2026-09-15 (Oded Engel): "I could only find a single index.html
+    which only for tc02, I could not find one per TC."
+
+    Running all three in one JVM does give one index, and it also runs TC02 and
+    TC03 on a device TC01 has poisoned: deleting an EVI aborts `bgpd` and, on
+    8.7.0 LAB 938, `rpki_mo`, and Exaware's own bring-up deletes the EVI when
+    it loads the base config. So each test runs from its own reboot and the
+    reports are merged afterwards.
+
+    This splits a real three-test report into one report per test, merges them
+    back, and requires the result to name all three exactly once.
+    """
+    import importlib.util
+    import json
+    import shutil
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    source = root / "deliverables/M2/automation_report"
+    if not (source / "execution.js").is_file():
+        pytest.skip("no difido report in this checkout")
+
+    spec = importlib.util.spec_from_file_location(
+        "merge_reports", root / "scripts/lab/merge_reports.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    # Build three single-test reports out of one real one, so the fixture is
+    # the reporter's own output rather than something we invented.
+    tests = mod._richest_per_class(
+        source, mod._tests(mod._js_object(source / "execution.js")))
+    template = tests[0]
+    sources = []
+    for n, name in enumerate(("TC01_A", "TC02_B", "TC03_C"), start=1):
+        one = tmp_path / f"run{n}"
+        (one / "tests").mkdir(parents=True)
+        if n == 1:  # a real report carries the reporter's static assets
+            for asset in ("index.html", "tree.html", "table.html",
+                          "charts.html", "test.html", "css", "js",
+                          "controllers", "images"):
+                src = source / asset
+                if src.is_dir():
+                    shutil.copytree(src, one / asset)
+                elif src.is_file():
+                    shutil.copy2(src, one / asset)
+        uid = f"{n}00000000-1"
+        shutil.copytree(source / "tests" / f"test_{template['uid']}",
+                        one / "tests" / f"test_{uid}")
+        entry = {**template, "uid": uid, "index": 1,
+                 "className": f"cmp.tests.evpn.{name}", "name": name}
+        (one / "execution.js").write_text("var execution = " + json.dumps(
+            {"machines": [{"type": "machine", "name": "codevalue",
+                           "children": [{"type": "scenario", "name": "default",
+                                         "children": [entry]}]}]}) + ";")
+        sources.append(one)
+
+    kept = mod.merge(sources, tmp_path / "merged")
+
+    assert [k["className"].rsplit(".", 1)[-1] for k in kept] == \
+        ["TC01_A", "TC02_B", "TC03_C"], "test order, not run order"
+    assert [k["index"] for k in kept] == [1, 2, 3], "indices are renumbered"
+
+    merged = mod._js_object(tmp_path / "merged" / "execution.js")
+    assert len(mod._tests(merged)) == 3, "one entry per test, no placeholders"
+    assert len(list((tmp_path / "merged" / "tests").iterdir())) == 3, \
+        "one folder per listed test, and no orphans"
+    assert (tmp_path / "merged" / "index.html").is_file(), "the index must open"
+
+    # The same test in two source reports hides one of the two runs.
+    with pytest.raises(SystemExit, match="more than one"):
+        mod.merge([sources[0], sources[0]], tmp_path / "clash")
+
+    # A source set with no index.html would produce pages with no way in.
+    shutil.rmtree(sources[0] / "css")
+    (sources[0] / "index.html").unlink()
+    with pytest.raises(SystemExit, match="index.html"):
+        mod.merge(sources[1:], tmp_path / "no_index")

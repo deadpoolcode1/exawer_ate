@@ -14,9 +14,11 @@ import warnings
 
 import paramiko
 
+from rig import onl_ip
+
 warnings.filterwarnings("ignore")
 
-ONL = "10.3.99.10"
+ONL = onl_ip()
 WATCHDOG = "/tmp/pin_hostname.sh"
 
 

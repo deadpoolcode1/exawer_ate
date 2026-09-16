@@ -164,9 +164,9 @@ public class EvpnParams implements ISuiteParams {
         "Control\\s+Word:\\s+Disabled",
         "Local\\s+Interfaces:",
         "INTERFACE\\s+ESI\\s+ES\\s+LABEL",
-        "x-eth0/0/32\\.1001\\s+-\\s+-",
-        "x-eth0/0/40\\.1002\\s+-\\s+-",
-        "x-eth0/0/40\\.1003\\s+-\\s+-"
+        "[\\w/-]+\\.1001\\s+-\\s+-",
+        "[\\w/-]+\\.1002\\s+-\\s+-",
+        "[\\w/-]+\\.1003\\s+-\\s+-"
     };
 
     /** FLOW-010.S09 - Verify the EVPN MAC address-table starts empty
@@ -174,8 +174,8 @@ public class EvpnParams implements ISuiteParams {
      *  Command: show evpn mac-address-table name evi-1
      */
     public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {
-        "00:00:01:00:00:01\\s+L\\s+x-eth0/0/32\\.1001\\s+0\\s+D\\s+-\\s+-\\s+-",
-        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/40\\.1002\\s+0\\s+D\\s+-\\s+-\\s+-"
+        "00:00:01:00:00:01\\s+L\\s+[\\w/-]+\\.1001\\s+0\\s+D\\s+-\\s+-\\s+-",
+        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1002\\s+0\\s+D\\s+-\\s+-\\s+-"
     };
 
     /** FLOW-010.S10 - Verify the Type-3 IMET route for this EVI is originated into the local EVI table
@@ -201,14 +201,14 @@ public class EvpnParams implements ISuiteParams {
      *  Known at generation time, not captured. */
     public final String[] FLOW030_S00P_EVI_ABSENT_LINES = new String[] {"evi-1"};
 
-    /** FLOW-030.S04 - Verify AC1 source MACs are learnt on agg-eth-2.1001
+    /** FLOW-030.S04 - Verify AC1 source MACs are learnt on AC1 (VLAN 1001)
      *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
      *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/32.1001
      */
     public final String[] FLOW030_S04_AC1_MACS_LEARNT_LINES = new String[] {
         "IP",
         "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:01:00:00:01\\s+L\\s+x-eth0/0/32\\.1001\\s+0\\s+D\\s+-\\s+-\\s+-"
+        "00:00:01:00:00:01\\s+L\\s+[\\w/-]+\\.1001\\s+0\\s+D\\s+-\\s+-\\s+-"
     };
 
     /** FLOW-030.S05 - Verify AC1 source MACs are emitted as Type-2 routes, originated into the local EVI table
@@ -219,14 +219,14 @@ public class EvpnParams implements ISuiteParams {
         "Type=2:\\s+VLAN-ID=0,\\s+MAC=00:00:01:00:00:01"
     };
 
-    /** FLOW-030.S09 - Verify AC2 source MACs are learnt on agg-eth-3.1002
+    /** FLOW-030.S09 - Verify AC2 source MACs are learnt on AC2 (VLAN 1002)
      *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
      *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/40.1002
      */
     public final String[] FLOW030_S09_AC2_MACS_LEARNT_LINES = new String[] {
         "IP",
         "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/40\\.1002\\s+0\\s+D\\s+-\\s+-\\s+-"
+        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1002\\s+0\\s+D\\s+-\\s+-\\s+-"
     };
 
     /** FLOW-030.S10 - Verify AC2 source MACs are also emitted as Type-2 routes, originated into the local EVI table
@@ -237,14 +237,14 @@ public class EvpnParams implements ISuiteParams {
         "Type=2:\\s+VLAN-ID=0,\\s+MAC=00:00:02:00:00:01"
     };
 
-    /** FLOW-030.S15 - Verify the AC2 MACs have shifted to agg-eth-3.1003
+    /** FLOW-030.S15 - Verify the AC2 MACs have shifted to AC3 (VLAN 1003)
      *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
      *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/40.1003
      */
     public final String[] FLOW030_S15_MACS_MOVED_TO_AC3_LINES = new String[] {
         "IP",
         "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/40\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
+        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
     };
 
     /** FLOW-031.S00P - Verify evi-1 does not exist before this test creates it (bring-up reloads the .cfg before every test)
@@ -258,7 +258,7 @@ public class EvpnParams implements ISuiteParams {
     public final String[] FLOW031_S01Q_MACS_LEARNT_LINES = new String[] {
         "IP",
         "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/40\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
+        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
     };
 
     /** FLOW-031.S04 - Verify the AC3 MACs are removed from the EVPN MAC table once their traffic stopped and they aged out
@@ -266,7 +266,7 @@ public class EvpnParams implements ISuiteParams {
      *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/40.1003
      */
     public final String[] FLOW031_S04_MACS_AGED_OUT_LINES = new String[] {
-        "00:00:02:00:00:01\\s+L\\s+x-eth0/0/40\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
+        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
     };
 
     /** FLOW-031.S05 - Verify the AC2 MACs' Type-2 routes are withdrawn from the BGP table
@@ -284,9 +284,9 @@ public class EvpnParams implements ISuiteParams {
     public final String[] FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES = new String[] {
         "Local\\s+BUM\\s+Label:\\s+32768",
         "Local\\s+Interfaces:",
-        "x-eth0/0/32\\.1001",
-        "x-eth0/0/40\\.1002",
-        "x-eth0/0/40\\.1003"
+        "[\\w/-]+\\.1001",
+        "[\\w/-]+\\.1002",
+        "[\\w/-]+\\.1003"
     };
 
     @Override

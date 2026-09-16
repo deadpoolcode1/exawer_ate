@@ -70,14 +70,44 @@ if [ -d "$REPORT_DIR" ]; then
     echo "      $(du -sh "$OUT/06_automation_report" | cut -f1), open 06_automation_report/index.html"
 else
     echo "      MISSING: $REPORT_DIR - package ships without the run report" >&2
+    exit 1
 fi
+
+echo "[5b] gate - does the report back what the package claims?"
+# Step [2a] reads the emitted .cfg and .java. It read NOTHING under
+# 06_automation_report, which was a straight cp -r guarded only by the folder
+# existing. So on 2026-09-10 we shipped 12 MB of report without opening it and
+# validated the run on the JUnit exit code, which counts failures and not
+# JSystem warnings. The mail said "OK (1 test), 0 failures"; the last line of
+# that report said "Final test status is : Warning", and the client read the
+# report. Under `set -e` this gate stops the build, like [2a].
+"$ROOT/.venv/bin/python" "$ROOT/scripts/verify_automation_report.py" \
+    "$OUT/06_automation_report" "$OUT/01_generated_suite"
 
 echo "[6] the branch, as a git bundle"
 if [ -f "$BUNDLE" ]; then
     cp "$BUNDLE" "$OUT/05_git/evpn-suite.bundle"
     echo "      $(du -h "$OUT/05_git/evpn-suite.bundle" | cut -f1)"
 else
-    echo "      MISSING: $BUNDLE — package will ship without the branch" >&2
+    # An empty folder in a client package is a question we will be asked.
+    # Say why it is empty, inside the package, where the reviewer is looking.
+    cat > "$OUT/05_git/WHY_THIS_IS_EMPTY.md" <<'NOTE'
+# No git bundle in this package
+
+The generated suite is in `01_generated_suite/`, which is the same content.
+What is missing here is the same content **as a branch of your repository**,
+and it is missing for one reason:
+
+**We still need a ticket ID (AUT-nnn / EM-nnnn).**
+
+The branch cannot be pushed under its real name without one, so there is no
+branch to bundle, and no TATE run recorded against a ticket. It has been the
+first item on our "what we need from you" list since 24 August.
+
+Give us the ticket ID and the branch and the TATE records follow the same day.
+NOTE
+    echo "      MISSING: $BUNDLE - package ships without the branch;" >&2
+    echo "      05_git/WHY_THIS_IS_EMPTY.md says so inside the package" >&2
 fi
 
 echo "[7] the hand-over document"
