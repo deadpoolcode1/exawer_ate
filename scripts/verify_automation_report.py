@@ -40,6 +40,10 @@ What it enforces:
   4. The test's own final verdict is Pass. This is the check that would have
      caught the 9 September package on its own, whose verdict was Warning
      while the mail said "0 failures".
+
+  5. Every test's numbered step titles match the shipped Java, in order. The
+     2026-09-16 package shipped a report from an earlier build than its code,
+     and the client reviewed the report.
 """
 from __future__ import annotations
 
@@ -115,6 +119,73 @@ def _tests_in_execution(execution: dict) -> list[dict]:
 def _shipped_test_classes(suite: Path) -> set[str]:
     """The TC classes that are actually in the package, by simple name."""
     return {p.stem for p in suite.rglob("TC*.java")}
+
+
+#: A numbered step banner in the generated Java, e.g.
+#: `CompassReporter.stopAndStartLevel(++level + ". Set import-rt on evi-1");`
+_JAVA_STEP = re.compile(
+    r'stopAndStartLevel\(\+\+level \+ "\. ((?:[^"\\]|\\.)*)"\)')
+
+#: The same banner as the report prints it: "4. Set import-rt on evi-1".
+_REPORT_STEP = re.compile(r"^(\d+)\. (.*)$", re.S)
+
+
+def _shipped_step_titles(suite: Path) -> dict[str, list[str]]:
+    """Each shipped TC class's numbered step titles, in order."""
+    titles: dict[str, list[str]] = {}
+    for java in suite.rglob("TC*.java"):
+        text = java.read_text(encoding="utf-8", errors="replace")
+        titles[java.stem] = [
+            m.group(1).replace('\\"', '"').replace("\\\\", "\\")
+            for m in _JAVA_STEP.finditer(text)]
+    return titles
+
+
+def _check_step_titles(report: Path, test: dict,
+                       shipped: dict[str, list[str]]) -> list[str]:
+    """The report must have been produced by the Java shipped beside it.
+
+    Exaware, 2026-09-30: Eyal Ozeri reviewed the 2026-09-16 report step by
+    step and flagged titles ("Set import-rt / export-rt", "Bind access circuit
+    AC1 (agg-eth-2.1001)") that the Java in the same package no longer had.
+    The code had been fixed and regenerated after the run, and the run was
+    never repeated. A reviewer reads the report, so he reviewed code we were
+    not shipping, and found defects we had already fixed.
+
+    Comparing the numbered banners catches that: same steps, same order, same
+    words, or the report is from some other build.
+    """
+    name = (test.get("className") or "").rsplit(".", 1)[-1]
+    if name not in shipped:
+        return []
+    page = report / "tests" / f"test_{test.get('uid')}" / "test.js"
+    try:
+        elements = _js_object(page).get("reportElements") or ()
+    except (OSError, ValueError):
+        return []
+    in_report = []
+    for element in elements:
+        if element.get("type") != "startLevel":
+            continue
+        m = _REPORT_STEP.match(_strip_html(element.get("title")))
+        if m:
+            in_report.append(m.group(2).strip())
+    in_java = [t.strip() for t in shipped[name]]
+    if in_report == in_java:
+        return []
+    diffs = []
+    for i in range(max(len(in_report), len(in_java))):
+        got = in_report[i] if i < len(in_report) else "(no step)"
+        want = in_java[i] if i < len(in_java) else "(no step)"
+        if got != want:
+            diffs.append(f"step {i + 1}: report \"{got}\"\n"
+                         f"              java   \"{want}\"")
+    return [f"{name}: the report was not produced by the Java in this "
+            f"package ({len(diffs)} step title(s) differ). Re-run the suite "
+            f"on the code you are shipping.\n      "
+            + "\n      ".join(diffs[:5])
+            + (f"\n      ... and {len(diffs) - 5} more" if len(diffs) > 5
+               else "")]
 
 
 def _strip_html(text: str | None) -> str:
@@ -252,8 +323,10 @@ def main(argv: list[str]) -> int:
                 f"about. Clear the report directory before the run.\n"
                 f"      first few: {', '.join(orphans[:5])}")
 
+    titles = _shipped_step_titles(suite)
     for test in tests:
         test_problems, test_declared = _check_one_test(report, test)
+        test_problems += _check_step_titles(report, test, titles)
         problems += test_problems
         declared += test_declared
         name = (test.get("className") or "").rsplit(".", 1)[-1] or "?"

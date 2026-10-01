@@ -1,0 +1,44 @@
+From: Eyal Ozeri (Exaware), 2026-07-12, "RE: AI Automation -Status Update". Verbatim.
+
+Per my comment from Thursday, these are the flows we can address
+
+  * Flow-010, Vlan-based EVPN bringup.
+  * Flow-030, Flow-031 – Type-2 and Type-3 advertisement.
+  * Both use Ixia for local traffic.
+
+Required modifications to the TP to support a single DuT+ 3 Ixia ports :
+
+  * Flow-010 is a pre-requisite for Flows 030 and 031.
+  * Flow 030/031
+     * Configuring 3 local ACs.
+
+Detailed Automated flow will be:
+
+  * 3 Ixia traffic items, AC2 and AC3 having the same MAC addresses.
+     * AC1 to AC2
+     * AC2 to AC1
+     * AC3 to AC1
+  * Establish a service with 3 ACs and EVPN neighbouring PE
+  * Verify relevant shows
+     * Show evpn global, show evpn mac-address, show bgp l2vpn evpn...
+     * Verify type-3 is reported as advertised
+  * Send traffic from AC1 to AC2
+     * Verify traffic flooding to AC2 and AC3 (Using Dut counters and Ixia counters)
+     * Verify AC1 src MACs learnt from correct interface
+     * Verify AC1 x src Type-2 are advertised
+  * Send traffic from AC2 to AC1
+     * Verify flooding ceases to AC3
+     * Verify AC1 src MACs are in tact
+     * Verify AC2 src MACs learnt from correct interface
+     * Verify AC2 src MACs Type-2 are also advertised
+  * Stop AC2 to AC1 traffic
+     * Verify AC1 to AC2 traffic still flows to AC2
+  * Start traffic from AC3 to AC1
+     * Verify AC2 MAC addresses shifted to AC3
+     * Verify no type-2 message was triggered
+     * Verify AC1 to AC2 traffic flows to AC3.
+  * Stop traffic AC3 to AC1
+     * Wait for aging time to expire
+     * AC1 to AC2 traffic floods to AC2 and AC3
+     * AC2 MACs are removed from the evpn mac-table
+     * AC2 MACs type-2 msgs are withdrawn from the BGP table.

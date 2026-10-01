@@ -247,6 +247,13 @@ Two defects that run exposed matter more than the pass:
   Every warning Oded listed is gone from the report, and the merged index
   names all three. `deliverables/M2/automation_report/`.
 
+- **That report is older than the code shipped with it.** Eyal reviewed it
+  step by step on 2026-09-30 and flagged titles the Java had already fixed
+  (`import-rt / export-rt`, `agg-eth-2.1001`). The gate now compares every
+  numbered step title in the report with the shipped Java and refuses a
+  mismatch, so the 2026-09-16 package would not build today. A rerun on the
+  current code is needed before the next drop.
+
   **One report and a clean device pull apart, and that is a device defect.**
   Running the three in one JVM does give one index, and it runs TC02 and TC03
   on a box TC01 has poisoned, because Exaware's own bring-up deletes the EVI

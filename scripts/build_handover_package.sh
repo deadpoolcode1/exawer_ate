@@ -47,6 +47,13 @@ ls "$OUT/02_evidence" | sed 's|^|      |'
 echo "[4] the test plan the code was generated from"
 cp "$ROOT/plans/EVPN_test_plan_with_RFCs.xlsx" "$OUT/03_test_plan/"
 cp "$ROOT/plans/EVPN_test_plan_with_RFCs_CHANGES.md" "$OUT/03_test_plan/"
+# Exaware, 2026-09-30: "it would have helped if the scripts you fed to the
+# engine be attached as well." Each TC next to the flow it came from.
+"$ROOT/.venv/bin/python" "$ROOT/scripts/build_tc_sources.py" \
+    "$OUT/03_test_plan/EVPN_test_plan_with_RFCs.xlsx" \
+    "$OUT/01_generated_suite" \
+    "$OUT/03_test_plan/TC_sources.md" \
+    "$ROOT/deliverables/M2/inputs/exaware_automated_flow_2026-07-12.txt"
 
 echo "[5] the newest test report"
 REPORT="$(ls -t "$ROOT"/results/test-report-*.html 2>/dev/null | head -1 || true)"

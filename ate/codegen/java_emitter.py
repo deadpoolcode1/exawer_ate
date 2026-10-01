@@ -568,12 +568,59 @@ _UTILS_BODY = '''
             output = cmp.runCommandAndSwitch(command.toString(), command);
         }
         falsifiableAssertions++;
+        String table = expectedVsOutput(goneLines, output, false);
         CompassReporter.passFailByCondition(stillThere.isEmpty(),
-                "The output of " + command.toString()
-                        + " no longer contains the expected-gone lines.",
-                "The output of " + command.toString()
-                        + " STILL contains lines that should have gone: "
-                        + stillThere);
+                command.toString() + ": none of the " + goneLines.length
+                        + " expected-absent line(s) is in the output."
+                        + table,
+                command.toString() + ": " + stillThere.size()
+                        + " line(s) that must be absent are present." + table);
+    }
+
+    /**
+     * Expected vs output, one row per expectation, for the report.
+     *
+     * Exaware, 2026-09-30 (Eyal Ozeri), on three steps that had passed:
+     * "Verification is not coherent - What is actually validated? Expected vs
+     * Output missing". The device output was in the report, the expectation
+     * was not, so a reviewer could see what came back but not what it was
+     * compared with. Each row names the expected pattern and the device line
+     * that matched it, or says that nothing did.
+     *
+     * `present` is what the step wants: true for verifyShowLines, false for
+     * verifyShowLinesAbsent.
+     */
+    static String expectedVsOutput(String[] patterns, String output,
+                                   boolean present) {
+        StringBuilder sb = new StringBuilder("\\nExpected vs output:");
+        for (String pattern : patterns) {
+            String hit = null;
+            if (output != null) {
+                for (String line : output.split("\\r?\\n")) {
+                    if (Pattern.compile(pattern).matcher(line).find()) {
+                        hit = line.trim();
+                        break;
+                    }
+                }
+                if (hit == null
+                        && Pattern.compile(pattern).matcher(output).find()) {
+                    hit = "(matched across lines)";
+                }
+            }
+            String verdict;
+            if (present) {
+                verdict = hit != null ? "found  " : "MISSING";
+            } else {
+                verdict = hit == null ? "absent " : "PRESENT";
+            }
+            sb.append("\\n  ").append(verdict)
+              .append("  expected ").append(present ? "" : "NOT ")
+              .append("/").append(pattern).append("/");
+            if (hit != null) {
+                sb.append("  ->  device: ").append(hit);
+            }
+        }
+        return sb.toString();
     }
 
     public void verifyShowLines(ICmpCliCmd command, String[] expectedLines)
@@ -610,10 +657,14 @@ _UTILS_BODY = '''
         }
 
         falsifiableAssertions++;
+        String table = expectedVsOutput(expectedLines, output, true);
         CompassReporter.passFailByCondition(asExpected,
-                "The output of " + command.toString() + " is as expected.",
-                "The output of " + command.toString()
-                        + " is not as expected. Missing lines: " + missing);
+                command.toString() + ": all " + expectedLines.length
+                        + " expected line(s) found." + table,
+                command.toString() + ": " + missing.size() + " of "
+                        + expectedLines.length
+                        + " expected line(s) missing. Missing lines: "
+                        + missing + table);
     }
 
     /**

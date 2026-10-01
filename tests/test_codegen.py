@@ -2391,18 +2391,21 @@ def test_the_report_gate_refuses_the_package_the_client_rejected() -> None:
         assert expected in joined, f"the gate missed {expected}"
 
 
-def test_the_report_gate_passes_the_report_that_replaced_it() -> None:
-    """The merged 2026-09-16 report must pass the same gate.
+def test_the_report_gate_refuses_a_report_older_than_its_code(tmp_path) -> None:
+    """The 2026-09-16 report must be refused: it predates the Java it ships with.
 
-    A gate that refuses everything proves nothing. This is the report built
-    from three rebooted runs on pc-3080 - TC01, TC02 and TC03 each `OK
-    (1 test)` - merged by `scripts/lab/merge_reports.py` into one index.
+    Exaware, 2026-09-30 (Eyal Ozeri) reviewed that report step by step and
+    flagged titles - "Set import-rt / export-rt", "Bind access circuit AC1
+    (agg-eth-2.1001)" - that the Java in the same package had already
+    corrected. The code was fixed and regenerated after the run, and the run
+    was not repeated.
 
-    It also pins the verdict word. JSystem writes "Final test status is :
-    Pass", not "Success", and the first version of this gate looked for
-    "Success" and would have refused every good package ever built.
+    The same report with its titles brought in line must pass, or the gate
+    refuses everything and proves nothing. That half also pins the verdict
+    word: JSystem writes "Final test status is : Pass", not "Success".
     """
     import importlib.util
+    import shutil
     from pathlib import Path
 
     root = Path(__file__).resolve().parent.parent
@@ -2416,15 +2419,59 @@ def test_the_report_gate_passes_the_report_that_replaced_it() -> None:
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
 
-    assert mod.main(["x", str(report), str(suite)]) == 0, (
-        "three green runs merged into one index must ship")
-
     tests = mod._tests_in_execution(mod._js_object(report / "execution.js"))
     assert {(t.get("className") or "").rsplit(".", 1)[-1] for t in tests} == {
         "TC01_EvpnVlanBasedBringUp",
         "TC02_EvpnType2MacIpAdvertisement",
         "TC03_EvpnType3ImetFlooding",
     }, "the merged index must name all three, which is Oded's first finding"
+
+    titles = mod._shipped_step_titles(suite)
+    stale = [p for t in tests
+             for p in mod._check_step_titles(report, t, titles)]
+    assert len(stale) == 3, "all three tests ran on older code"
+    joined = "\n".join(stale)
+    assert "Set import-rt / export-rt on evi-1" in joined
+    assert "agg-eth-2.1001" in joined
+    assert mod.main(["x", str(report), str(suite)]) == 1
+
+    # Same report, titles as the shipped Java has them: must ship.
+    fixed = tmp_path / "report"
+    shutil.copytree(report, fixed)
+    for page in (fixed / "tests").glob("*/test.js"):
+        text = page.read_text(encoding="utf-8")
+        for old, new in (
+                ("Set import-rt / export-rt on evi-1", "Set import-rt on evi-1"),
+                ("(agg-eth-2.1001)", "(VLAN 1001)"),
+                ("(agg-eth-3.1002)", "(VLAN 1002)"),
+                ("(agg-eth-3.1003)", "(VLAN 1003)"),
+                ("learnt on agg-eth-2.1001", "learnt on AC1 (VLAN 1001)"),
+                ("learnt on agg-eth-3.1002", "learnt on AC2 (VLAN 1002)"),
+                ("shifted to agg-eth-3.1003", "shifted to AC3 (VLAN 1003)")):
+            text = text.replace(old, new)
+        page.write_text(text, encoding="utf-8")
+    assert mod.main(["x", str(fixed), str(suite)]) == 0, (
+        "a report produced by the shipped code must pass")
+
+
+def test_the_report_shows_expected_vs_output() -> None:
+    """Every show assertion prints each expectation next to the device line.
+
+    Exaware, 2026-09-30 (Eyal Ozeri), TC01 steps 9, 11 and 12: "Verification
+    is not coherent - What is actually validated? Expected vs Output
+    missing". And steps 1 and 10: an absence check that passed said the
+    output "no longer" held the lines, about an EVI that had never existed.
+    """
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    utils = (root / "deliverables/M2/generated_suite/cmp/tests/evpn/"
+             "EvpnUtils.java").read_text(encoding="utf-8")
+    assert "no longer contains" not in utils
+    assert "is as expected." not in utils
+    assert utils.count("expectedVsOutput(") == 3, (
+        "defined once, used by verifyShowLines and verifyShowLinesAbsent")
+    assert "Expected vs output:" in utils
 
 
 def test_merging_one_report_per_test_yields_one_index_naming_all_three(tmp_path) -> None:
