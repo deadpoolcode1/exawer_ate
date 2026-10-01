@@ -161,6 +161,21 @@ def generate_evpn_suite(sfs_path: str | Path,
             "generated steps would report a pass without checking anything:\n  "
             + "\n  ".join(str(v) for v in violations))
 
+    # PIPELINE RULE: review every step the way the client's expert does.
+    # Falsifiable is not enough: a step must fail when the FEATURE is broken,
+    # not only when the rig is. Each rule is a defect a client reviewer found
+    # by reading our report. Fatal, with no override, like the rule above.
+    from ate.codegen.domain_review import (  # noqa: PLC0415
+        DomainReviewError,
+        review,
+    )
+
+    findings = review(scripts, lab)
+    if findings:
+        raise DomainReviewError(
+            "generated steps would pass on a device where the feature is "
+            "broken:\n  " + "\n  ".join(str(f) for f in findings))
+
     census = assertion_census(scripts, captures)
     capture_notes.append(
         f"assertions: {len(census.falsifiable)} of {census.total} verification "

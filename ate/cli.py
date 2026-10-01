@@ -48,6 +48,9 @@ def main(argv: list[str] | None = None) -> int:
                              "Python SDK and requires ANTHROPIC_API_KEY. Env var "
                              "ATE_AI_BACKEND overrides the default if this flag "
                              "is omitted.")
+    p_plan.add_argument("--ai-workers", type=int, default=None, metavar="N",
+                        help="Backend calls in flight at once (default 4 for cli, 8 for "
+                             "sdk; env ATE_AI_WORKERS)")
     p_plan.add_argument("--rfc", action="append", default=None, metavar="PATH",
                         help="Additional RFC source whose normative (MUST/SHALL) "
                              "clauses are extracted as requirements alongside the "
@@ -79,6 +82,8 @@ def main(argv: list[str] | None = None) -> int:
                       help="Force AI enrichment for rows not in ai_cache.json")
     p_pf.add_argument("--ai-backend", choices=("cli", "sdk"), default=None,
                       help="AI transport (cli = local Claude Code auth; sdk = ANTHROPIC_API_KEY)")
+    p_pf.add_argument("--ai-workers", type=int, default=None, metavar="N",
+                      help="Backend calls in flight at once (default 4 for cli, 8 for sdk)")
     p_pf.add_argument("--dry-run", action="store_true",
                       help="Print the resolved SFS/CLI/RFCs without running the planner")
 
@@ -649,13 +654,15 @@ def _cmd_plan(args) -> int:
             plan = generate_plan(src, feature_name=args.feature_name,
                                  use_ai=use_ai, rfc_paths=rfc_paths,
                                  cli_doc_path=cli_doc_path,
-                                 ai_backend=args.ai_backend)
+                                 ai_backend=args.ai_backend,
+                                 ai_workers=args.ai_workers)
         else:
             plan = generate_plan_to_xlsx(src, args.out,
                                          feature_name=args.feature_name,
                                          use_ai=use_ai, rfc_paths=rfc_paths,
                                          cli_doc_path=cli_doc_path,
-                                         ai_backend=args.ai_backend)
+                                         ai_backend=args.ai_backend,
+                                         ai_workers=args.ai_workers)
     except ATEParseError as e:
         print(f"error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1
@@ -794,13 +801,15 @@ def _cmd_plan_feature(args) -> int:
             plan = generate_plan(sfs, feature_name=args.feature_name,
                                  use_ai=use_ai, rfc_paths=rfc_paths,
                                  cli_doc_path=cli_doc_path,
-                                 ai_backend=args.ai_backend)
+                                 ai_backend=args.ai_backend,
+                                 ai_workers=args.ai_workers)
         else:
             plan = generate_plan_to_xlsx(sfs, out_path,
                                          feature_name=args.feature_name,
                                          use_ai=use_ai, rfc_paths=rfc_paths,
                                          cli_doc_path=cli_doc_path,
-                                         ai_backend=args.ai_backend)
+                                         ai_backend=args.ai_backend,
+                                         ai_workers=args.ai_workers)
     except ATEParseError as e:
         print(f"error: {type(e).__name__}: {e}", file=sys.stderr)
         return 1

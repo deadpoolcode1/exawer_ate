@@ -218,6 +218,7 @@ def generate_plan(doc: Document | str | Path,
                   rfc_paths: list[str | Path] | None = None,
                   cli_doc_path: str | Path | None = None,
                   ai_backend: str | None = None,
+                  ai_workers: int | None = None,
                   ) -> Plan:
     if not isinstance(doc, Document):
         doc = parse(doc)
@@ -403,7 +404,8 @@ def generate_plan(doc: Document | str | Path,
     if use_ai is not False:
         from ate.planner.ai_enricher import enrich_plan  # noqa: PLC0415
         plan, _stats = enrich_plan(plan, use_api=use_ai, backend=ai_backend,
-                                   cli_doc_path=cli_doc_path)
+                                   cli_doc_path=cli_doc_path,
+                                   workers=ai_workers)
         # Re-attach coverage after the model_copy in enrich_plan
         plan.__dict__["_coverage"] = coverage_map
         plan.__dict__["_orphans"] = orphans
@@ -435,9 +437,10 @@ def generate_plan_to_xlsx(input_path: str | Path,
                           rfc_paths: list[str | Path] | None = None,
                           cli_doc_path: str | Path | None = None,
                           ai_backend: str | None = None,
+                          ai_workers: int | None = None,
                           ) -> Plan:
     plan = generate_plan(input_path, feature_name=feature_name, use_ai=use_ai,
                          rfc_paths=rfc_paths, cli_doc_path=cli_doc_path,
-                         ai_backend=ai_backend)
+                         ai_backend=ai_backend, ai_workers=ai_workers)
     write_xlsx(plan, output_path, cli_doc_path=cli_doc_path)
     return plan

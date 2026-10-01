@@ -2082,7 +2082,9 @@ def test_steps_sharing_one_command_do_not_share_one_expectation() -> None:
     for sc in scripts:
         for st in sc.steps:
             if st.expect_key and st.command:
-                key = (sc.flow_id, st.command, *st.args)
+                # Polarity too: "present" then "gone" with the same lines is
+                # the aging pattern domain_review REQUIRES, not a clash.
+                key = (sc.flow_id, st.command, st.expect_absent, *st.args)
                 by_command.setdefault(key, []).append(st)
 
     checked = 0

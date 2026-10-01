@@ -16,12 +16,14 @@ Strategy:
     DF election, MAC mobility, and one Basic Functionality row per
     spec requirement. ~120 rows. Demonstrates AI quality where Yossi
     looks first.
-  - `--full` runs the full 800+ row plan. Plan for ~30 minutes via the
-    SDK backend or 2-3 hours via the CLI backend.
+  - `--full` runs the full 800+ row plan. The default CLI backend bills
+    the logged-in Claude plan, never the API, and runs 4 calls at once
+    (`--workers`); serial it took 10 h 45 m on 2026-05-08.
 
 Usage:
     python scripts/build_ai_cache.py                 # curated subset, CLI backend
     python scripts/build_ai_cache.py --full          # everything, CLI backend
+    python scripts/build_ai_cache.py --full --workers 6
     python scripts/build_ai_cache.py --full --sdk    # everything via SDK
 """
 from __future__ import annotations
@@ -99,6 +101,9 @@ def main() -> int:
     p.add_argument("--sdk", action="store_true",
                    help="Use Anthropic SDK backend (requires ANTHROPIC_API_KEY). "
                         "Faster than CLI backend for bulk; bills the API account.")
+    p.add_argument("--workers", type=int, default=None,
+                   help="Calls in flight at once (default 4 for the CLI "
+                        "backend, 8 for --sdk).")
     p.add_argument("--limit", type=int, default=None,
                    help="Process only the first N rows of the (curated|full) set. "
                         "Useful for time-bounded pilot runs. Each row is "
@@ -129,13 +134,14 @@ def main() -> int:
     started = time.time()
     _, stats = enrich_plan(
         target, use_api=True, backend=backend, cli_doc_path=CLI_DOC,
-        retry_forever=retry_forever,
+        retry_forever=retry_forever, workers=args.workers,
     )
     elapsed = time.time() - started
     print(f"Done in {elapsed:.0f}s.")
     print(f"  cache_hit:  {stats['cache_hit']}")
     print(f"  api_call:   {stats['api_call']}")
     print(f"  rule_based: {stats['rule_based']}")
+    print(f"  api_failed: {stats['api_failed']}")
     print("Cache file: ate/planner/ai_cache.json")
     return 0
 

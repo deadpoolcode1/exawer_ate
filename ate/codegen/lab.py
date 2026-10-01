@@ -447,14 +447,19 @@ AC1 = AccessCircuit(name="AC1", interface="agg-eth-1", vport="vport1")
 AC2 = AccessCircuit(name="AC2", interface="agg-eth-2", vport="vport2")
 AC3 = AccessCircuit(name="AC3", interface="agg-eth-3", vport="vport3")
 
+# Known unicast, like the 3ac-core items below: the curated steps claim
+# forwarding to one circuit, which broadcast can never show (domain_review).
 TI_AC1_TO_AC2 = TrafficItem(name="TI_AC1_TO_AC2", src="AC1", dst="AC2",
-                            src_mac="00:00:01:00:00:01")
+                            src_mac="00:00:01:00:00:01",
+                            dst_mac="00:00:02:00:00:01")
 # AC2 and AC3 share a source MAC on purpose — that is what makes
 # AC2 -> AC3 a local move rather than two distinct hosts.
 TI_AC2_TO_AC1 = TrafficItem(name="TI_AC2_TO_AC1", src="AC2", dst="AC1",
-                            src_mac="00:00:02:00:00:01")
+                            src_mac="00:00:02:00:00:01",
+                            dst_mac="00:00:01:00:00:01")
 TI_AC3_TO_AC1 = TrafficItem(name="TI_AC3_TO_AC1", src="AC3", dst="AC1",
-                            src_mac="00:00:02:00:00:01")
+                            src_mac="00:00:02:00:00:01",
+                            dst_mac="00:00:01:00:00:01")
 
 SINGLE_DUT_3AC = LabProfile(
     id="lab-1dut-3ac",

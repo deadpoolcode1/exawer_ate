@@ -338,3 +338,78 @@ def test_row_key_is_stable(monkeypatch) -> None:
     assert k1 == k2
     k3 = _row_key(req, row, 1)
     assert k1 != k3
+
+
+# ─── Parallel bake ──────────────────────────────────────────────────────────
+
+def _fake_sdk(fail_every: int = 0):
+    """A stand-in model that answers out of order and names the row."""
+    import random
+    import re as _re
+    import time as _time
+    calls = {"n": 0}
+
+    def fake(prompt: str, api_key: str):
+        calls["n"] += 1
+        _time.sleep(random.uniform(0, 0.02))
+        rid = _re.search(r"ID: (\S+)", prompt).group(1)
+        if fail_every and calls["n"] % fail_every == 0:
+            return None
+        return {"action_steps": f"AI action for {rid}",
+                "expectation": f"AI expectation for {rid}"}
+    return fake
+
+
+def test_parallel_bake_matches_a_serial_one(monkeypatch, tmp_path) -> None:
+    """Completion order must not leak into the cache or the row order."""
+    import ate.planner.ai_enricher as enricher
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake")
+    plan = generate_plan(EVPN_SPEC, use_ai=False)
+    plan.rows = plan.rows[:40]
+    monkeypatch.setattr(enricher, "_call_via_sdk", _fake_sdk())
+
+    out = {}
+    for workers in (1, 8):
+        cache = tmp_path / f"cache_{workers}.json"
+        cache.write_text("{}")
+        enriched, stats = enrich_plan(plan, use_api=True, cache_path=cache,
+                                      backend="sdk", workers=workers)
+        out[workers] = (cache.read_text(),
+                        [r.action_steps for r in enriched.rows], stats)
+    assert out[1] == out[8]
+    assert out[8][2]["api_call"] > 0
+
+
+def test_failed_calls_are_counted_not_hidden(monkeypatch, tmp_path) -> None:
+    import ate.planner.ai_enricher as enricher
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "fake")
+    plan = generate_plan(EVPN_SPEC, use_ai=False)
+    plan.rows = plan.rows[:40]
+    monkeypatch.setattr(enricher, "_call_via_sdk", _fake_sdk(fail_every=3))
+    cache = tmp_path / "cache.json"
+    cache.write_text("{}")
+    _, stats = enrich_plan(plan, use_api=True, cache_path=cache,
+                           backend="sdk", workers=4)
+    assert stats["api_failed"] > 0
+    assert stats["cache_hit"] + stats["api_call"] + stats["rule_based"] \
+        == len(plan.rows)
+    assert len(json.loads(cache.read_text())) == stats["api_call"]
+
+
+def test_cli_backend_never_bills_the_api(monkeypatch) -> None:
+    """`claude -p` must run on the logged-in plan even if an API key is set."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-should-not-leak")
+    monkeypatch.setenv("ANTHROPIC_AUTH_TOKEN", "tok-should-not-leak")
+    import ate.planner.ai_enricher as enricher
+    seen = {}
+
+    def fake_run(cmd, **kw):
+        seen.update(kw["env"])
+        raise FileNotFoundError
+
+    monkeypatch.setattr(enricher.shutil, "which", lambda _: "/usr/bin/claude")
+    monkeypatch.setattr(enricher.subprocess, "run", fake_run)
+    enricher._call_via_cli_once("prompt")
+    assert "ANTHROPIC_API_KEY" not in seen
+    assert "ANTHROPIC_AUTH_TOKEN" not in seen
+    assert "PATH" in seen

@@ -36,7 +36,9 @@ import json
 import os
 import shutil
 import subprocess
+import threading
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 from ate.planner.cli_extractor import CliCommand
@@ -153,8 +155,11 @@ def load_cache(path: Path = CACHE_PATH) -> dict[str, dict]:
 
 def save_cache(cache: dict[str, dict], path: Path = CACHE_PATH) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps(cache, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
-                    encoding="utf-8")
+    # Atomic: an interrupted bake must not truncate the committed cache.
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(json.dumps(cache, indent=2, ensure_ascii=False, sort_keys=True) + "\n",
+                   encoding="utf-8")
+    tmp.replace(path)
 
 
 # Map a requirement's tags / title keywords to relevant CLI commands.
@@ -432,27 +437,80 @@ def _parse_response_json(text: str) -> dict | None:
         return None
 
 
+#: Retries the SDK itself makes on 408/409/429/5xx and connection errors,
+#: with exponential backoff. A parallel bake WILL meet 429s; the default of 2
+#: turned each one into a silently rule-based row.
+SDK_MAX_RETRIES = 8
+
+_sdk_clients: dict[tuple[str, int], object] = {}
+_sdk_lock = threading.Lock()
+
+
+def _sdk_client(api_key: str):
+    """One client per key, shared by every worker thread (it is thread-safe)."""
+    import anthropic  # noqa: PLC0415
+    key = (api_key, id(anthropic.Anthropic))
+    with _sdk_lock:
+        if key not in _sdk_clients:
+            _sdk_clients[key] = anthropic.Anthropic(
+                api_key=api_key, max_retries=SDK_MAX_RETRIES)
+        return _sdk_clients[key]
+
+
 def _call_via_sdk(prompt: str, api_key: str) -> dict | None:
     """SDK backend: direct Anthropic API call.
 
     Requires `ANTHROPIC_API_KEY`. Bills to the console.anthropic.com account
     (separate from any Claude Pro/Max subscription).
+
+    Returns None on failure, and SAYS so: a row that falls back to the rule
+    template must not look like a row the model wrote.
     """
     try:
         import anthropic  # noqa: PLC0415
     except ImportError:
+        print("[ai_enricher] sdk backend: `anthropic` is not installed",
+              flush=True)
         return None
     try:
-        client = anthropic.Anthropic(api_key=api_key)
-        resp = client.messages.create(
+        resp = _sdk_client(api_key).messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
             messages=[{"role": "user", "content": prompt}],
         )
-        text = resp.content[0].text.strip() if resp.content else ""
-        return _parse_response_json(text)
-    except Exception:
+    except anthropic.RateLimitError:
+        print(f"[ai_enricher] sdk: rate limited after {SDK_MAX_RETRIES} "
+              "retries; row stays rule-based", flush=True)
         return None
+    except anthropic.APIStatusError as e:
+        print(f"[ai_enricher] sdk: HTTP {e.status_code}: {e.message}",
+              flush=True)
+        return None
+    except anthropic.APIConnectionError:
+        print("[ai_enricher] sdk: connection failed after retries", flush=True)
+        return None
+    except Exception as e:  # noqa: BLE001 - a bake must not die on one row
+        print(f"[ai_enricher] sdk: {type(e).__name__}: {e}", flush=True)
+        return None
+    text = next((b.text for b in resp.content
+                 if isinstance(getattr(b, "text", None), str)), "").strip()
+    parsed = _parse_response_json(text)
+    if parsed is None:
+        print("[ai_enricher] sdk: reply was not the requested JSON", flush=True)
+    return parsed
+
+
+def _subscription_env() -> dict[str, str]:
+    """The environment for `claude -p`, with API credentials removed.
+
+    `claude` prefers ANTHROPIC_API_KEY (and ANTHROPIC_AUTH_TOKEN) over the
+    logged-in subscription when either is set. Strip them, so the CLI backend
+    always bills the user's Claude plan and never the API account.
+    """
+    env = dict(os.environ)
+    for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN"):
+        env.pop(k, None)
+    return env
 
 
 def _call_via_cli_once(prompt: str, model: str | None = None,
@@ -478,6 +536,7 @@ def _call_via_cli_once(prompt: str, model: str | None = None,
             cmd, input=prompt,
             capture_output=True, text=True,
             timeout=timeout, check=False,
+            env=_subscription_env(),
         )
     except FileNotFoundError:
         return None, "nopath"
@@ -565,12 +624,27 @@ def _build_cli_index(cli_doc_path: str | Path | None) -> dict[str, object] | Non
     return {c.name: c for c in cmds}
 
 
+def _default_workers(backend: str) -> int:
+    """Calls in flight at once: 4 for `claude -p`, 8 for the SDK.
+
+    The CLI backend bills the logged-in Claude plan, not the API, and every
+    process shares that plan's rate-limit window. With `retry_forever` a
+    worker that hits the limit backs off and resumes, so more workers cost
+    nothing extra; 4 keeps the backoff rare. Override with ATE_AI_WORKERS.
+    """
+    env = os.environ.get("ATE_AI_WORKERS")
+    if env:
+        return max(1, int(env))
+    return 8 if backend == "sdk" else 4
+
+
 def enrich_plan(plan: Plan, *,
                 use_api: bool | None = None,
                 cache_path: Path = CACHE_PATH,
                 backend: str | None = None,
                 cli_doc_path: str | Path | None = None,
                 retry_forever: bool = False,
+                workers: int | None = None,
                 ) -> tuple[Plan, dict[str, int]]:
     """Replace each row's action+expectation+equipment with AI-enriched
     content when available (cache → backend → rule-based). Returns
@@ -590,25 +664,37 @@ def enrich_plan(plan: Plan, *,
         bakes against a Pro/Max subscription — it covers the 5-hour
         rate-limit window by pausing until the window recovers, instead
         of marking the affected rows as rule-based.
+      workers: backend calls in flight at once. Default 8 for sdk, 4 for
+        cli (see `_default_workers`). A full bake is ~820 calls, about
+        10 h when serial.
 
-    stats keys: {"cache_hit", "api_call", "rule_based"}
+    Rows come back in plan order and cache keys are computed in plan order,
+    whatever order the calls finish in, so a parallel bake writes exactly
+    the cache a serial one would.
+
+    stats keys: {"cache_hit", "api_call", "rule_based", "api_failed"}.
+    `api_failed` counts rows that WANTED the model and fell back; they are
+    also in `rule_based`, so cache_hit + api_call + rule_based == rows.
     """
     backend = _resolve_backend(backend)
     api_key = os.environ.get("ANTHROPIC_API_KEY")
     if use_api is None:
         use_api = False  # cache-only by default; --ai opts in
+    if workers is None:
+        workers = _default_workers(backend)
 
     cache = load_cache(cache_path)
-    cache_dirty = False
-    stats = {"cache_hit": 0, "api_call": 0, "rule_based": 0}
+    stats = {"cache_hit": 0, "api_call": 0, "rule_based": 0, "api_failed": 0}
 
     cli_index = _build_cli_index(cli_doc_path)
 
     req_by_id = {r.req_id: r for r in plan.requirements}
     seen_count: dict[tuple[str, str, str, str], int] = {}
 
-    enriched_rows: list[PlanRow] = []
-    for row in plan.rows:
+    # Pass 1, in plan order: everything decidable without the model.
+    out: list[PlanRow] = list(plan.rows)
+    pending: list[tuple[int, str, Requirement, PlanRow, str]] = []
+    for i, row in enumerate(plan.rows):
         # Sub-index distinguishes multiple rows with the same identity.
         # Flow rows: keyed by (flow_id, category, joined_req_ids); CLI
         # rows: keyed by (sfs_requirement_id, category, sub_category).
@@ -629,27 +715,19 @@ def enrich_plan(plan: Plan, *,
                     break
         if req is None:
             stats["rule_based"] += 1
-            enriched_rows.append(row)
             continue
 
         # CLI Configuration rows are authored deterministically by
         # cli_rows.py straight from the EVPN CLI doc (command name,
         # mode, parameter ranges, prerequisites, exact `show` monitors).
         # The client review (2026-06-01) asked the CLI section to be
-        # precise and Exaware-CLI-aligned — AI paraphrasing blurs that
-        # (it produced vague phrases like "feature operates per
-        # documented behaviour" and generic `show running-config`
-        # monitors). Keep CLI rows verbatim from the templates and never
-        # send them through the model, regardless of `use_api`. Counted
-        # as rule_based so the cache_hit + rule_based == len(rows)
-        # invariant still holds.
-        # CLI rows (above) and hand-curated rows (curated.py, source
-        # "rfc-curated") are authored deterministically and must never be
-        # paraphrased by the model — keep them verbatim, counted as rule_based.
+        # precise and Exaware-CLI-aligned — AI paraphrasing blurs that.
+        # CLI rows and hand-curated rows (curated.py, source
+        # "rfc-curated") are never paraphrased by the model, regardless of
+        # `use_api`, and are counted as rule_based.
         if (req.source in ("cli", "rfc-curated")
                 or row.sfs_requirement_id.startswith("CLI:")):
             stats["rule_based"] += 1
-            enriched_rows.append(row)
             continue
 
         cache_key = _row_key(req, row, sub_index)
@@ -661,56 +739,74 @@ def enrich_plan(plan: Plan, *,
             }
             if data.get("equipment"):
                 update["equipment"] = data["equipment"]
-            enriched_rows.append(row.model_copy(update=update))
+            out[i] = row.model_copy(update=update)
             stats["cache_hit"] += 1
             continue
 
-        if use_api:
-            covered = [req_by_id[r] for r in row.covered_req_ids
-                       if r in req_by_id]
-            # Resolve RFC linked reqs so the prompt can show the actual
-            # RFC base text the SFS req is modifying / extending /
-            # pointing at (Yossi 2026-05-21 follow-up).
-            rfc_link_reqs = [req_by_id[rl] for rl in req.rfc_links
-                             if rl in req_by_id]
-            prompt = _build_prompt(req, row, cli_index=cli_index,
-                                   covered_reqs=covered or None,
-                                   rfc_link_reqs=rfc_link_reqs or None)
-            if backend == "sdk":
-                result = _call_via_sdk(prompt, api_key) if api_key else None
-            else:  # cli
-                result = _call_via_cli(prompt, retry_forever=retry_forever)
-            if result is not None:
-                action = result["action_steps"]
-                expectation = result["expectation"]
+        if not use_api:
+            stats["rule_based"] += 1
+            continue
+
+        covered = [req_by_id[r] for r in row.covered_req_ids if r in req_by_id]
+        # Resolve RFC linked reqs so the prompt can show the actual RFC base
+        # text the SFS req is modifying / extending / pointing at (Yossi
+        # 2026-05-21 follow-up).
+        rfc_link_reqs = [req_by_id[rl] for rl in req.rfc_links
+                         if rl in req_by_id]
+        prompt = _build_prompt(req, row, cli_index=cli_index,
+                               covered_reqs=covered or None,
+                               rfc_link_reqs=rfc_link_reqs or None)
+        pending.append((i, cache_key, req, row, prompt))
+
+    # Pass 2: the model calls, `workers` at a time.
+    def call(prompt: str) -> dict | None:
+        if backend == "sdk":
+            return _call_via_sdk(prompt, api_key) if api_key else None
+        return _call_via_cli(prompt, retry_forever=retry_forever)
+
+    lock = threading.Lock()
+    done = 0
+    if pending:
+        print(f"[ai_enricher] {len(pending)} row(s) to enrich via {backend}, "
+              f"{workers} at a time", flush=True)
+    with ThreadPoolExecutor(max_workers=max(1, workers)) as pool:
+        futures = {pool.submit(call, job[4]): job for job in pending}
+        for fut in as_completed(futures):
+            i, cache_key, req, row, _ = futures[fut]
+            result = fut.result()
+            with lock:
+                done += 1
+                if result is None:
+                    stats["rule_based"] += 1
+                    stats["api_failed"] += 1
+                    continue
                 equipment = result.get("equipment", row.equipment)
                 cache[cache_key] = {
                     "req_id": req.req_id,
                     "category": row.category,
                     "sub_category": row.sub_category,
-                    "action_steps": action,
-                    "expectation": expectation,
+                    "action_steps": result["action_steps"],
+                    "expectation": result["expectation"],
                     "equipment": equipment,
                     "backend": backend,
                 }
-                cache_dirty = True
-                # Persist after every successful API call so a long bake
-                # is interruptible — losing 1 row's work, not the batch.
+                # Persist after every success so a long bake is
+                # interruptible: losing one row's work, not the batch.
                 save_cache(cache, cache_path)
-                enriched_rows.append(row.model_copy(update={
-                    "action_steps": action,
-                    "expectation": expectation,
+                out[i] = row.model_copy(update={
+                    "action_steps": result["action_steps"],
+                    "expectation": result["expectation"],
                     "equipment": equipment,
-                }))
+                })
                 stats["api_call"] += 1
-                continue
+                if done % 25 == 0:
+                    print(f"[ai_enricher] {done}/{len(pending)} done",
+                          flush=True)
 
-        # Fallback: keep rule-based content
-        stats["rule_based"] += 1
-        enriched_rows.append(row)
+    if stats["api_failed"]:
+        print(f"[ai_enricher] WARNING: {stats['api_failed']} row(s) wanted the "
+              "model and fell back to the rule template; re-run to retry them "
+              "(cached rows are not re-sent)", flush=True)
 
-    if cache_dirty:
-        save_cache(cache, cache_path)
-
-    enriched_plan = plan.model_copy(update={"rows": enriched_rows})
+    enriched_plan = plan.model_copy(update={"rows": out})
     return enriched_plan, stats

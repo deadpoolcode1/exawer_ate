@@ -68,7 +68,11 @@ Every stage is automated and has a command. Full architecture in `docs/TDD.md` �
 | Up to 3 integration-ready test plans | ✅ compile against the real framework |
 
 Gates: 953 sources → 1454 classes, 0 errors; generated files pass `-Werror -Xlint:all`;
-`bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 349 ATE tests pass.
+`bringUpParams.crt` passes `TemplateManager.validateAgainstTemplate`. 363 ATE tests pass.
+Every step passes the domain review (`ate/codegen/domain_review.py`): 11 rules, one per
+defect a client reviewer found. Its first run found that TC03 asserted the Type-2 withdrawn
+without first showing it advertised; step `FLOW-031.S01S` now does. TC03 rerun on pc-3080:
+`OK (1 test)` (`deliverables/M2/evidence_tc03_type2_present_then_withdrawn_pc3080.txt`).
 
 ## The device loop — why it exists
 

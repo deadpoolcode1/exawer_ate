@@ -580,6 +580,19 @@ def _type3(lab: LabProfile) -> TestScript:
              ("TI_AC3_TO_AC1", "0", "0")],
             on=["AC2"], silent=["AC3"], req=_R_TYPE2),
         Step(
+            id="FLOW-031.S01S",
+            kind=StepKind.VERIFY_ROUTE,
+            # S05 asserts this route withdrawn. Without proving it was there
+            # first, S05 also passes on a DUT that never originated it
+            # (domain_review: absence-without-prior-presence).
+            text=f"Verify the DUT originates a Type-2 route for {mac2} before it ages ({_adv_phrase})",
+            command=_adv_cmd,
+            args=list(_adv_args),
+            expect_key="FLOW031_S01S_TYPE2_ADVERTISED_LINES",
+            expect_literal=[r"Type=2:.*MAC=" + mac2],
+            req_ids=_R_TYPE2,
+        ),
+        Step(
             id="FLOW-031.S01",
             kind=StepKind.TRAFFIC_STATE,
             text="Stop traffic AC2 -> AC1, so nothing refreshes its MAC",

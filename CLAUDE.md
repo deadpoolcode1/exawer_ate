@@ -177,6 +177,16 @@ is in the `exaware-framework` skill.
   error" is not evidence it did anything — read something back.** Exaware's
   `performFunctions` reported "ended without errors" for 34 TCL calls that
   never ran, which hid the fact that no IXIA traffic was ever created.
+- **Every step is reviewed the way the client's expert reviews it, before
+  any Java is written** (`ate/codegen/domain_review.py`). Falsifiable is not
+  enough: a step must fail when the *feature* is broken, not only the rig.
+  Each rule is a defect a client reviewer found in our report (advertised read
+  off the local table, unicast claimed on broadcast, flooding expected as
+  forwarding, aging asserted on MACs never learnt, a MAC asserted with no
+  traffic from that circuit, split commits, titles that apologise or say what
+  the step does not do). `ate codegen` raises `DomainReviewError`; there is no
+  override. **When a reviewer finds a new class of defect, the fix is not done
+  until it is a rule here with a test**, so they never find it twice.
 - **A capability proven on hardware may not silently disappear.** The underlay
   was built and device-verified on 2026-08-13 (OSPF FULL, BGP Established)
   after Exaware reported it missing. On 2026-08-14 the hand-over was generated
