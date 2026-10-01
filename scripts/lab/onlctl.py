@@ -13,7 +13,6 @@ import sys
 import warnings
 
 import paramiko
-
 from rig import onl_ip
 
 warnings.filterwarnings("ignore")
