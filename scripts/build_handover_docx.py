@@ -169,8 +169,12 @@ bullets(doc, [
      "javac --release 8 -Werror -Xlint:all, zero warnings. bringUpParams.crt "
      "passes TemplateManager.validateAgainstTemplate."),
     ("Nothing fakes a pass: ",
-     "32 of 32 verification steps can fail; none only warn. The package build "
+     "33 of 33 verification steps can fail; none only warn. The package build "
      "refuses a report that is older than the code it ships with."),
+    ("Reviewed before it is generated: ",
+     "every step is checked against the defects your reviewers found (e.g. "
+     "aging asserted on a MAC never learnt). That check added TC03 step 10: "
+     "the Type-2 is shown advertised before it is shown withdrawn."),
 ])
 
 h(doc, "What is NOT proven, and why", size=11, space_before=10)

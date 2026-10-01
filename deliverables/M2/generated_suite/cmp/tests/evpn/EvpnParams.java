@@ -222,6 +222,10 @@ public class EvpnParams implements ISuiteParams {
      *  Known at generation time, not captured. */
     public final String[] FLOW031_S01Q_MACS_LEARNT_LINES = new String[] {"00:00:02:00:00:01\\s+L\\s"};
 
+    /** FLOW-031.S01S - Verify the DUT originates a Type-2 route for 00:00:02:00:00:01 before it ages (advertised to the tester 29.31.31.31)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW031_S01S_TYPE2_ADVERTISED_LINES = new String[] {"Type=2:.*MAC=00:00:02:00:00:01"};
+
     /** FLOW-031.S04 - Verify 00:00:02:00:00:01 has aged out of the EVPN MAC table
      *  Known at generation time, not captured. */
     public final String[] FLOW031_S04_MACS_AGED_OUT_LINES = new String[] {"00:00:02:00:00:01"};

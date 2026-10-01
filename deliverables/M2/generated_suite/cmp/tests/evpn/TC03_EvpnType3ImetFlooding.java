@@ -84,6 +84,10 @@ public class TC03_EvpnType3ImetFlooding extends CmpTestCase {
         evpnUtils.verifyIxiaStatistics("Verify AC1 -> AC2 is known unicast while 00:00:02:00:00:01 is learnt: rx 1000, AC2 only", testParams.FLOW031_S01R_KNOWN_UNICAST_ROWS);
         evpnUtils.verifyAcEgress(new int[] {1}, new int[] {2});
 
+        // FLOW-031.S01S - covers RFC7432bis-section 7.2
+        CompassReporter.stopAndStartLevel(++level + ". Verify the DUT originates a Type-2 route for 00:00:02:00:00:01 before it ages (advertised to the tester 29.31.31.31)");
+        evpnUtils.verifyShowLines(EvpnCommands.SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL.args("29.31.31.31"), testParams.FLOW031_S01S_TYPE2_ADVERTISED_LINES);
+
         // FLOW-031.S01 - covers RFC7432bis-section 7.3, RFC7432bis-section 11
         CompassReporter.stopAndStartLevel(++level + ". Stop traffic AC2 -> AC1, so nothing refreshes its MAC");
         evpnUtils.changeSuspendStatus(true, testParams.TI_AC2_TO_AC1);
