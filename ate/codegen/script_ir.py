@@ -96,6 +96,14 @@ class Step(BaseModel):
     command: str = ""
     #: Positional arguments substituted into the command's `%s` slots.
     args: list[str] = Field(default_factory=list)
+    #: For CONFIG: further (command, args) lines staged in the SAME commit.
+    #:
+    #: Exaware, 2026-09-30 (Eyal Ozeri), TC01 steps 3-8: "No need with 6
+    #: commits to configure a service." Each line of the EVI was its own step
+    #: and its own commit. A service is one change, so it is now one step:
+    #: every line is typed and checked for rejection, then one commit, which
+    #: must report a modification.
+    more: list[tuple[str, list[str]]] = Field(default_factory=list)
     #: Name of the `EvpnParams` constant holding the expected-line array.
     expect_key: str = ""
     #: The step asserts those lines are GONE, not present.
@@ -165,6 +173,17 @@ class Step(BaseModel):
     #: passes, so a step whose rates are not yet known from a device cannot
     #: show green.
     expect_rows: list[tuple[str, str, str]] = Field(default_factory=list)
+    #: For VERIFY_IXIA: attachment circuits the DUT must be transmitting out
+    #: of, and ones it must NOT, read off the DUT's per-sub-interface Tx
+    #: counters.
+    #:
+    #: Exaware, 2026-09-30 (Eyal Ozeri), TC02 step 27: "there's no validation
+    #: that the traffic is directed to the correct AC as these are 2 Vlans on
+    #: the same port." AC2 and AC3 share a vport, so the tester's Rx counter
+    #: cannot tell them apart. The DUT can: `show interface x-eth0/0/26.1002`
+    #: counts per sub-interface (device-verified on pc-3080, 2026-10-01).
+    egress_on: list[str] = Field(default_factory=list)
+    egress_silent: list[str] = Field(default_factory=list)
     #: For TRAFFIC_STATE: True → unsuspend, False → suspend.
     enabled: bool | None = None
 

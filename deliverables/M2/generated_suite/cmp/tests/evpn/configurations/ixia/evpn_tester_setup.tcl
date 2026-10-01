@@ -4,10 +4,10 @@
 # The DUT side of this same link is EVPN_Base.cfg; both are rendered
 # from ate/codegen/lab.py, so they cannot drift apart.
 #
-# EVPN objects are deliberately NOT built here: emulating an EVPN
-# speaker needs a BGP EVPN licence this chassis does not have, and
-# the current TCs assert the EVPN address family in the session's
-# CAPABILITIES, which the DUT advertises on its own.
+# The BGP neighbour ADVERTISES the L2VPN EVPN capability (-evpn true)
+# but holds no EVPN routes. Emulating routes (ethernet segments, EVI,
+# MAC ranges) needs a BGP EVPN licence chassis 10.1.70.108 does not
+# have (ERROR-1005); the capability alone does not (2026-10-01).
 
 package require IxTclNetwork
 set vp /vport:1
@@ -30,16 +30,38 @@ set v4 [ixNet add $intf ipv4]
 ixNet setAtt $v4 -ip 29.60.0.2 -gateway 29.60.0.1 -maskWidth 24
 ixNet commit
 
+# The tester's loopback: a routed interface behind the core link.
+# BGP is sourced from it, OSPF advertises it and LDP labels it, so the
+# session runs loopback to loopback over an LSP (Exaware, 2026-09-30).
+# Device-verified 2026-10-01, pc-3080 / chassis 10.1.70.108.
+set lb [lindex [ixNet remapIds [ixNet add $vp interface]] 0]
+ixNet setAtt $lb -enabled true -type routed -description lab-1dut-3ac-core-loopback
+ixNet commit
+ixNet setAtt $lb/unconnected -connectedVia $intf
+ixNet commit
+set lv4 [ixNet add $lb ipv4]
+ixNet setAtt $lv4 -ip 29.31.31.31 -maskWidth 32
+ixNet commit
+
+# Answer ICMP, so the .crt ping list can check both addresses at
+# bring-up. Off, the DUT's pings to 29.60.0.2 and the loopback were
+# 100% lost with every protocol up (pc-3080, 2026-10-01).
+ixNet setAtt $vp/protocols/ping -enabled true
+ixNet commit
+
 # OSPF - must match the DUT's area and network type or the
 # adjacency forms as EXSTART and never reaches FULL.
 set ospf $vp/protocols/ospf
 ixNet setAtt $ospf -enabled true
 ixNet commit
 set rtr [lindex [ixNet remapIds [ixNet add $ospf router]] 0]
-ixNet setAtt $rtr -enabled true -routerId 29.60.0.2
+ixNet setAtt $rtr -enabled true -routerId 29.31.31.31
 ixNet commit
 set oi [ixNet add $rtr interface]
 ixNet setAtt $oi -enabled true -interfaces $intf -areaId 0 -networkType pointToPoint -metric 1 -mtu 1500 -connectedToDut true
+ixNet commit
+set rr [ixNet add $rtr routeRange]
+ixNet setAtt $rr -enabled true -networkNumber 29.31.31.31 -mask 32 -numberOfRoutes 1 -origin sameArea
 ixNet commit
 
 # LDP - transport labels for the EVPN service
@@ -47,18 +69,22 @@ set ldp $vp/protocols/ldp
 ixNet setAtt $ldp -enabled true
 ixNet commit
 set lr [lindex [ixNet remapIds [ixNet add $ldp router]] 0]
-ixNet setAtt $lr -enabled true -routerId 29.60.0.2
+ixNet setAtt $lr -enabled true -routerId 29.31.31.31
 ixNet commit
 set li [ixNet add $lr interface]
 ixNet setAtt $li -enabled true -protocolInterface $intf -discoveryMode basic -labelSpaceId 0
 ixNet commit
+set fec [ixNet add $lr advFecRange]
+ixNet setAtt $fec -enabled true -firstNetwork 29.31.31.31 -maskWidth 32 -numberOfNetworks 1 -labelMode none
+ixNet commit
 
-# BGP - ipv4-unicast only; see the note on EVPN above.
+# BGP - loopback to loopback; ipv4-unicast only, see the note on
+# EVPN above.
 set bgp $vp/protocols/bgp
 ixNet setAtt $bgp -enabled true
 ixNet commit
 set nr [lindex [ixNet remapIds [ixNet add $bgp neighborRange]] 0]
-ixNet setAtt $nr -enabled true -evpn false -ipV4Unicast true -type internal -dutIpAddress 29.60.0.1 -localIpAddress 29.60.0.2 -localAsNumber 3029 -interfaces $intf -enableBgpId true -bgpId 29.60.0.2
+ixNet setAtt $nr -enabled true -evpn true -ipV4Unicast true -type internal -dutIpAddress 29.30.30.30 -localIpAddress 29.31.31.31 -localAsNumber 3029 -interfaces $lb -enableBgpId true -bgpId 29.31.31.31
 ixNet commit
 
 # take the port and start, then READ BACK - a start that returns

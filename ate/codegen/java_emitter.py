@@ -429,9 +429,11 @@ def emit_params(scripts: list[TestScript], lab: LabProfile,
         "     *  fails if aging stops working altogether. */",
         "    public final long AGING_VERIFY_TIMEOUT_IN_MSEC = 240000L;",
         f"    public final long VERIFY_INTERVAL_IN_MSEC = {lab.verify_interval_ms}L;",
-        "    /** TODO: confirm the EVPN MAC-aging default with Exaware; the",
-        "     *  VPLS suite tunes this per platform with a wide deviation. */",
+        "    /** The aging time TC03 configures and then waits out. Inside the",
+        "     *  CLI doc's range 0, 40-2400 (default 300). */",
         f"    public final int MAC_AGING_TIME_IN_SEC = {lab.mac_aging_seconds};",
+        "    /** How long verifyAcEgress watches the DUT's per-circuit counters. */",
+        "    public final long EGRESS_WINDOW_IN_MSEC = 10000L;",
         "",
         "    // ---- expected output ----",
     ]
@@ -1375,8 +1377,23 @@ _UTILS_BODY = '''
      */
     public void enableTrafficItemsAndStartSuspended(String... trafficItems)
             throws Exception {
-        enableTrafficItemsAndStart(trafficItems);
+        // Suspend BEFORE the engine starts, not after.
+        //
+        // DEVICE-VERIFIED 2026-10-01 on chassis 10.1.70.108. Started first
+        // and suspended second, every item transmits for the seconds in
+        // between - TI_AC3_TO_AC1 sent 2938 frames - so the DUT learns every
+        // MAC before the test begins, and "unknown unicast is flooded" is
+        // asserted against a MAC that is already known. Suspending the flow
+        // groups after apply and before start leaves all three at Tx 0, and
+        // unsuspending one later transmits at once.
+        for (String trafficItem : trafficItems) {
+            ixia.performFunctions(IxiaFunctions.CONFIGURE_TRAFFIC_ITEM_$_STATE_$
+                    .args(trafficItem, true));
+        }
+        ixia.performFunctions(IxiaFunctions.APPLY_TRAFFIC);
         changeSuspendStatus(true, trafficItems);
+        ixia.performFunctions(IxiaFunctions.START_TRAFFIC);
+        logMsg.info("Traffic started with every item suspended");
     }
 
     /**
@@ -1424,7 +1441,11 @@ _UTILS_BODY = '''
     }
 
     private Integer intOrNull(String value) {
-        return value == null ? null : Integer.valueOf(Integer.parseInt(value));
+        // Empty means "not asserted here": a unicast item's Rx depends on
+        // whether its destination MAC is learnt yet, so the step that starts
+        // it checks Tx only and the next VERIFY step states the Rx.
+        return value == null || value.trim().isEmpty()
+                ? null : Integer.valueOf(Integer.parseInt(value.trim()));
     }
 
     /** One item's expected row, as a query. Rx carries the tolerance. */
@@ -1820,6 +1841,71 @@ def _ac_binding_java(lab: LabProfile) -> str:
     }}
 
     /**
+     * Which attachment circuits is the DUT transmitting out of?
+     *
+     * Exaware, 2026-09-30 (Eyal Ozeri), TC02 step 27: "there's no validation
+     * that the traffic is directed to the correct AC as these are 2 Vlans on
+     * the same port." AC2 and AC3 share an IXIA port, so the tester's Rx
+     * counter is their sum and cannot say which one carried a frame. The DUT
+     * counts per sub-interface: `show interface x-eth 0/0/26.1002` has its own
+     * Tx "Total packets". Device-verified on pc-3080, 2026-10-01: with AC2's
+     * MAC learnt, .1002 sent 4899 packets in 5 s and .1003 sent 0.
+     *
+     * Two reads EGRESS_WINDOW_IN_MSEC apart, rate from the difference. A
+     * circuit in `forwarding` must run at half the offered rate or more; one
+     * in `silent` at a twentieth or less. Thresholds rather than equality,
+     * because the counter is sampled, not frame-exact.
+     */
+    public void verifyAcEgress(int[] forwarding, int[] silent) throws Exception {{
+        int fps = Integer.parseInt(params.TRAFFIC_RATE_FPS);
+        int n = forwarding.length + silent.length;
+        int[] acs = new int[n];
+        System.arraycopy(forwarding, 0, acs, 0, forwarding.length);
+        System.arraycopy(silent, 0, acs, forwarding.length, silent.length);
+        long[] tx0 = new long[n];
+        long[] t0 = new long[n];
+        for (int i = 0; i < n; i++) {{
+            t0[i] = System.currentTimeMillis();
+            tx0[i] = txPackets(acs[i]);
+        }}
+        Thread.sleep(params.EGRESS_WINDOW_IN_MSEC);
+        boolean ok = true;
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < n; i++) {{
+            long tx1 = txPackets(acs[i]);
+            long ms = Math.max(1L, System.currentTimeMillis() - t0[i]);
+            long pps = (tx1 - tx0[i]) * 1000L / ms;
+            boolean want = i < forwarding.length;
+            boolean good = want ? pps >= fps / 2 : pps <= fps / 20;
+            ok &= good;
+            sb.append("\\n  ").append(good ? "ok     " : "WRONG  ")
+              .append(acInterface(acs[i])).append("  Tx ").append(pps)
+              .append(" pps  expected ")
+              .append(want ? ">= " + (fps / 2) + " (forwarding)"
+                           : "<= " + (fps / 20) + " (silent)");
+        }}
+        falsifiableAssertions++;
+        CompassReporter.passFailByCondition(ok,
+                "DUT egress per attachment circuit as expected:" + sb,
+                "DUT egress per attachment circuit is WRONG:" + sb);
+    }}
+
+    /** Tx "Total packets" of one attachment circuit, off the DUT. */
+    private long txPackets(int ac) throws Exception {{
+        ICmpCliCmd show = EvpnCommands.SHOW_INTERFACE_$.args(acInterface(ac));
+        String out = cmp.runCommandAndSwitch(show.toString(), show);
+        java.util.regex.Matcher m = Pattern.compile(
+                "Total packets:\\\\s+(\\\\d+)\\\\s+Total packets:\\\\s+(\\\\d+)")
+                .matcher(String.valueOf(out));
+        if (!m.find()) {{
+            CompassReporter.fail("no Tx packet counter in '" + show
+                    + "': " + String.valueOf(out).trim());
+            throw new Exception("no Tx packet counter for " + show);
+        }}
+        return Long.parseLong(m.group(2));
+    }}
+
+    /**
      * Run a configuration command and REQUIRE the device to accept it.
      *
      * `CmpRouter.configAndValidate` commits and warns when the commit had
@@ -1829,12 +1915,43 @@ def _ac_binding_java(lab: LabProfile) -> str:
      * a rejected command is a failed step.
      */
     public void configAndVerifyAccepted(ICmpCliCmd command) throws Exception {{
-        String output = cmp.runCommandAndSwitch(command.toString(), command);
+        stageConfig(command);
+        commitStaged();
+    }}
+
+    /**
+     * Type one configuration line and REQUIRE the device to accept it,
+     * without committing. Several of these then one {{@link #commitStaged}}
+     * is a service configured in ONE commit. Exaware, 2026-09-30 (Eyal
+     * Ozeri): "No need with 6 commits to configure a service."
+     *
+     * One call per line, never a varargs list, and that is not style: their
+     * command enums' `args()` sets the arguments ON THE ENUM CONSTANT and
+     * returns it. Three `INTERFACE_$.args(...)` in one argument list are three
+     * references to one object holding the last arguments. pc-3080,
+     * 2026-10-01: the service committed with x-eth 0/0/26.1003 typed three
+     * times and the other two circuits never bound.
+     */
+    public void stageConfig(ICmpCliCmd line) throws Exception {{
+        String text = line.toString();
+        String output = cmp.runCommandAndSwitch(text, line);
         if (wasRejected(output)) {{
-            CompassReporter.fail("Device REJECTED '" + command.toString()
-                    + "': " + String.valueOf(output).trim());
-            throw new Exception("device rejected the command: " + command.toString());
+            CompassReporter.fail("Device REJECTED '" + text + "': "
+                    + String.valueOf(output).trim());
+            throw new Exception("device rejected the command: " + text);
         }}
+        staged.append("\\n  ").append(text);
+        stagedSession = line.getCmdSessionType();
+    }}
+
+    private final StringBuilder staged = new StringBuilder();
+    private cmp.infra.Session.SessionType stagedSession = null;
+
+    /** Commit everything staged since the last commit, as ONE commit. */
+    public void commitStaged() throws Exception {{
+        String typed = staged.toString();
+        staged.setLength(0);
+        logMsg.info("One commit for:" + typed);
         // A configuration step that commits nothing configured nothing.
         //
         // `commitAndVerification` turns "No modifications to commit" into a
@@ -1847,15 +1964,15 @@ def _ac_binding_java(lab: LabProfile) -> str:
         //
         // This is the fake-pass rule applied to configuration: the step
         // claims it changed the device, so the commit has to agree.
-        String commitResult = cmp.commit(command.getCmdSessionType());
+        String commitResult = cmp.commit(stagedSession);
         if (String.valueOf(commitResult).contains("No modifications to commit")) {{
-            CompassReporter.fail("'" + command.toString() + "' committed "
+            CompassReporter.fail("'" + typed.trim() + "' committed "
                     + "NOTHING: the device had no modification to apply, so "
                     + "this step cannot have done its work. Either the node "
                     + "is a container rather than a leaf, or the command is "
                     + "operational and does not belong on the config path.");
             throw new Exception("configuration step committed nothing: "
-                    + command.toString());
+                    + typed.trim());
         }}
         // Deliberately NOT counted as a falsifiable assertion. This can fail,
         // but it establishes that the device accepted configuration, not that
@@ -2036,7 +2153,19 @@ def _render_step(step: Step, lab: LabProfile,
 
     if step.kind is StepKind.CONFIG:
         _reject_unfalsifiable_config(step)
-        out.append(f"        evpnUtils.configAndVerifyAccepted({cmd_expr});")
+        exprs = [cmd_expr]
+        for key, more_args in step.more:
+            _reject_unfalsifiable_config(step.model_copy(update={"command": key}))
+            a = ", ".join(_arg_expr(x, lab, key) for x in more_args)
+            exprs.append(f"EvpnCommands.{key}" + (f".args({a})" if a else ""))
+        if len(exprs) == 1:
+            out.append(f"        evpnUtils.configAndVerifyAccepted({cmd_expr});")
+        else:
+            # One call per line: args() mutates the shared enum constant, so
+            # a varargs list would hold N references to the last arguments.
+            for e in exprs:
+                out.append(f"        evpnUtils.stageConfig({e});")
+            out.append("        evpnUtils.commitStaged();")
     elif step.kind is StepKind.EXEC:
         out.append(f"        evpnUtils.execAndVerifyAccepted({cmd_expr});")
     elif step.kind in (StepKind.VERIFY_CLI, StepKind.VERIFY_ROUTE):
@@ -2087,6 +2216,12 @@ def _render_step(step: Step, lab: LabProfile,
                   else "testParams.ALL_TRAFFIC_ITEMS_RUNNING")
         out.append(f"        evpnUtils.verifyIxiaStatistics("
                    f"{_jstr(step.text)}, {expect});")
+        if step.egress_on or step.egress_silent:
+            names = [a.name for a in lab.acs]
+            on = ", ".join(str(names.index(a)) for a in step.egress_on)
+            off = ", ".join(str(names.index(a)) for a in step.egress_silent)
+            out.append(f"        evpnUtils.verifyAcEgress(new int[] {{{on}}}, "
+                       f"new int[] {{{off}}});")
     elif step.kind is StepKind.VERIFY_NO_EVENT:
         # Snapshot steps are emitted by `emit_test` (they need to assign into a
         # method-scoped local); anything else compares against that snapshot.
@@ -2265,11 +2400,20 @@ def _traffic_statistics_table(lab: LabProfile,
         dst_vport = lab.ac(ti.dst).vport
         fanout = sum(1 for ac in lab.acs
                      if ac.vport == dst_vport and ac.name != ti.src)
-        rx = rate * max(fanout, 1)
-        note = ("" if rx == rate else
+        rx = str(rate * max(fanout, 1))
+        note = ("" if rx == str(rate) else
                 f" Rx is {max(fanout, 1)}x Tx: {dst_vport} backs "
                 f"{max(fanout, 1)} circuits, and a broadcast is flooded to "
                 "each of them.")
+        if ti.dst_mac.lower() != "ff:ff:ff:ff:ff:ff":
+            # KNOWN or UNKNOWN unicast, and which one depends on the MAC
+            # table at that moment: AC1 -> AC2 is Rx 2000 before AC2's MAC is
+            # learnt and 1000 after (pc-3080, 2026-10-01). A fixed Rx here
+            # failed TC03 against a correct device. Tx only; the VERIFY step
+            # that follows states the Rx for that moment.
+            rx = ""
+            note = (" Unicast: Rx depends on the MAC table at that moment, so "
+                    "it is asserted by the step that follows, not here.")
         out.append(
             f"    /** {ti.name} transmitting and being received.{note} */")
         out.append(

@@ -212,11 +212,21 @@ def assertion_census(scripts: list[TestScript],
         for st in sc.steps:
             if st.kind not in _ASSERTING:
                 continue
+            if (st.kind is StepKind.VERIFY_NO_EVENT
+                    and st.text.lower().startswith("snapshot")):
+                continue          # takes the baseline; asserts nothing itself
             cap = captures.get(st.expect_key) if st.expect_key else None
-            if st.expect_literal or (cap and cap.get("lines")):
+            if (st.expect_literal or (cap and cap.get("lines"))
+                    or st.expect_expr or st.expect_rows
+                    or st.egress_on or st.egress_silent
+                    or st.kind is StepKind.VERIFY_NO_EVENT):
                 # A generation-time expectation counts as falsifiable for the
                 # same reason a captured one does: the emitted array has
                 # content, so the assertion can fail. See Step.expect_literal.
+                # So do circuits resolved on the device (expect_expr), traffic
+                # rows, per-circuit egress, and a no-change compare, which
+                # refuses an empty baseline at run time. Leaving them out made
+                # the census report 11 "warn only" steps that all assert.
                 census.falsifiable.append(st.id)
             else:
                 census.warns_only.append(st.id)

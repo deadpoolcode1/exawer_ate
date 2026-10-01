@@ -1,0 +1,42 @@
+Subject: RE: AI Automation sync - CodeValue\Exaware Sep-9
+Thread:  Gmail thread 1a085e6f618aa32a
+Reply to message id 1a0f32306b07a5f4 (Eyal Ozeri, 30 Sep, TC02/TC03)
+To:      eyal.ozeri@exaware.com, odede@exaware.com
+Cc:      ron@exaware.com, yuval.hoffman@exaware.com,
+         yossi.fridman@exaware.com, shanyl@codevalue.com, shlomim@exaware.com,
+         David.Zelig@exaware.com, oded.ades@exaware.com
+Attach:  ~/Desktop/Exaware_M2_handover_2026-10-01.zip   (988 KB)
+
+Hi Eyal,
+
+Thanks for the review and for 3080. New package attached. Answers in your order. Run on 3080 today: TC01, TC02 and TC03 all pass, every step. One report for all three is in 06_automation_report.
+
+One rig note: about half the bring-ups on 3080 time out on the serial console before step 1 (stray router# prompt, or the switch to ONL mode). We rerun those.
+
+TC01
+- Ping test: done. DUT pings IXIA core (29.60.0.2) and IXIA loopback (29.31.31.31).
+- Step 1 and 10 Pass text: done. Every check now shows Expected vs Output.
+- Step 2, protocols in do-before: done. startProtocols in the .crt before-table, as in VPLS.
+- Step 2.5, DUT protocol checks: done. show ospf / ldp / bgp neighbors in all 3 TCs.
+- Steps 3-8, six commits: done. One step, one commit.
+- Step 4 and 6-8 titles: done. The 16 Sep report came from older code. The report gate now refuses a report whose titles differ from the shipped Java.
+- Steps 9 and 11: done. They check the EVI name and each AC, and the Type-3 with our router IP. Expected vs Output is shown.
+- Step 12: done, as you said, no license needed. IXIA neighbor advertises EVPN; the step now requires "L2VPN EVPN: advertised and received".
+- Setup, BGP over MPLS to a loopback: done. 29.30.30.30 to 29.31.31.31, next hop over an LDP LSP.
+- Traffic items: now known unicast (dst = the other AC's MAC). Raw, one MAC per AC, so each step names the MAC it checks.
+
+TC02
+- Load without EVPN config: done. TC02/TC03 load EVPN_Service.cfg at bring-up.
+- No advertisements without negotiation: fixed. EVPN is negotiated, so the steps now check what the DUT advertised to IXIA (show bgp l2vpn evpn neighbors advertised-routes 29.31.31.31 detail).
+- Step 14: done (title and Expected vs Output).
+- Step 17: done. Unknown unicast floods to AC2 and AC3 (2000). Once AC2 is learned it is 1000 and goes out AC2 only.
+- Step 23 and 26: done. Both read the routes advertised to IXIA. After the local move the advertised route is unchanged and keeps MAC Mobility SeqNum=0.
+- Step 27: done. 1000 after the move, out AC3 only. Per-AC check uses the DUT counters of each sub-interface, since both VLANs share one IXIA port.
+
+TC03
+- Aging meaningless: done. Unicast to AC2's MAC goes to AC2 only. After aging (set to 60 s) the MAC and its Type-2 are gone and the traffic floods to AC2 and AC3 again.
+- Step 17: done. The aging subject is AC2 by name, and AC2's traffic is started first.
+
+Scripts fed to the engine: attached as 03_test_plan/TC_sources.md (your 12 July flow, plan base case, generated steps).
+
+Ilan

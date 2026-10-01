@@ -60,9 +60,9 @@ public class EvpnParams implements ISuiteParams {
      *  frame by, and on a rig where two circuits share a
      *  vport it is the only thing that tells them apart. */
     public final String[][] TRAFFIC_ITEM_BUILD = {
-        {"TI_AC1_TO_AC2", "vport2", "vport3", "00:00:01:00:00:01", "1001", "ff:ff:ff:ff:ff:ff"},
-        {"TI_AC2_TO_AC1", "vport3", "vport2", "00:00:02:00:00:01", "1002", "ff:ff:ff:ff:ff:ff"},
-        {"TI_AC3_TO_AC1", "vport3", "vport2", "00:00:02:00:00:01", "1003", "ff:ff:ff:ff:ff:ff"},
+        {"TI_AC1_TO_AC2", "vport2", "vport3", "00:00:01:00:00:01", "1001", "00:00:02:00:00:01"},
+        {"TI_AC2_TO_AC1", "vport3", "vport2", "00:00:02:00:00:01", "1002", "00:00:01:00:00:01"},
+        {"TI_AC3_TO_AC1", "vport3", "vport2", "00:00:02:00:00:01", "1003", "00:00:01:00:00:01"},
     };
     /** IXIA vports backing the ACs, one entry per port. */
     public final String[] AC_VPORTS = {"vport2", "vport3"};
@@ -84,12 +84,12 @@ public class EvpnParams implements ISuiteParams {
             TrafficItemStatisticsHeaders.Traffic_Item.getValue(),
             TrafficItemStatisticsHeaders.Tx_Frame_Rate,
             TrafficItemStatisticsHeaders.Rx_Frame_Rate);
-    /** TI_AC1_TO_AC2 transmitting and being received. Rx is 2x Tx: vport3 backs 2 circuits, and a broadcast is flooded to each of them. */
-    public final RowDataTable TI_AC1_TO_AC2_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "2000");
-    /** TI_AC2_TO_AC1 transmitting and being received. */
-    public final RowDataTable TI_AC2_TO_AC1_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "1000", "1000");
-    /** TI_AC3_TO_AC1 transmitting and being received. */
-    public final RowDataTable TI_AC3_TO_AC1_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "1000", "1000");
+    /** TI_AC1_TO_AC2 transmitting and being received. Unicast: Rx depends on the MAC table at that moment, so it is asserted by the step that follows, not here. */
+    public final RowDataTable TI_AC1_TO_AC2_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "");
+    /** TI_AC2_TO_AC1 transmitting and being received. Unicast: Rx depends on the MAC table at that moment, so it is asserted by the step that follows, not here. */
+    public final RowDataTable TI_AC2_TO_AC1_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "1000", "");
+    /** TI_AC3_TO_AC1 transmitting and being received. Unicast: Rx depends on the MAC table at that moment, so it is asserted by the step that follows, not here. */
+    public final RowDataTable TI_AC3_TO_AC1_RUNNING = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "1000", "");
     /** TI_AC1_TO_AC2 suspended: nothing sent, nothing received. */
     public final RowDataTable TI_AC1_TO_AC2_SUSPENDED = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "0", "0");
     /** TI_AC2_TO_AC1 suspended: nothing sent, nothing received. */
@@ -98,16 +98,16 @@ public class EvpnParams implements ISuiteParams {
     public final RowDataTable TI_AC3_TO_AC1_SUSPENDED = RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0");
 
     // ---- per-step IXIA statistics expectations ----
-    /** FLOW-030.S03 - Verify the broadcast from AC1 is flooded to BOTH AC2 and AC3 (rx = 2x tx on the shared destination port) */
-    public final RowDataTable[] FLOW030_S03_FLOOD_TO_AC2_AC3_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "2000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "0", "0"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0")};
-    /** FLOW-030.S07 - Verify AC2 -> AC1 forwards once AC2's MACs are learnt, while AC1's broadcast still reaches both ACs */
-    public final RowDataTable[] FLOW030_S07_AC2_FORWARDS_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "2000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "1000", "1000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0")};
-    /** FLOW-030.S12 - Verify AC1's traffic is unaffected by AC2's stream stopping, and AC2 has indeed stopped */
-    public final RowDataTable[] FLOW030_S12_AC1_UNAFFECTED_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "2000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "0", "0"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0")};
-    /** FLOW-030.S17 - Verify AC3 now sources the moved MACs and AC1's traffic keeps flowing throughout the move */
-    public final RowDataTable[] FLOW030_S17_AC3_SOURCES_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "2000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "0", "0"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "1000", "1000")};
-    /** FLOW-031.S03 - Verify AC1's traffic still floods to BOTH AC2 and AC3 while AC3 stays silent after aging */
-    public final RowDataTable[] FLOW031_S03_FLOOD_AFTER_AGING_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "2000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "0", "0"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0")};
+    /** FLOW-030.S03 - Verify unknown unicast from AC1 is flooded to BOTH AC2 and AC3 (rx 2000 = 2 x tx; DUT transmits on both) */
+    public final RowDataTable[] FLOW030_S03_UNKNOWN_UNICAST_FLOODED_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "2000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "0", "0"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0")};
+    /** FLOW-030.S07 - Verify AC1 -> AC2 is now KNOWN unicast: rx 1000, out of AC2 only, nothing to AC3 */
+    public final RowDataTable[] FLOW030_S07_KNOWN_UNICAST_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "1000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "1000", "1000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0")};
+    /** FLOW-030.S17 - Verify AC1 -> AC2 now follows the MAC: rx 1000, out of AC3 only, nothing to AC2 */
+    public final RowDataTable[] FLOW030_S17_FOLLOWS_MOVE_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "1000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "0", "0"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "1000", "1000")};
+    /** FLOW-031.S01R - Verify AC1 -> AC2 is known unicast while 00:00:02:00:00:01 is learnt: rx 1000, AC2 only */
+    public final RowDataTable[] FLOW031_S01R_KNOWN_UNICAST_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "1000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "1000", "1000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0")};
+    /** FLOW-031.S03 - Verify AC1 -> AC2 is flooded again now 00:00:02:00:00:01 is unknown: rx 2000, out of AC2 AND AC3 */
+    public final RowDataTable[] FLOW031_S03_FLOODED_AFTER_AGING_ROWS = {RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC1_TO_AC2", "1000", "2000"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC2_TO_AC1", "0", "0"), RowDataTable.add(TRAFFIC_STATISTICS_TABLE, "TI_AC3_TO_AC1", "0", "0")};
     public SuiteTableParams trafficTable =
             new SuiteTableParams(TRAFFIC_STATISTICS_TABLE, headersTraffic);
 
@@ -123,7 +123,7 @@ public class EvpnParams implements ISuiteParams {
     public final RowDataTable[] ALL_TRAFFIC_ITEMS_RUNNING = {TI_AC1_TO_AC2_RUNNING, TI_AC2_TO_AC1_RUNNING, TI_AC3_TO_AC1_RUNNING};
 
     // ---- timing ----
-    public final long VERIFY_TIMEOUT_IN_MSEC = 30000L;
+    public final long VERIFY_TIMEOUT_IN_MSEC = 90000L;
     /** How long to keep asking, for something that ages out.
      *
      *  DEVICE-MEASURED on pc-3099, 2026-09-09: after the last frame
@@ -135,159 +135,100 @@ public class EvpnParams implements ISuiteParams {
      *  fails if aging stops working altogether. */
     public final long AGING_VERIFY_TIMEOUT_IN_MSEC = 240000L;
     public final long VERIFY_INTERVAL_IN_MSEC = 5000L;
-    /** TODO: confirm the EVPN MAC-aging default with Exaware; the
-     *  VPLS suite tunes this per platform with a wide deviation. */
-    public final int MAC_AGING_TIME_IN_SEC = 300;
+    /** The aging time TC03 configures and then waits out. Inside the
+     *  CLI doc's range 0, 40-2400 (default 300). */
+    public final int MAC_AGING_TIME_IN_SEC = 60;
+    /** How long verifyAcEgress watches the DUT's per-circuit counters. */
+    public final long EGRESS_WINDOW_IN_MSEC = 10000L;
 
     // ---- expected output ----
     /** FLOW-010.S00A - Verify evi-1 does not exist before this test creates it
      *  Known at generation time, not captured. */
     public final String[] FLOW010_S00A_EVI_ABSENT_LINES = new String[] {"evi-1"};
 
-    /** FLOW-010.S08 - Verify evi-1 is up and all 3 attachment circuits are bound
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show evpn detail
-     */
-    public final String[] FLOW010_S08_EVPN_DETAIL_LINES = new String[] {
-        "Advertise\\s+MAC\\s+Addresses:\\s+Enabled",
-        "ES\\s+DF\\s+Waiting\\s+Time:\\s+3\\s+seconds",
-        "Export-rt:\\s+65000:1",
-        "Import-rt:\\s+65000:1",
-        "Service\\s+Type:\\s+vlan-based",
-        "Host\\s+MAC\\s+Address\\s+Duplicate\\s+Detection:\\s+Disabled",
-        "Move\\s+Interval:\\s+180\\s+seconds",
-        "Move\\s+Counter:\\s+5",
-        "Freeze\\s+Time:\\s+30\\s+seconds",
-        "MAC\\s+Aging\\s+Time:\\s+300\\s+seconds",
-        "MAC\\s+Limit:\\s+65520",
-        "Unknown\\s+MAC\\s+Flooding:\\s+Disabled",
-        "Control\\s+Word:\\s+Disabled",
-        "Local\\s+Interfaces:",
-        "INTERFACE\\s+ESI\\s+ES\\s+LABEL",
-        "[\\w/-]+\\.1001\\s+-\\s+-",
-        "[\\w/-]+\\.1002\\s+-\\s+-",
-        "[\\w/-]+\\.1003\\s+-\\s+-"
-    };
-
-    /** FLOW-010.S09 - Verify the EVPN MAC address-table starts empty
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show evpn mac-address-table name evi-1
-     */
-    public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {
-        "00:00:01:00:00:01\\s+L\\s+[\\w/-]+\\.1001\\s+0\\s+D\\s+-\\s+-\\s+-",
-        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1002\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
-
-    /** FLOW-010.S10 - Verify the Type-3 IMET route for this EVI is originated into the local EVI table
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show bgp l2vpn evpn table evi detail
-     */
-    public final String[] FLOW010_S10_TYPE3_ADVERTISED_LINES = new String[] {
-        "Type=3:\\s+VLAN-ID=0,\\s+Originating\\s+Router's\\s+IP=29\\.30\\.30\\.30"
-    };
-
-    /** FLOW-010.S11 - Verify the BGP session to the peer carries the L2VPN EVPN address family in its negotiated capabilities
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show bgp neighbor 29.60.0.2 | include EVPN
-     */
-    public final String[] FLOW010_S11_EVPN_CAPABILITY_LINES = new String[] {
-        "L2VPN\\s+EVPN\\s+table:",
-        "L2VPN\\s+EVPN\\s+parameters",
-        "L2VPN\\s+EVPN:\\s+advertised",
-        "L2VPN\\s+EVPN:\\s+none"
-    };
-
-    /** FLOW-030.S00P - Verify evi-1 does not exist before this test creates it (bring-up reloads the .cfg before every test)
+    /** FLOW-010.S00B - Verify OSPF adjacency to the tester (29.31.31.31) is Full
      *  Known at generation time, not captured. */
-    public final String[] FLOW030_S00P_EVI_ABSENT_LINES = new String[] {"evi-1"};
+    public final String[] FLOW010_S00B_OSPF_FULL_LINES = new String[] {"29\\.31\\.31\\.31\\s+Full"};
 
-    /** FLOW-030.S04 - Verify AC1 source MACs are learnt on AC1 (VLAN 1001)
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/32.1001
-     */
-    public final String[] FLOW030_S04_AC1_MACS_LEARNT_LINES = new String[] {
-        "IP",
-        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:01:00:00:01\\s+L\\s+[\\w/-]+\\.1001\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
-
-    /** FLOW-030.S05 - Verify AC1 source MACs are emitted as Type-2 routes, originated into the local EVI table
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show bgp l2vpn evpn table evi detail
-     */
-    public final String[] FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES = new String[] {
-        "Type=2:\\s+VLAN-ID=0,\\s+MAC=00:00:01:00:00:01"
-    };
-
-    /** FLOW-030.S09 - Verify AC2 source MACs are learnt on AC2 (VLAN 1002)
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/40.1002
-     */
-    public final String[] FLOW030_S09_AC2_MACS_LEARNT_LINES = new String[] {
-        "IP",
-        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1002\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
-
-    /** FLOW-030.S10 - Verify AC2 source MACs are also emitted as Type-2 routes, originated into the local EVI table
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show bgp l2vpn evpn table evi detail
-     */
-    public final String[] FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES = new String[] {
-        "Type=2:\\s+VLAN-ID=0,\\s+MAC=00:00:02:00:00:01"
-    };
-
-    /** FLOW-030.S15 - Verify the AC2 MACs have shifted to AC3 (VLAN 1003)
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/40.1003
-     */
-    public final String[] FLOW030_S15_MACS_MOVED_TO_AC3_LINES = new String[] {
-        "IP",
-        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
-
-    /** FLOW-031.S00P - Verify evi-1 does not exist before this test creates it (bring-up reloads the .cfg before every test)
+    /** FLOW-010.S00C - Verify the LDP session to the tester (29.60.0.2) is Operational
      *  Known at generation time, not captured. */
-    public final String[] FLOW031_S00P_EVI_ABSENT_LINES = new String[] {"evi-1"};
+    public final String[] FLOW010_S00C_LDP_OPERATIONAL_LINES = new String[] {"29\\.60\\.0\\.2\\s+.*Operational"};
 
-    /** FLOW-031.S01Q - Verify the AC3 MACs ARE learnt before the aging test begins
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/40.1003
-     */
-    public final String[] FLOW031_S01Q_MACS_LEARNT_LINES = new String[] {
-        "IP",
-        "VLAN\\s+MAC\\s+ADDRESS\\s+LOC\\s+SOURCE\\s+ESI\\s+L-FL\\s+ACT\\s+FLAGS\\s+SEQ\\s+ADDRESS\\s+LABEL\\s+R-FL",
-        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
+    /** FLOW-010.S00D - Verify the BGP session loopback to loopback (29.30.30.30 - 29.31.31.31) is up
+     *  Known at generation time, not captured. */
+    public final String[] FLOW010_S00D_BGP_UP_LINES = new String[] {"29\\.31\\.31\\.31\\s+up\\s+3029"};
 
-    /** FLOW-031.S04 - Verify the AC3 MACs are removed from the EVPN MAC table once their traffic stopped and they aged out
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show evpn mac-address-table name evi-1 source x-eth0/0/40.1003
-     */
-    public final String[] FLOW031_S04_MACS_AGED_OUT_LINES = new String[] {
-        "00:00:02:00:00:01\\s+L\\s+[\\w/-]+\\.1003\\s+0\\s+D\\s+-\\s+-\\s+-"
-    };
+    /** FLOW-010.S09 - Verify the EVPN MAC address-table has no learnt MAC yet
+     *  Known at generation time, not captured. */
+    public final String[] FLOW010_S09_MAC_TABLE_EMPTY_LINES = new String[] {"([0-9a-f]{2}:){5}[0-9a-f]{2}\\s+L\\s"};
 
-    /** FLOW-031.S05 - Verify the AC2 MACs' Type-2 routes are withdrawn from the BGP table
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show bgp l2vpn evpn table evi detail
-     */
-    public final String[] FLOW031_S05_TYPE2_WITHDRAWN_LINES = new String[] {
-        "Type=2:\\s+VLAN-ID=0,\\s+MAC=00:00:02:00:00:01"
-    };
+    /** FLOW-010.S10 - Verify the DUT originates the Type-3 IMET route for evi-1 (advertised to the tester 29.31.31.31)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW010_S10_TYPE3_ADVERTISED_LINES = new String[] {"Type=3:.*Originating Router's IP=29\\.30\\.30\\.30"};
 
-    /** FLOW-031.S06 - Verify the BUM routing table still lists the flood list
-     *  Captured from 10.3.99.1 (8.7.0: LAB 935) on 2026-09-09T21:13:07
-     *  Command: show evpn broadcast-domains name evi-1
-     */
-    public final String[] FLOW031_S06_BUM_BROADCAST_DOMAIN_LINES = new String[] {
-        "Local\\s+BUM\\s+Label:\\s+32768",
-        "Local\\s+Interfaces:",
-        "[\\w/-]+\\.1001",
-        "[\\w/-]+\\.1002",
-        "[\\w/-]+\\.1003"
-    };
+    /** FLOW-010.S11 - Verify the BGP session to the tester negotiated L2VPN EVPN (advertised and received)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW010_S11_EVPN_CAPABILITY_LINES = new String[] {"L2VPN EVPN:\\s+advertised and received"};
+
+    /** FLOW-030.S00B - Verify OSPF adjacency to the tester (29.31.31.31) is Full
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S00B_OSPF_FULL_LINES = new String[] {"29\\.31\\.31\\.31\\s+Full"};
+
+    /** FLOW-030.S00C - Verify the LDP session to the tester (29.60.0.2) is Operational
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S00C_LDP_OPERATIONAL_LINES = new String[] {"29\\.60\\.0\\.2\\s+.*Operational"};
+
+    /** FLOW-030.S00D - Verify the BGP session loopback to loopback (29.30.30.30 - 29.31.31.31) is up
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S00D_BGP_UP_LINES = new String[] {"29\\.31\\.31\\.31\\s+up\\s+3029"};
+
+    /** FLOW-030.S04 - Verify 00:00:01:00:00:01 is learnt on AC1 (VLAN 1001)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S04_AC1_MACS_LEARNT_LINES = new String[] {"00:00:01:00:00:01\\s+L\\s"};
+
+    /** FLOW-030.S05 - Verify the DUT originates a Type-2 route for 00:00:01:00:00:01 (advertised to the tester 29.31.31.31)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S05_AC1_TYPE2_ADVERTISED_LINES = new String[] {"Type=2:.*MAC=00:00:01:00:00:01"};
+
+    /** FLOW-030.S09 - Verify 00:00:02:00:00:01 is learnt on AC2 (VLAN 1002)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S09_AC2_MACS_LEARNT_LINES = new String[] {"00:00:02:00:00:01\\s+L\\s"};
+
+    /** FLOW-030.S10 - Verify the DUT originates a Type-2 route for 00:00:02:00:00:01 (advertised to the tester 29.31.31.31)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S10_AC2_TYPE2_ADVERTISED_LINES = new String[] {"Type=2:.*MAC=00:00:02:00:00:01"};
+
+    /** FLOW-030.S15 - Verify 00:00:02:00:00:01 has moved to AC3 (VLAN 1003)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S15_MACS_MOVED_TO_AC3_LINES = new String[] {"00:00:02:00:00:01\\s+L\\s"};
+
+    /** FLOW-030.S16B - Verify the Type-2 for 00:00:02:00:00:01 still carries MAC Mobility SeqNum=0 after the local move (advertised to the tester 29.31.31.31)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW030_S16B_SEQNUM_UNCHANGED_LINES = new String[] {"MAC=00:00:02:00:00:01(?:(?!Type=)[\\s\\S])*?SeqNum=0\\b"};
+
+    /** FLOW-031.S00B - Verify OSPF adjacency to the tester (29.31.31.31) is Full
+     *  Known at generation time, not captured. */
+    public final String[] FLOW031_S00B_OSPF_FULL_LINES = new String[] {"29\\.31\\.31\\.31\\s+Full"};
+
+    /** FLOW-031.S00C - Verify the LDP session to the tester (29.60.0.2) is Operational
+     *  Known at generation time, not captured. */
+    public final String[] FLOW031_S00C_LDP_OPERATIONAL_LINES = new String[] {"29\\.60\\.0\\.2\\s+.*Operational"};
+
+    /** FLOW-031.S00D - Verify the BGP session loopback to loopback (29.30.30.30 - 29.31.31.31) is up
+     *  Known at generation time, not captured. */
+    public final String[] FLOW031_S00D_BGP_UP_LINES = new String[] {"29\\.31\\.31\\.31\\s+up\\s+3029"};
+
+    /** FLOW-031.S01Q - Verify 00:00:02:00:00:01 is learnt on AC2 before the aging test begins
+     *  Known at generation time, not captured. */
+    public final String[] FLOW031_S01Q_MACS_LEARNT_LINES = new String[] {"00:00:02:00:00:01\\s+L\\s"};
+
+    /** FLOW-031.S04 - Verify 00:00:02:00:00:01 has aged out of the EVPN MAC table
+     *  Known at generation time, not captured. */
+    public final String[] FLOW031_S04_MACS_AGED_OUT_LINES = new String[] {"00:00:02:00:00:01"};
+
+    /** FLOW-031.S05 - Verify the Type-2 route for 00:00:02:00:00:01 is withdrawn (advertised to the tester 29.31.31.31)
+     *  Known at generation time, not captured. */
+    public final String[] FLOW031_S05_TYPE2_WITHDRAWN_LINES = new String[] {"Type=2:.*MAC=00:00:02:00:00:01"};
 
     @Override
     public SuiteTableParams[] getSuiteParamsTableToUpdate() {

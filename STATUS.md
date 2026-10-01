@@ -1,7 +1,7 @@
 # ATE — Project Status
 
 **SOW:** PQ4476E — AI-Assisted Test Plan & Automation Skeleton Generator (10 weeks, 5 milestones)
-**Updated:** 2026-09-16
+**Updated:** 2026-10-01
 
 ## Milestones
 
@@ -12,6 +12,26 @@
 | M3 | AI Test Plan Generation (multi-router) | 5–6 | 30% | ⬜ Not started |
 | M4 | Code Generation (10 use cases) | 7–8 | 20% | ⬜ Not started |
 | M5 | Web UI & Deployment | 9–10 | 20% | ⬜ Not started |
+
+## Eyal's TC review (2026-09-30), state on 2026-10-01
+
+All points addressed in code, proven by hand on pc-3080 first
+(`deliverables/M2/evidence_loopback_and_unicast_pc3080.txt`). Final hardware
+run: TC01, TC02, TC03 all OK, every step passed, one reboot per test
+(`deliverables/M2/automation_report`). TC01 and TC02 each needed one
+bring-up retry: their bring-up timed out on the serial console before step 1.
+
+| Point | Now |
+|---|---|
+| BGP over MPLS to a loopback | 29.30.30.30 to 29.31.31.31, next hop over an LDP LSP |
+| EVPN capability on IXIA | negotiated, "advertised and received". No license needed (Eyal was right) |
+| Advertisement | asserted on routes SENT to the peer, with MAC Mobility SeqNum |
+| Known unicast, per-AC egress | 2x while unknown, 1x out the right AC once learned, follows the move, floods again after aging; DUT per-sub-interface counters |
+| One commit, protocols in do-before, ping list, DUT neighbor checks | done |
+| TC02/TC03 start from the service | loaded from `EVPN_Service.cfg` |
+
+Still needs a license: IXIA *emulating* EVPN routes (remote MACs). Not used by
+the current TCs.
 
 ## The pipeline, end to end
 

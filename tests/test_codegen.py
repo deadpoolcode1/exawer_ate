@@ -82,8 +82,11 @@ def test_unvalidated_expectations_never_assert_a_pass(files, scripts):
     expectation constant must be empty — an empty array makes EvpnUtils warn
     instead of pass."""
     params = next(f for f in files if f.class_name == "EvpnParams")
+    # Since 2026-10-01 the curated scripts carry no open TODO: every
+    # expectation is a generation-time literal, resolved on the device, or a
+    # traffic row measured on pc-3080. The rule still holds for any that
+    # reappear, so it is still checked.
     todo_steps = [st for sc in scripts for st in sc.open_todos]
-    assert todo_steps, "fixture should still have open TODOs"
 
     tests = {f.class_name: f.content for f in files
              if f.class_name.startswith("TC")}
@@ -117,7 +120,7 @@ def test_local_mac_move_asserts_no_readvertisement(scripts):
     no_event = [st for st in flow030.steps
                 if st.kind is StepKind.VERIFY_NO_EVENT]
     assert len(no_event) == 2, "expected a snapshot step and a compare step"
-    assert any("no new type-2" in st.text.lower() for st in no_event)
+    assert any("did not re-originate" in st.text.lower() for st in no_event)
 
 
 def test_generated_files_are_the_four_artifact_kinds(files):
@@ -1255,7 +1258,13 @@ def test_the_census_counts_what_can_actually_fail(scripts):
     assert "FLOW-010.S08" in census.falsifiable
     assert "FLOW-010.S00A" in census.falsifiable, \
         "the pre-existing-service check must be able to fail"
-    assert census.warns_only, "the rest must be reported as warn-only"
+    # Every verification step now carries something that can fail: a
+    # literal, circuits resolved on the device, traffic rows or per-circuit
+    # egress. The census used to miss the last three and report them as
+    # warn-only (11 of them on 2026-10-01, all asserting).
+    assert not census.warns_only, census.warns_only
+    assert "FLOW-030.S07" in census.falsifiable, "traffic rows count"
+    assert "FLOW-030.S00V" in census.falsifiable, "device-resolved lines count"
     assert census.total == len(census.falsifiable) + len(census.warns_only)
 
 
@@ -1295,9 +1304,12 @@ def test_only_the_non_empty_path_counts_as_an_assertion(files):
     chassis's own statistics view.
     """
     utils = next(f for f in files if f.class_name == "EvpnUtils").content
-    assert utils.count("falsifiableAssertions++") == 4, \
-        ("only show-lines, show-lines-absent, no-change and traffic-item "
-         "statistics may count")
+    # The fifth, since 2026-10-01: per-circuit egress off the DUT's own
+    # counters (verifyAcEgress). It fails when the DUT sends a frame out of
+    # the wrong attachment circuit, which is Eyal's TC02 step 27 point.
+    assert utils.count("falsifiableAssertions++") == 5, \
+        ("only show-lines, show-lines-absent, no-change, traffic-item "
+         "statistics and per-circuit egress may count")
     assert "verifyShowLinesAbsent" in utils
     assert "verifyTrafficItemStatistics" in utils
 
@@ -1593,9 +1605,10 @@ def test_tc01_proves_the_service_was_absent_before_it_created_it(core3):
 
 def test_tc02_and_tc03_state_their_prerequisite_as_an_assertion(core3):
     for sc in evpn_scripts(core3)[1:]:
-        prereq = [st for st in sc.steps if st.id.endswith(".S00P")]
+        prereq = [st for st in sc.steps if st.id.endswith(".S00V")]
         assert len(prereq) == 1, f"{sc.class_name} must check the EVI exists"
-        assert prereq[0].expect_literal == [core3.evi_name]
+        assert prereq[0].expect_expr == f'evpnUtils.eviBoundLines("{core3.evi_name}")'
+        assert sc.steps[0] is prereq[0], "it is the first thing checked"
 
 
 def test_no_vlan_is_taken_from_the_sut_vlans_pool(core3_files):
@@ -1743,46 +1756,47 @@ def test_a_package_that_asserts_traffic_must_carry_the_traffic_definition() -> N
                 if "EVPN_traffic.tcl" in p]
 
 
-def test_every_test_case_creates_the_evi_it_uses() -> None:
-    """No test may depend on another test having left state behind.
+def test_only_tc01_creates_the_evi_and_the_others_load_it() -> None:
+    """TC01 creates the service; TC02 and TC03 load it at bring-up.
 
-    Found on hardware, 2026-09-09, pc-3099 (8.7.0 LAB 935). TC01 was green
-    and had left `evi-1` configured with all three circuits bound. TC02 then
-    failed on its first step: "The output of show evpn summary is not as
-    expected. Missing lines: [evi-1]".
+    Exaware, 2026-09-30 (Eyal Ozeri), TC02: "No need to load w/o evpn config.
+    It is covered by TC01." They used to rebuild it step by step.
 
-    Nothing was wrong with TC01. Exaware's `CmpTestCase.initCmpTestCase` is an
-    `@Before`, and `BringUp.bringUpSetupAndVerify` calls `loadConf()`
-    unconditionally, so `EVPN_Base.cfg` is reloaded before EVERY test method -
-    whether the tests share a JVM or not. Since the .cfg deliberately no
-    longer creates the service (Exaware E3, 2026-09-08), the EVI TC01 created
-    was gone before TC02's first assertion ran.
-
-    So the rule is not "run them in order"; the rule is that each test creates
-    what it needs. This test fails if any TC goes back to assuming.
+    The 2026-09-09 lesson still decides HOW: bring-up reloads configuration
+    before EVERY test (`CmpTestCase.initCmpTestCase` is an `@Before`), so the
+    service cannot be left behind by TC01. It has to arrive with each test's
+    own bring-up, from its own rows in bringUpParams.crt.
     """
+    from ate.codegen.device_config import emit_bringup_params
     from ate.codegen.evpn_scripts import evpn_scripts
     from ate.codegen.lab import SINGLE_DUT_3AC_CORE
     from ate.codegen.script_ir import StepKind
 
-    for script in evpn_scripts(SINGLE_DUT_3AC_CORE):
-        kinds = {s.id: s.kind for s in script.steps}
+    scripts = evpn_scripts(SINGLE_DUT_3AC_CORE)
+    for script in scripts:
         creates = [s for s in script.steps
                    if s.kind is StepKind.CONFIG
                    and s.command == "CONFIGURE_L2_SERVICES_EVPN_$_SERVICE_TYPE_$"]
-        assert creates, (
-            f"{script.id} never creates the EVI it uses. Bring-up reloads "
-            "EVPN_Base.cfg before every test, and that file does not create "
-            "the service, so a test that only asserts the EVI is present "
-            "fails on a device that is behaving correctly.")
+        if script.flow_id == "FLOW-010":
+            assert len(creates) == 1
+            # and it proves the ground state first, or the create cannot fail
+            assert script.steps[0].expect_absent
+        else:
+            assert not creates, f"{script.class_name} re-creates the EVI"
 
-        # and it must check the ground state before creating, or the create
-        # steps are unfalsifiable again - which is E3 in a new costume.
-        first = script.steps[0]
-        assert first.expect_absent, (
-            f"{script.id} creates the EVI without first proving it absent; "
-            "that is the 2026-09-08 defect (a create that cannot fail)")
-        assert kinds, "script has no steps"
+    crt = emit_bringup_params(scripts, SINGLE_DUT_3AC_CORE).content
+    blocks = {}
+    cur = None
+    for line in crt.splitlines():
+        if line[:4] in ("TC01", "TC02", "TC03"):
+            cur = line[:4]
+        elif not line.strip():
+            cur = None
+        if cur:
+            blocks.setdefault(cur, []).append(line)
+    assert "EVPN_Service.cfg" not in "\n".join(blocks["TC01"])
+    assert "EVPN_Service.cfg" in "\n".join(blocks["TC02"])
+    assert "EVPN_Service.cfg" in "\n".join(blocks["TC03"])
 
 
 def test_traffic_items_are_tracked_before_generate() -> None:
@@ -2392,17 +2406,18 @@ def test_the_report_gate_refuses_the_package_the_client_rejected() -> None:
 
 
 def test_the_report_gate_refuses_a_report_older_than_its_code(tmp_path) -> None:
-    """The 2026-09-16 report must be refused: it predates the Java it ships with.
+    """A report older than the Java it ships with must be refused.
 
-    Exaware, 2026-09-30 (Eyal Ozeri) reviewed that report step by step and
-    flagged titles - "Set import-rt / export-rt", "Bind access circuit AC1
-    (agg-eth-2.1001)" - that the Java in the same package had already
-    corrected. The code was fixed and regenerated after the run, and the run
-    was not repeated.
+    Exaware, 2026-09-30 (Eyal Ozeri) reviewed the 2026-09-16 report step by
+    step and flagged titles - "Set import-rt / export-rt", "Bind access
+    circuit AC1 (agg-eth-2.1001)" - that the Java in the same package had
+    already corrected. The code was fixed and regenerated after the run, and
+    the run was not repeated.
 
-    The same report with its titles brought in line must pass, or the gate
-    refuses everything and proves nothing. That half also pins the verdict
-    word: JSystem writes "Final test status is : Pass", not "Success".
+    Both directions, against whatever report is shipped: the real one passes
+    (or the gate refuses everything and proves nothing; that half also pins
+    the verdict word, "Final test status is : Pass"), and a copy carrying one
+    older title is refused.
     """
     import importlib.util
     import shutil
@@ -2426,32 +2441,28 @@ def test_the_report_gate_refuses_a_report_older_than_its_code(tmp_path) -> None:
         "TC03_EvpnType3ImetFlooding",
     }, "the merged index must name all three, which is Oded's first finding"
 
+    # The shipped report was produced by the shipped code: it must pass.
     titles = mod._shipped_step_titles(suite)
     stale = [p for t in tests
              for p in mod._check_step_titles(report, t, titles)]
-    assert len(stale) == 3, "all three tests ran on older code"
-    joined = "\n".join(stale)
-    assert "Set import-rt / export-rt on evi-1" in joined
-    assert "agg-eth-2.1001" in joined
-    assert mod.main(["x", str(report), str(suite)]) == 1
+    assert not stale, "the shipped report must come from the shipped Java"
 
-    # Same report, titles as the shipped Java has them: must ship.
-    fixed = tmp_path / "report"
-    shutil.copytree(report, fixed)
-    for page in (fixed / "tests").glob("*/test.js"):
+    # The 2026-09-16 failure, reproduced: one title that the Java no longer
+    # carries, as when Eyal reviewed "Set import-rt / export-rt" against Java
+    # that already said "Set import-rt". The gate must refuse it.
+    first = next(t for ts in titles.values() for t in ts)
+    older = tmp_path / "report"
+    shutil.copytree(report, older)
+    hit = False
+    for page in (older / "tests").glob("*/test.js"):
         text = page.read_text(encoding="utf-8")
-        for old, new in (
-                ("Set import-rt / export-rt on evi-1", "Set import-rt on evi-1"),
-                ("(agg-eth-2.1001)", "(VLAN 1001)"),
-                ("(agg-eth-3.1002)", "(VLAN 1002)"),
-                ("(agg-eth-3.1003)", "(VLAN 1003)"),
-                ("learnt on agg-eth-2.1001", "learnt on AC1 (VLAN 1001)"),
-                ("learnt on agg-eth-3.1002", "learnt on AC2 (VLAN 1002)"),
-                ("shifted to agg-eth-3.1003", "shifted to AC3 (VLAN 1003)")):
-            text = text.replace(old, new)
-        page.write_text(text, encoding="utf-8")
-    assert mod.main(["x", str(fixed), str(suite)]) == 0, (
-        "a report produced by the shipped code must pass")
+        if first in text:
+            page.write_text(text.replace(first, first + " (older wording)"),
+                            encoding="utf-8")
+            hit = True
+    assert hit, f"the report should contain the shipped title {first!r}"
+    assert mod.main(["x", str(older), str(suite)]) == 1, (
+        "a report whose step titles differ from the shipped Java must fail")
 
 
 def test_the_report_shows_expected_vs_output() -> None:
@@ -2554,3 +2565,158 @@ def test_merging_one_report_per_test_yields_one_index_naming_all_three(tmp_path)
     (sources[0] / "index.html").unlink()
     with pytest.raises(SystemExit, match="index.html"):
         mod.merge(sources[1:], tmp_path / "no_index")
+
+
+# ---------------------------------------------------------------------------
+# Exaware, 2026-09-30 (Eyal Ozeri): step-by-step review of TC01/TC02/TC03.
+# Each test below pins one of his points. Behaviour device-verified on pc-3080
+# on 2026-10-01: deliverables/M2/evidence_loopback_and_unicast_pc3080.txt.
+# ---------------------------------------------------------------------------
+
+def test_no_java_string_literal_spans_a_line(core3_files):
+    """A "\\n" written into a template as "\n" reaches Java as a real line
+    break and javac stops on "unclosed string literal". pc-3080, 2026-10-01:
+    EvpnUtils.stageConfig shipped that way and the unit tests did not see it.
+    """
+    for path, text in core3_files.items():
+        if not path.endswith(".java"):
+            continue
+        for n, line in enumerate(text.splitlines(), 1):
+            if line.lstrip().startswith(("*", "/*", "//")):
+                continue
+            code = re.sub(r"'(?:\\.|[^'\\])'", "", line)       # char literals
+            code = re.sub(r'"(?:\\.|[^"\\])*"', "", code)       # whole strings
+            assert '"' not in code.split("//")[0], f"{path}:{n}: {line}"
+
+
+def test_the_service_is_one_commit(core3_files):
+    """TC01 steps 3-8: "No need with 6 commits to configure a service".
+
+    Each line is staged by its own call. Their command enums' args() mutates
+    the shared enum constant, so a varargs list of three INTERFACE_$.args()
+    held one object with the last arguments: pc-3080, 2026-10-01, bound
+    x-eth 0/0/26.1003 three times and the other two circuits not at all.
+    """
+    tc01 = next(v for k, v in core3_files.items() if "/TC01_" in k)
+    assert tc01.count("evpnUtils.stageConfig(") == 6   # service-type, 2 RTs, 3 ACs
+    assert tc01.count("evpnUtils.commitStaged();") == 1
+    assert "configAndVerifyAccepted(\n" not in tc01
+    for line in tc01.splitlines():
+        if "stageConfig(" in line:
+            assert line.count("EvpnCommands.") == 1, line
+    utils = core3_files["cmp/tests/evpn/EvpnUtils.java"]
+    body = utils[utils.index("public void commitStaged("):]
+    body = body[:body.index("public void execAndVerifyAccepted(")]
+    assert body.count("cmp.commit(") == 1
+
+
+def test_tester_protocols_start_in_do_before_not_in_the_test(core3, core3_files):
+    """TC01 step 2: "Protocols should start at the 'do before' phase"."""
+    from ate.codegen.device_config import emit_bringup_params
+
+    crt = emit_bringup_params(evpn_scripts(core3), core3).content
+    assert re.search(r"ixia1\s+startProtocols\s+start protocols\s+y\s+n", crt)
+    for k, v in core3_files.items():
+        if "/TC0" in k:
+            assert "startTesterProtocolsAndVerify" not in v
+
+
+def test_the_ping_list_is_populated(core3):
+    """TC01: "ping test should be populated"."""
+    from ate.codegen.device_config import emit_bringup_params
+
+    crt = emit_bringup_params(evpn_scripts(core3), core3).content
+    ping = crt[crt.index("//devices ping lists"):crt.index("//find and replace")]
+    assert core3.core_link.peer_ipv4 in ping
+    assert core3.core_link.peer_loopback_ipv4 in ping
+
+
+def test_every_tc_checks_the_underlay_from_the_dut(core3):
+    """TC01 step 2.5: show ospf nei, show ldp nei, show bgp nei on the DUT."""
+    for sc in evpn_scripts(core3):
+        cmds = {st.command for st in sc.steps}
+        assert {"SHOW_OSPF_NEIGHBORS", "SHOW_LDP_NEIGHBORS",
+                "SHOW_BGP_NEIGHBORS"} <= cmds, sc.class_name
+        bgp = next(st for st in sc.steps if st.command == "SHOW_BGP_NEIGHBORS")
+        assert "29\\.31\\.31\\.31" in bgp.expect_literal[0], "peer is the loopback"
+
+
+def test_bgp_peers_loopback_to_loopback_on_both_sides(core3):
+    """Setup: "BGP peer should be established over MPLS towards a loopback"."""
+    from ate.codegen.device_config import emit_dut_config, emit_tester_config
+
+    core = core3.core_link
+    cfg = emit_dut_config(evpn_scripts(core3), core3).content
+    bgp = cfg[cfg.index("routing bgp"):]
+    assert f"neighbor {core.peer_loopback_ipv4}" in bgp
+    assert f"local-address loopback {core.loopback_id}" in bgp
+    assert f"neighbor {core.peer_ipv4}" not in bgp
+    tcl = emit_tester_config(core3).content
+    assert "-type routed" in tcl                      # the tester's loopback
+    assert f"-networkNumber {core.peer_loopback_ipv4}" in tcl   # OSPF carries it
+    assert f"-firstNetwork {core.peer_loopback_ipv4}" in tcl    # LDP labels it
+    assert f"-dutIpAddress {core.loopback_ipv4}" in tcl
+    assert f"-localIpAddress {core.peer_loopback_ipv4}" in tcl
+    assert "protocols/ping -enabled true" in tcl
+
+
+def test_capability_step_asserts_both_halves(core3):
+    """TC01 step 12: only the DUT's half of the exchange was visible.
+
+    Eyal, 2026-10-01: no licence needed for the capability. The tester
+    advertises it, and the step requires "advertised and received".
+    """
+    import dataclasses
+
+    from ate.codegen.device_config import emit_tester_config
+
+    s11 = next(st for st in evpn_scripts(core3)[0].steps if st.id == "FLOW-010.S11")
+    assert "advertised and received" in s11.expect_literal[0]
+    assert s11.args == [core3.core_link.peer_loopback_ipv4]
+    assert "-evpn true" in emit_tester_config(core3).content
+    off = dataclasses.replace(core3, core=dataclasses.replace(
+        core3.core_link, tester_evpn_capability=False))
+    assert "FLOW-010.S11" not in [st.id for st in evpn_scripts(off)[0].steps]
+    assert "-evpn false" in emit_tester_config(off).content
+
+
+def test_traffic_is_known_unicast(core3):
+    """TC02 step 17: the items did not use AC2's MAC as destination."""
+    by = {t.name: t for t in core3.traffic_items}
+    assert by["TI_AC1_TO_AC2"].dst_mac == by["TI_AC2_TO_AC1"].src_mac
+    assert by["TI_AC2_TO_AC1"].dst_mac == by["TI_AC1_TO_AC2"].src_mac
+    assert all(t.dst_mac != "ff:ff:ff:ff:ff:ff" for t in core3.traffic_items)
+
+
+def test_forwarding_follows_the_mac_table(core3):
+    """TC02 steps 17 and 27: 1x once known, and out of the right circuit."""
+    tc02 = next(sc for sc in evpn_scripts(core3) if sc.flow_id == "FLOW-030")
+    st = {s.id: s for s in tc02.steps}
+    f = str(core3.traffic_rate_fps)
+    assert ("TI_AC1_TO_AC2", f, str(2 * core3.traffic_rate_fps)) in st["FLOW-030.S03"].expect_rows
+    assert ("TI_AC1_TO_AC2", f, f) in st["FLOW-030.S07"].expect_rows
+    assert ("TI_AC1_TO_AC2", f, f) in st["FLOW-030.S17"].expect_rows
+    assert (st["FLOW-030.S07"].egress_on, st["FLOW-030.S07"].egress_silent) == (["AC2"], ["AC3"])
+    assert (st["FLOW-030.S17"].egress_on, st["FLOW-030.S17"].egress_silent) == (["AC3"], ["AC2"])
+
+
+def test_aging_is_asserted_through_forwarding(core3):
+    """TC03: aging meant nothing while traffic was broadcast; and AC2, by name."""
+    tc03 = next(sc for sc in evpn_scripts(core3) if sc.flow_id == "FLOW-031")
+    st = {s.id: s for s in tc03.steps}
+    mac2 = core3.traffic_item("TI_AC2_TO_AC1").src_mac
+    assert st["FLOW-031.S01A"].args[-1] == str(core3.mac_aging_seconds)
+    assert st["FLOW-031.S01R"].egress_silent == ["AC3"]
+    assert st["FLOW-031.S03"].egress_on == ["AC2", "AC3"]
+    assert st["FLOW-031.S04"].expect_literal == [mac2]
+    order = [s.id for s in tc03.steps]
+    assert order.index("FLOW-031.S04") < order.index("FLOW-031.S03"), \
+        "assert the return to flooding only after the MAC is gone"
+
+
+def test_traffic_is_suspended_before_the_engine_starts(core3_files):
+    """Started then suspended, every item leaked ~3 s and pre-taught the MACs."""
+    utils = core3_files["cmp/tests/evpn/EvpnUtils.java"]
+    body = utils[utils.index("public void enableTrafficItemsAndStartSuspended("):]
+    body = body[:body.index("public void verifyTrafficItemsAreSuspended(")]
+    assert body.index("changeSuspendStatus(true") < body.index("START_TRAFFIC")

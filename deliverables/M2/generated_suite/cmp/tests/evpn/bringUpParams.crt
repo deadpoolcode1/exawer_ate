@@ -15,14 +15,24 @@ default  cmp1, ixia1
 
 TEST      DEVICE_NAME     CONFIG_FILE_PATH                                                    LOAD_ON_BRING_UP   LOAD_TYPE TIMEOUT_SEC
 -------------------------------------------------------------------------------------------------------------------------------------------
-default   cmp1            cleanBaseConfig                                                     y                  1         1900
+TC01      cmp1            cleanBaseConfig                                                     y                  1         1900
                           /configurations/compass/EVPN_Base.cfg                               y                  2         1900
+          ixia1           /configurations/ixia/EVPN_3AC_CORE.ixncfg                           y                  1         1900
+TC02      cmp1            cleanBaseConfig                                                     y                  1         1900
+                          /configurations/compass/EVPN_Base.cfg                               y                  2         1900
+                          /configurations/compass/EVPN_Service.cfg                            y                  2         1900
+          ixia1           /configurations/ixia/EVPN_3AC_CORE.ixncfg                           y                  1         1900
+TC03      cmp1            cleanBaseConfig                                                     y                  1         1900
+                          /configurations/compass/EVPN_Base.cfg                               y                  2         1900
+                          /configurations/compass/EVPN_Service.cfg                            y                  2         1900
           ixia1           /configurations/ixia/EVPN_3AC_CORE.ixncfg                           y                  1         1900
 
 //devices ping lists, relevant for all the tests
 
 TEST          DEVICE_NAME    PING_IP               PING_DESCRIPTION                              PING_SUCCEES_THRESHOLD     PING_RETRY_NUMBER   PING_VRF_NAME
 ------------------------------------------------------------------------------------------------------------------------------------------------------------
+default       cmp1           29.60.0.2             cmp1 connected ixia vport1 core                                          5
+              cmp1           29.31.31.31           cmp1 ixia loopback via ospf                                              5
 
 
 //find and replace parameters on devices cfg files and ixia vlan's configuration, relevant for all tests
@@ -43,3 +53,4 @@ TEST      DEVICE_NAME   ID_ACT                 ACTION_DESCRIPTION               
 default   test          loadTestParamFile      loading suite parameters class     cmp.tests.evpn.EvpnParams                                         y                 n
           cmp1          verifyLCs              verify LCs are card ready state                                                                      y                 y
                         verifyInts             verify interfaces are up                                                                             y                 n
+          ixia1         startProtocols         start protocols                                                                                      y                 n

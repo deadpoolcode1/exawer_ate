@@ -306,6 +306,40 @@ EVPN_COMMANDS: list[EvpnCommand] = [
         base_cli_source="Command Reference Guide v8.X.0 - show bgp neighbor",
         doc_syntax="show bgp neighbor [neighbor-ip]",
     ),
+    # The underlay, checked from the DUT's side.
+    #
+    # Exaware, 2026-09-30 (Eyal Ozeri), TC01 "Step 2.5: Missing protocol
+    # verification on the DuT (show ospf nei, show ldp nei, show bgp nei)".
+    # The suite proved the TESTER's protocols were running and never asked
+    # the device whether it had a neighbour. All three device-verified on
+    # pc-3080 on 2026-10-01; note `show mpls ldp ...` does not exist there,
+    # LDP lives at `show ldp`.
+    EvpnCommand(
+        key="SHOW_OSPF_NEIGHBORS",
+        template="show ospf neighbors",
+        base_cli_source="Command Reference Guide v8.X.0 - 10.9.3.14 show ospf neighbors",
+        doc_syntax="show ospf neighbors",
+    ),
+    EvpnCommand(
+        key="SHOW_LDP_NEIGHBORS",
+        template="show ldp neighbors",
+        base_cli_source="Command Reference Guide v8.X.0 - show ldp neighbors",
+        doc_syntax="show ldp neighbors [brief | detail] [ip-address]",
+    ),
+    EvpnCommand(
+        key="SHOW_BGP_NEIGHBORS",
+        template="show bgp neighbors",
+        base_cli_source="Command Reference Guide v8.X.0 - 10.2.3.6 show bgp neighbors brief/detail",
+        doc_syntax="show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail]",
+    ),
+    # Per-sub-interface counters. The only place that tells AC2 from AC3:
+    # they share an IXIA port, so the tester's Rx counter sums them.
+    EvpnCommand(
+        key="SHOW_INTERFACE_$",
+        template="show interface %s",
+        base_cli_source="Command Reference Guide v8.X.0 - 5.3.1 show interface",
+        doc_syntax="show interface [interface-name]",
+    ),
     EvpnCommand(
         key="SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL",
         template="show bgp l2vpn evpn neighbors advertised-routes %s detail",

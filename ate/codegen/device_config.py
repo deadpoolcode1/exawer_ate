@@ -53,10 +53,11 @@ from ate.codegen.java_emitter import JavaFile
 from ate.codegen.lab import LabProfile
 from ate.codegen.script_ir import StepKind, TestScript
 
-__all__ = ["DUT_CONFIG_NAME", "TRAFFIC_CONFIG_NAME",
-           "emit_bringup_params", "emit_dut_config",
+__all__ = ["DUT_CONFIG_NAME", "SERVICE_CONFIG_NAME", "TRAFFIC_CONFIG_NAME",
+           "emit_bringup_params", "emit_dut_config", "emit_service_config",
            "emit_traffic_config"]
 DUT_CONFIG_NAME = "EVPN_Base.cfg"
+SERVICE_CONFIG_NAME = "EVPN_Service.cfg"
 
 
 
@@ -84,16 +85,17 @@ def _rendered_config_lines(scripts: list[TestScript]) -> list[str]:
         for st in sc.steps:
             if st.kind is not StepKind.CONFIG or not st.command:
                 continue
-            cmd = _by_key().get(st.command)
-            if cmd is None or not cmd.template:
-                continue
-            try:
-                text = cmd.template % tuple(st.args)
-            except TypeError:
-                continue          # arity mismatch — skip rather than guess
-            if text.startswith(("no ", "clear ")) or text in out:
-                continue
-            out.append(text)
+            for key, args in [(st.command, st.args), *st.more]:
+                cmd = _by_key().get(key)
+                if cmd is None or not cmd.template:
+                    continue
+                try:
+                    text = cmd.template % tuple(args)
+                except TypeError:
+                    continue      # arity mismatch - skip rather than guess
+                if text.startswith(("no ", "clear ")) or text in out:
+                    continue
+                out.append(text)
     return out
 
 
@@ -248,9 +250,17 @@ def _underlay(lab: LabProfile) -> list[str]:
         "  !",
         " !",
         "!",
+        "!",
+        "! BGP peers loopback to loopback, so its next hop is reached over the",
+        "! LDP LSP rather than the connected link. Exaware, 2026-09-30: \"The",
+        "! BGP peer should be established over MPLS towards a loopback rather",
+        "! than a connected interface.\" Device-verified on pc-3080, 2026-10-01.",
+        "!",
         f"routing bgp {lab.bgp_asn}",
         " vrf default",
-        f"  neighbor {core.peer_ipv4}",
+        f"  neighbor {core.peer_loopback_ipv4}",
+        f"   local-address {lo}",
+        "   !",
         f"   remote-as-number {lab.bgp_asn}",
         "   af-ipv4 unicast",
         "    inbound-soft-reconfiguration enable",
@@ -325,8 +335,9 @@ def emit_dut_config(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         "! fail. TC01 now creates the service itself, having first asserted",
         "! that it is absent.",
         "!",
-        "! TC02/TC03 assume TC01 has run: their first step asserts the EVI",
-        "! exists and stops the test with a plain message if it does not.",
+        f"! TC02/TC03 load the service from {SERVICE_CONFIG_NAME} at bring-up",
+        "! (Exaware, 2026-09-30: \"No need to load w/o evpn config. It is",
+        "! covered by TC01.\") and only check that it is up.",
         "!",
         "! DEVICE-VERIFIED 2026-08-11 on exa-il01-ec-3021 (8.7.0 LAB 22):",
         "! an EVI was configured and 'show configuration l2-services' printed",
@@ -380,6 +391,44 @@ def emit_dut_config(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
                     content="\n".join(head + body + tail) + "\n")
 
 
+def emit_service_config(lab: LabProfile, rt: str = "65000:1") -> JavaFile:
+    """The EVPN service TC01 creates, as a file TC02 and TC03 load.
+
+    Exaware, 2026-09-30 (Eyal Ozeri), TC02: "No need to load w/o evpn config.
+    It is covered by TC01." So TC01 keeps creating the service in one commit
+    from a device without it, and the tests that are about something else
+    start from it already in place.
+
+    The stanza is the device's own rendering of the service TC01 commits,
+    read back with `show configuration l2-services` on pc-3080, 2026-10-01.
+    Interface names are the same placeholders EVPN_Base.cfg uses.
+    """
+    evi = lab.evi_name
+    out = [
+        "!",
+        f"! EVPN service {evi}: what TC01 creates, loaded by TC02 and TC03.",
+        "! Loaded AFTER EVPN_Base.cfg, which creates the sub-interfaces bound",
+        "! here. Shape read back off pc-3080 (8.7.0), 2026-10-01.",
+        "!",
+        "l2-services",
+        f" evpn {evi}",
+        "  service-type vlan-based",
+    ]
+    for i, ac in enumerate(lab.acs):
+        n = ac.int_index if ac.int_index is not None else i + 1
+        out += [f"  interface int{n}.{lab.vlan_of(ac)}", "  !"]
+    out += [
+        "  auto-discovery",
+        f"   export-rt {rt}",
+        f"   import-rt {rt}",
+        "  !",
+        " !",
+        "!",
+    ]
+    return JavaFile(path=f"cmp/tests/evpn/configurations/compass/{SERVICE_CONFIG_NAME}",
+                    content="\n".join(out) + "\n")
+
+
 def emit_tester_config(lab: LabProfile) -> JavaFile | None:
     """The IXIA side of the core link, generated from the same profile.
 
@@ -410,10 +459,10 @@ def emit_tester_config(lab: LabProfile) -> JavaFile | None:
         "# The DUT side of this same link is EVPN_Base.cfg; both are rendered",
         "# from ate/codegen/lab.py, so they cannot drift apart.",
         "#",
-        "# EVPN objects are deliberately NOT built here: emulating an EVPN",
-        "# speaker needs a BGP EVPN licence this chassis does not have, and",
-        "# the current TCs assert the EVPN address family in the session's",
-        "# CAPABILITIES, which the DUT advertises on its own.",
+        "# The BGP neighbour ADVERTISES the L2VPN EVPN capability (-evpn true)",
+        "# but holds no EVPN routes. Emulating routes (ethernet segments, EVI,",
+        "# MAC ranges) needs a BGP EVPN licence chassis 10.1.70.108 does not",
+        "# have (ERROR-1005); the capability alone does not (2026-10-01).",
         "",
         "package require IxTclNetwork",
         "set vp /vport:1",
@@ -437,6 +486,25 @@ def emit_tester_config(lab: LabProfile) -> JavaFile | None:
         f"-maskWidth {core.prefix_len}",
         "ixNet commit",
         "",
+        "# The tester's loopback: a routed interface behind the core link.",
+        "# BGP is sourced from it, OSPF advertises it and LDP labels it, so the",
+        "# session runs loopback to loopback over an LSP (Exaware, 2026-09-30).",
+        "# Device-verified 2026-10-01, pc-3080 / chassis 10.1.70.108.",
+        "set lb [lindex [ixNet remapIds [ixNet add $vp interface]] 0]",
+        f"ixNet setAtt $lb -enabled true -type routed -description {lab.id}-loopback",
+        "ixNet commit",
+        "ixNet setAtt $lb/unconnected -connectedVia $intf",
+        "ixNet commit",
+        "set lv4 [ixNet add $lb ipv4]",
+        f"ixNet setAtt $lv4 -ip {core.peer_loopback_ipv4} -maskWidth 32",
+        "ixNet commit",
+        "",
+        "# Answer ICMP, so the .crt ping list can check both addresses at",
+        "# bring-up. Off, the DUT's pings to 29.60.0.2 and the loopback were",
+        "# 100% lost with every protocol up (pc-3080, 2026-10-01).",
+        "ixNet setAtt $vp/protocols/ping -enabled true",
+        "ixNet commit",
+        "",
     ]
     if "ospf" in p:
         out += [
@@ -446,12 +514,16 @@ def emit_tester_config(lab: LabProfile) -> JavaFile | None:
             "ixNet setAtt $ospf -enabled true",
             "ixNet commit",
             "set rtr [lindex [ixNet remapIds [ixNet add $ospf router]] 0]",
-            f"ixNet setAtt $rtr -enabled true -routerId {core.peer_ipv4}",
+            f"ixNet setAtt $rtr -enabled true -routerId {core.peer_loopback_ipv4}",
             "ixNet commit",
             "set oi [ixNet add $rtr interface]",
             "ixNet setAtt $oi -enabled true -interfaces $intf "
             f"-areaId {lab.igp_area.split('.')[0]} -networkType pointToPoint "
             "-metric 1 -mtu 1500 -connectedToDut true",
+            "ixNet commit",
+            "set rr [ixNet add $rtr routeRange]",
+            f"ixNet setAtt $rr -enabled true -networkNumber {core.peer_loopback_ipv4} "
+            "-mask 32 -numberOfRoutes 1 -origin sameArea",
             "ixNet commit",
             "",
         ]
@@ -462,25 +534,31 @@ def emit_tester_config(lab: LabProfile) -> JavaFile | None:
             "ixNet setAtt $ldp -enabled true",
             "ixNet commit",
             "set lr [lindex [ixNet remapIds [ixNet add $ldp router]] 0]",
-            f"ixNet setAtt $lr -enabled true -routerId {core.peer_ipv4}",
+            f"ixNet setAtt $lr -enabled true -routerId {core.peer_loopback_ipv4}",
             "ixNet commit",
             "set li [ixNet add $lr interface]",
             "ixNet setAtt $li -enabled true -protocolInterface $intf "
             "-discoveryMode basic -labelSpaceId 0",
             "ixNet commit",
+            "set fec [ixNet add $lr advFecRange]",
+            f"ixNet setAtt $fec -enabled true -firstNetwork {core.peer_loopback_ipv4} "
+            "-maskWidth 32 -numberOfNetworks 1 -labelMode none",
+            "ixNet commit",
             "",
         ]
     if "bgp" in p:
         out += [
-            "# BGP - ipv4-unicast only; see the note on EVPN above.",
+            "# BGP - loopback to loopback; ipv4-unicast only, see the note on",
+            "# EVPN above.",
             "set bgp $vp/protocols/bgp",
             "ixNet setAtt $bgp -enabled true",
             "ixNet commit",
             "set nr [lindex [ixNet remapIds [ixNet add $bgp neighborRange]] 0]",
-            "ixNet setAtt $nr -enabled true -evpn false -ipV4Unicast true "
-            f"-type internal -dutIpAddress {core.dut_ipv4} "
-            f"-localIpAddress {core.peer_ipv4} -localAsNumber {lab.bgp_asn} "
-            f"-interfaces $intf -enableBgpId true -bgpId {core.peer_ipv4}",
+            f"ixNet setAtt $nr -enabled true -evpn {'true' if core.tester_evpn_capability else 'false'} "
+            "-ipV4Unicast true "
+            f"-type internal -dutIpAddress {core.loopback_ipv4} "
+            f"-localIpAddress {core.peer_loopback_ipv4} -localAsNumber {lab.bgp_asn} "
+            f"-interfaces $lb -enableBgpId true -bgpId {core.peer_loopback_ipv4}",
             "ixNet commit",
             "",
         ]
@@ -878,9 +956,21 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         f"{'TEST':<10}{'DEVICE_NAME':<16}{'CONFIG_FILE_PATH':<68}"
         f"{'LOAD_ON_BRING_UP':<19}{'LOAD_TYPE':<10}TIMEOUT_SEC",
         "-" * 139,
-        f"{'default':<10}{dut:<16}{'cleanBaseConfig':<68}{'y':<19}{'1':<10}1900",
-        f"{'':<10}{'':<16}{cfg:<68}{'y':<19}{'2':<10}1900",
     ]
+    # One block per test, as their acl and bgpScale suites do. TC01 starts
+    # without the service, because creating it is its subject; the others
+    # load it (Exaware, 2026-09-30: "No need to load w/o evpn config").
+    svc = f"/configurations/compass/{SERVICE_CONFIG_NAME}"
+    for sc in scripts:
+        test = sc.class_name.split("_")[0]
+        out.append(f"{test:<10}{dut:<16}{'cleanBaseConfig':<68}{'y':<19}{'1':<10}1900")
+        out.append(f"{'':<10}{'':<16}{cfg:<68}{'y':<19}{'2':<10}1900")
+        if sc.flow_id != "FLOW-010":
+            out.append(f"{'':<10}{'':<16}{svc:<68}{'y':<19}{'2':<10}1900")
+        if lab.ixncfg:
+            out.append(f"{'':<10}{ixia:<16}"
+                       f"{'/configurations/ixia/' + lab.ixncfg:<68}"
+                       f"{'y':<19}{'1':<10}1900")
     # The IXIA configuration file, when the rig has one.
     #
     # Exaware, 2026-09-08 (Eyal Ozeri): "The BringUpParameters.crt file
@@ -899,10 +989,6 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
     # config row pointing at a file that is not there aborts bring-up for the
     # whole suite, and that failure is far worse than building the items in
     # code for one more cycle.
-    if lab.ixncfg:
-        out.append(f"{'':<10}{ixia:<16}"
-                   f"{'/configurations/ixia/' + lab.ixncfg:<68}"
-                   f"{'y':<19}{'1':<10}1900")
     out += [
         "",
         "//devices ping lists, relevant for all the tests",
@@ -910,6 +996,19 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         f"{'TEST':<14}{'DEVICE_NAME':<15}{'PING_IP':<22}{'PING_DESCRIPTION':<46}"
         f"{'PING_SUCCEES_THRESHOLD':<27}{'PING_RETRY_NUMBER':<20}PING_VRF_NAME",
         "-" * 156,
+    ]
+    # Exaware, 2026-09-30 (Eyal Ozeri): "ping test should be populated". It
+    # was an empty table, so bring-up's "Ping test" level checked nothing.
+    # The DUT pings the tester's core address and its loopback; the second
+    # only answers if OSPF carried the route.
+    if (core := lab.core_link) is not None:
+        out += [
+            f"{'default':<14}{dut:<15}{core.peer_ipv4:<22}"
+            f"{dut + ' connected ixia vport1 core':<46}{'':<27}5",
+            f"{'':<14}{dut:<15}{core.peer_loopback_ipv4:<22}"
+            f"{dut + ' ixia loopback via ospf':<46}{'':<27}5",
+        ]
+    out += [
         "",
         "",
         "//find and replace parameters on devices cfg files and ixia vlan's "
@@ -971,13 +1070,25 @@ def emit_bringup_params(scripts: list[TestScript], lab: LabProfile) -> JavaFile:
         f"{'verify LCs are card ready state':<35}{'':<66}{'y':<18}y",
         f"{'':<10}{'':<14}{'verifyInts':<23}"
         f"{'verify interfaces are up':<35}{'':<66}{'y':<18}n",
+    ]
+    if lab.core_link is not None:
+        # Exaware, 2026-09-30 (Eyal Ozeri): "Protocols should start at the
+        # 'do before' phase." Their VPLS suite does exactly this row. It was
+        # left out while our .ixncfg had no protocols to start (see
+        # _OMITTED_IXIA_ACTIONS); it has OSPF, LDP and BGP now.
+        out.append(f"{'':<10}{ixia:<14}{'startProtocols':<23}"
+                   f"{'start protocols':<35}{'':<66}{'y':<18}n")
+    out += [
         "",
     ]
     return JavaFile(path="cmp/tests/evpn/bringUpParams.crt",
                     content="\n".join(out))
 
 
-#: Why `startProtocols` / `sendArpAllPorts` are NOT in the before/after table.
+#: Why `startProtocols` / `sendArpAllPorts` were NOT in the before/after table
+#: until 2026-10-01. `startProtocols` is there now for any profile with a core
+#: link, because the .ixncfg carries the core's OSPF, LDP and BGP. The note
+#: below still holds for a profile without one, and for `sendArpAllPorts`.
 #:
 #: The VPLS suite runs both, because its `.ixncfg` carries emulated protocol
 #: sessions to start and hosts to ARP for. This suite has neither: it builds

@@ -83,6 +83,18 @@ public enum EvpnCommands implements ICmpCliCmd {
     /** CLI doc:  - show bgp neighbor [neighbor-ip] */
     SHOW_BGP_NEIGHBOR_$_EVPN_CAPABILITY("show bgp neighbor %s | include EVPN"),
 
+    /** CLI doc:  - show ospf neighbors */
+    SHOW_OSPF_NEIGHBORS("show ospf neighbors"),
+
+    /** CLI doc:  - show ldp neighbors [brief | detail] [ip-address] */
+    SHOW_LDP_NEIGHBORS("show ldp neighbors"),
+
+    /** CLI doc:  - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] */
+    SHOW_BGP_NEIGHBORS("show bgp neighbors"),
+
+    /** CLI doc:  - show interface [interface-name] */
+    SHOW_INTERFACE_$("show interface %s"),
+
     /** CLI doc: show bgp l2vpn evpn neighbors advertised/received routes - show bgp l2vpn evpn neighbors {advertised-routes | received-routes} [neighbor-ip [evpn-prefix]] [brief | detail] */
     SHOW_BGP_L2VPN_EVPN_NEIGHBORS_ADVERTISED_ROUTES_$_DETAIL("show bgp l2vpn evpn neighbors advertised-routes %s detail"),
 
@@ -208,9 +220,6 @@ public enum EvpnCommands implements ICmpCliCmd {
 
     /** CLI doc: show bgp l2vpn evpn table ethernet-segment - show bgp table evpn ethernet-segment [evpn-prefix] [brief | detail] */
     SHOW_BGP_TABLE_EVPN_ETHERNET_SEGMENT_EVPN_PREFIX_DETAIL("show bgp table evpn ethernet-segment evpn-prefix detail"),
-
-    /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
-    SHOW_BGP_NEIGHBORS("show bgp neighbors"),
 
     /** CLI doc: show bgp neighbors brief/detail - show bgp neighbors [vrf vrf-name] [afi safi] [brief | detail] [neighbor-ip] */
     SHOW_BGP_NEIGHBORS_$("show bgp neighbors %s"),

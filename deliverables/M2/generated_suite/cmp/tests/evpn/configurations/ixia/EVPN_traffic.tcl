@@ -227,9 +227,9 @@ ateTagItemVlan TI_AC3_TO_AC1 1003
 # were all 0. Broadcast is flooded regardless, so the circuit
 # classifies it and the SOURCE MAC is learnt, which is what the
 # FLOW-030 assertions actually need.
-editTrafficRawDestMacAddr TI_AC1_TO_AC2 ff:ff:ff:ff:ff:ff
-editTrafficRawDestMacAddr TI_AC2_TO_AC1 ff:ff:ff:ff:ff:ff
-editTrafficRawDestMacAddr TI_AC3_TO_AC1 ff:ff:ff:ff:ff:ff
+editTrafficRawDestMacAddr TI_AC1_TO_AC2 00:00:02:00:00:01
+editTrafficRawDestMacAddr TI_AC2_TO_AC1 00:00:01:00:00:01
+editTrafficRawDestMacAddr TI_AC3_TO_AC1 00:00:01:00:00:01
 ateSetItemSrcMac TI_AC1_TO_AC2 00:00:01:00:00:01
 ateSetItemSrcMac TI_AC2_TO_AC1 00:00:02:00:00:01
 ateSetItemSrcMac TI_AC3_TO_AC1 00:00:02:00:00:01

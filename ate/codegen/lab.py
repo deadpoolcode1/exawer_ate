@@ -206,6 +206,30 @@ class CoreLink:
     #: The DUT's own router ID / LDP transport address.
     loopback_ipv4: str = "29.30.30.30"
     loopback_id: int = 0
+    #: The tester's loopback, and the address BGP peers with.
+    #:
+    #: Exaware, 2026-09-30 (Eyal Ozeri): "The BGP peer should be established
+    #: over MPLS towards a loopback rather than a connected interface." The
+    #: session used to run 29.60.0.1 <-> 29.60.0.2 across the link itself, so
+    #: neither OSPF nor LDP was needed to carry it.
+    #:
+    #: DEVICE-VERIFIED 2026-10-01 on pc-3080, by hand before generating: OSPF
+    #: carries this /32, LDP binds a label to it (`show ldp table`:
+    #: 29.31.31.31/32 out label 16 via x-eth0/0/8), and the session
+    #: 29.30.30.30 <-> 29.31.31.31 comes up with the DUT sourcing from
+    #: `local-address loopback 0`. evidence_loopback_and_unicast_pc3080.txt.
+    peer_loopback_ipv4: str = "29.31.31.31"
+    #: Does the tester's BGP neighbour advertise the L2VPN EVPN capability?
+    #:
+    #: Exaware, 2026-10-01 (Eyal Ozeri): "there's no need for a license. Just
+    #: add checking the evpn capability in the BGP capability of a neighbor."
+    #: Right. The ERROR-1005 "no license available for BGP EVPN" of 2026-08-13
+    #: came with ethernet segments, an EVI and a MAC range under the neighbour,
+    #: i.e. EVPN ROUTE emulation. `-evpn true` on its own starts without a
+    #: licence (chassis 10.1.70.108, 2026-10-01), and the family is then
+    #: negotiated. What still needs the licence is the tester sending or
+    #: holding EVPN routes, so advertisement is still asserted as origination.
+    tester_evpn_capability: bool = True
     #: Routed protocols the DUT runs ACROSS this link.
     #:
     #: Every one of these needs something at the other end to talk to. Naming
@@ -605,14 +629,30 @@ CORE3_AC2 = AccessCircuit(name="AC2", interface="agg-eth-3", vport="vport3",
 CORE3_AC3 = AccessCircuit(name="AC3", interface="agg-eth-3", vport="vport3",
                           int_index=3, vlan=AC_VLANS_3AC_CORE[2])
 
+# KNOWN UNICAST: every item is addressed to the MAC the other side sources.
+#
+# Exaware, 2026-09-30 (Eyal Ozeri), TC02 step 17: "As the traffic item doesn't
+# use dst mac of AC2, we're not really in a 'known-unicast' traffic mode." The
+# items were broadcast, which is flooded whatever the MAC table holds, so no
+# step could show forwarding change once a MAC was learnt.
+#
+# Broadcast was a workaround for pc-3099, whose build reports "Unknown MAC
+# Flooding: Disabled" and dropped unknown unicast before the bridge domain.
+# pc-3080 reports "Enabled", and on 2026-10-01 these exact items gave, by hand:
+# AC1 -> AC2 Rx 2000 while AC2's MAC was unknown (flooded to AC2 and AC3),
+# Rx 1000 out of .1002 only once it was learnt, out of .1003 only after the
+# move, and back to 2000 once it aged out.
 TI3_AC1_TO_AC2 = TrafficItem(name="TI_AC1_TO_AC2", src="AC1", dst="AC2",
-                             src_mac="00:00:01:00:00:01")
+                             src_mac="00:00:01:00:00:01",
+                             dst_mac="00:00:02:00:00:01")
 # AC2 and AC3 share a source MAC on purpose - that is what makes AC2 -> AC3 a
 # local move rather than two distinct hosts.
 TI3_AC2_TO_AC1 = TrafficItem(name="TI_AC2_TO_AC1", src="AC2", dst="AC1",
-                             src_mac="00:00:02:00:00:01")
+                             src_mac="00:00:02:00:00:01",
+                             dst_mac="00:00:01:00:00:01")
 TI3_AC3_TO_AC1 = TrafficItem(name="TI_AC3_TO_AC1", src="AC3", dst="AC1",
-                             src_mac="00:00:02:00:00:01")
+                             src_mac="00:00:02:00:00:01",
+                             dst_mac="00:00:01:00:00:01")
 
 SINGLE_DUT_3AC_CORE = LabProfile(
     id="lab-1dut-3ac-core",
@@ -632,6 +672,15 @@ SINGLE_DUT_3AC_CORE = LabProfile(
     peer_source=PeerSource.IXIA,
     core=CoreLink(),
     ac_vlan=AC_VLANS_3AC_CORE[0],
+    # TC03 sets this itself. 60 s is inside the documented 0, 40-2400 and
+    # measured on pc-3080 on 2026-10-01: the entry left 50 to 70 s after the
+    # last frame. The 300 s default made one aging test cost over 10 minutes.
+    mac_aging_seconds=60,
+    # A ceiling, not a delay: a check passes the moment its line appears. The
+    # loopback BGP session can only come up after OSPF has carried the
+    # loopbacks, and on pc-3080 (2026-10-01) it was up 48 s after the tester
+    # started; 30 s would fail a healthy bring-up.
+    verify_timeout_ms=90000,
     vlan_source=(
         "ate/codegen/lab.py AC_VLANS_3AC_CORE - the generator's own VLANs, "
         "deliberately NOT the SUT's general/vlans list (3380 there is an "

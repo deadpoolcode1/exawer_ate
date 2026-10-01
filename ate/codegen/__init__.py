@@ -172,6 +172,7 @@ def generate_evpn_suite(sfs_path: str | Path,
     from ate.codegen.device_config import (  # noqa: PLC0415
         emit_bringup_params,
         emit_dut_config,
+        emit_service_config,
         emit_tester_config,
         emit_traffic_config,
     )
@@ -192,6 +193,8 @@ def generate_evpn_suite(sfs_path: str | Path,
             "the generated underlay is one-sided: "
             + "; ".join(asymmetric))
     files += [emit_bringup_params(scripts, lab), emit_dut_config(scripts, lab)]
+    if any(sc.flow_id != "FLOW-010" for sc in scripts):
+        files.append(emit_service_config(lab))
     tester = emit_tester_config(lab)
     if tester is not None:
         files.append(tester)
