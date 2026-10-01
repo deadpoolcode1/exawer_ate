@@ -2720,3 +2720,26 @@ def test_traffic_is_suspended_before_the_engine_starts(core3_files):
     body = utils[utils.index("public void enableTrafficItemsAndStartSuspended("):]
     body = body[:body.index("public void verifyTrafficItemsAreSuspended(")]
     assert body.index("changeSuspendStatus(true") < body.index("START_TRAFFIC")
+
+
+@pytest.mark.parametrize("package, ok", [
+    ("Exaware_M2_handover_2026-09-16", False),   # shipped the 9 Sep text
+    ("Exaware_M2_handover_2026-10-01", True),
+])
+def test_the_handover_document_must_describe_the_shipped_run(tmp_path, package, ok):
+    """The 2026-09-16 package said "all three TCs FAIL" next to a report
+    where all three passed. The gate refuses that package and accepts 10-01."""
+    import importlib.util
+    import zipfile
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parent.parent
+    zpath = root / f"deliverables/M2/{package}.zip"
+    if not zpath.is_file():
+        pytest.skip("package not in this checkout")
+    zipfile.ZipFile(zpath).extractall(tmp_path)
+    spec = importlib.util.spec_from_file_location(
+        "verify_handover_docx", root / "scripts/verify_handover_docx.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert (mod.main(tmp_path / package) == 0) is ok

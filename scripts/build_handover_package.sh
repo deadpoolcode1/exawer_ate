@@ -119,6 +119,9 @@ fi
 
 echo "[7] the hand-over document"
 "$ROOT/.venv/bin/python" "$ROOT/scripts/build_handover_docx.py" "$OUT"
+# Gate: the 2026-09-16 package shipped the 9 Sep hand-over text next to a
+# report that contradicted it. Under `set -e` a stale document stops the build.
+"$ROOT/.venv/bin/python" "$ROOT/scripts/verify_handover_docx.py" "$OUT"
 
 echo "[8] zip"
 ( cd "$(dirname "$OUT")" && rm -f "$(basename "$OUT").zip" \

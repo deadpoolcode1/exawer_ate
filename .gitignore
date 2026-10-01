@@ -1,6 +1,6 @@
-CLAUDE.md
-**/CLAUDE.md
-.claude/
+# Project rules and skills are tracked; local agent settings are not.
+.claude/*
+!.claude/skills/
 
 # Python
 .venv/
@@ -24,3 +24,6 @@ ate/planner/ai_cache.pre-*.bak
 
 # Extracted hand-over packages. The .zip is tracked; the unpacked copies are not.
 deliverables/M2/Exaware_M2_handover_*/
+
+# presentation build intermediates
+docs/presentation/.build/
